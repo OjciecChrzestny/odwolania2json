@@ -1,8 +1,8 @@
 # Odwołania2JSON — plan implementacji
 
-Juror wkłada własne PDF-y do `input/` i jednym poleceniem na laptopie i7 z 16 GB RAM odczytuje odpowiadające im pliki w `output/`. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Najpierw mierzymy kompletny wariant regułowy A. Kandydaci B i C zmieniają w nim jedną decyzję dotyczącą pierwszego zarzutu.
+Juror wkłada własne PDF-y do `input/` i jednym poleceniem na laptopie i7 z 16 GB RAM odczytuje odpowiadające im pliki w `output/`. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Wydanie konkursowe łączy A2, lokalny OCR, dystrybucję Compose i osobny pokaz konfiguracji. B i C są eksperymentem dotyczącym pojedynczej decyzji o pierwszym zarzucie.
 
-**Stan po recenzji, 21 listopada 2026.** Gotowe są trzy manifesty, kontrola podziału i lokalny miernik. Test końcowy został zamrożony przed strojeniem. Sprawdzono integralność plików i cechy układu PDF. Wartości etykiet końcowych pozostają poza analizą jakości. Implementacja CLI, walidator struktury wyjścia, pomiar A/B/C, próba na sprzęcie jury, Compose i prezentacja czekają na wykonanie.
+**Stan wydania, 21 listopada 2026.** Wybrano A2 z lokalnym OCR przed testem końcowym ze względu na dwa odzyskane syntetyczne przelewy i zgodność 128 JSON-ów rozwojowych z A. Wynik walidacji 0,9878 przy `valid_run=false` pozostaje historycznym wynikiem A. Konfiguracja wbudowana zawiera trzy klasy konkursowe. Pokaz rozszerzenia i Compose mają własne instrukcje odbioru. B/C i `selector-a.patch` pozostają na odrębnej gałęzi. [Raport A](RAPORT_A.md) · [Raport A2](RAPORT_A2.md)
 
 ## Kontrakt UZP i robocze decyzje
 
@@ -79,7 +79,7 @@ Godziny od startu w sobotę 21 listopada o 11:00 czasu polskiego. Szkic projektu
 | H20–23 | Konto z dostępem jurora klonuje prywatne repozytorium i samodzielnie przechodzi od własnych PDF-ów do JSON-ów według README. Sprawdzić domyślną komendę, montowanie wejścia i wyjścia w Compose, licencje, dokumentację klas i działający limit klucza przekazanego poza Git, jeśli wydanie go wymaga. Przećwiczyć pokaz z zegarem i bez sieci. Wysłać tytuł, link do prototypu i materiały w formularzu, w tym prezentację PDF do 10 MB zgodnie z instrukcją HackTribe. Zachować potwierdzenie. |
 | H23–24 | Godzina rezerwy na dostarczenie materiałów lub poprawienie dostępu jurora. |
 
-## Pierwszy test na 10 sprawach
+## Historyczny plan porównania A/B/C na 10 sprawach
 
 **Pytanie.** Jak zmienia się mikro-F1 pełnego przebiegu, gdy regułę wyznaczającą `czynnosc_powod_id` pierwszego zarzutu zastępuje odpowiedź modelu? Klasyfikacja, czytnik, tekst, wybór fragmentu i wszystkie pozostałe pola są wspólne. Każdy wariant wyprowadza `czynnosc_opis` z tego samego słownika. Poprawne ID i poprawny opis mogą dać dwa trafienia wynikające z jednej decyzji.
 
@@ -115,15 +115,15 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 | Finał | Według § 2 regulaminu zadania 50% za F1 i 50% za łatwość rozbudowy. Jury ocenia kod, opis architektury i treść prezentacji. README rozwija drugą połowę na maksymalnie 20 pkt za rozmiar modelu, 20 za dodawanie klas i 10 za funkcje dodatkowe. Szczegółowy PDF podaje 50/30/20, a ogólny przewodnik wydarzenia wymienia pięciu finalistów. W tym zadaniu stosujemy regulamin UZP. |
 | Przekazanie przez zwycięzcę | § 3 ust. 5 wiąże wypłatę z umową przeniesienia praw i przekazaniem kodu, instrukcji uruchomienia, konfiguracji Docker Compose oraz dokumentacji architektury, konfiguracji istniejącej klasy i dodania nowej. Compose sprawdzamy wcześniej na tym samym wydaniu. Rozwiązania zewnętrzne wskazujemy w prezentacji zgodnie z § 4. |
 
-**Dowód rozszerzalności.** W profilu demonstracyjnym dodać `zawiadomienie.toml` z sygnałami klasy, dwiema definicjami pól i ich regułami. Nowy syntetyczny PDF ma dać oczekiwaną `sygnatura` i `termin` bez edycji kodu. Pokazać diff konfiguracji, wynik i opis przepływu od sygnału do pola. Po przełączeniu na profil konkursowy ten sam PDF ma dać pusty wynik, a regresja wszystkich trzech klas i negatywów ma odtworzyć wynik sprzed dodania klasy.
+**Dowód rozszerzalności.** Profil demonstracyjny dodaje `zawiadomienie.json` z sygnałami, schematem i regułami dwóch pól. Pokaz ujawnia wartości `sygnatura` i `termin` oraz stronę i regułę terminu. Profil konkursowy daje 0 bajtów dla syntetycznych zawiadomień. Odbiór sprawdza 11/11 ścieżek i sum SHA-256 oraz 8/8 pustych negatywów rozwojowych. [Instrukcja pokazu](demo/rozszerzalnosc/README.md)
 
-**Próba prezentacji.** Przećwiczyć dwuminutowy pokaz zalecany w przewodniku. Pierwsze 40 sekund to własny dokument, komenda, JSON i pusty negatyw. Następne 30 sekund to podstawa pola na wskazanej stronie PDF, zapisany wynik jakości i rzeczywisty błąd. Ostatnie 50 sekund to dodanie klasy i regresja. Dłuższą wersję dostosować do czasu przyznanego przez jury. Zimną instalację zmierzyć osobno. Na tym samym SHA powtórzyć pokaz według README bez sieci: lokalne A przetwarza nowy PDF, wcześniejszy wynik modelu jest jawnie podpisany jako zapis poprzedniego przebiegu.
+**Odbiór kandydata.** Czysta kopia ma przejść testy CLI, pokaz rozszerzenia, porównanie bajtów i diagnostyki natywnego A2 z Compose oraz ocenę na 128 PDF-ach rozwojowych. Pokaz dwuminutowy obejmuje własny PDF, źródło pola oraz dodanie klasy. [Odbiór Compose](delivery/compose/README.md)
 
 [Regulamin zadania, § 2–4](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aa36e74b-f96c-46cf-9970-5937ed203222.pdf) · [Szczegółowy opis PDF](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aeabc57d-7420-4069-946e-2c4de71d87ed.pdf) · [FAQ HackNation](https://hacknation.pl/faq)
 
 **Do potwierdzenia u mentora.** Jak jury traktuje brak pliku, `null`, typy liczb, permutacje list i normalizację? Czy negatyw ma dokładnie 0 bajtów? Jak postępować przy nieczytelnym skanie, braku podstawy do ID i niezgodności opisu z kanonicznym słownikiem? Jak są oceniane A bez modelu, limity API, kanał przekazania klucza, dostęp do repozytorium i czas pokazu?
 
-**Następny krok.** Uruchomić wariant B i porównać go z zamrożonym pomiarem A. [Raport A oraz ścieżki wyników](RAPORT_A.md).
+**Następny krok.** Przekazać pełny SHA zaakceptowanego A2 z lokalnym OCR do jednego pomiaru końcowego. Artefakty przekazania można uzupełnić dokumentacyjnie, zachowując identyczne drzewo pakietu, zależności, Dockerfile i Compose.
 
 Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 

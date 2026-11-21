@@ -51,20 +51,20 @@ Uruchom na VPS z rozgrzanego środowiska. Ustaw `UZP_DATA` na przypiętą kopię
 
 ```sh
 CHECK="$(mktemp -d)"
-git clone --no-local --single-branch --branch codex/uzp-rozszerzalnosc . "$CHECK/czysta"
+git clone --no-local . "$CHECK/czysta"
 cd "$CHECK/czysta"
 cc -std=c11 -O2 -Wall -Wextra -Werror evaluation/restrict_linux.c -o "$CHECK/restrict-linux"
 python -m unittest discover -s evaluation -p 'test_*.py'
 time python demo/rozszerzalnosc/accept.py --work "$CHECK/odbior" \
   --dataset "$UZP_DATA" --ocr-data "$OCR_DATA" --restrict-linux "$CHECK/restrict-linux"
-git diff --name-only HEAD^ HEAD
+git diff --name-only c01401cd7abdf82655b18188f68cb46652dc239e 72337e2164f871fa3b1d6c63edde0381b7ed8b31
 ```
 
-Test generuje PDF-y, uruchamia publiczne CLI i porównuje zawartość obu zawiadomień, sygnały oraz numery stron i linie źródłowe z `expected.json`. W profilu domyślnym trzy syntetyki mają dać 0 bajtów. W profilu demo obcy syntetyk nadal ma dać 0 bajtów. Regresja porównuje ścieżki i SHA-256 rozwojowego `case_10` oraz siedmiu pozostałych negatywów z czystym A. Do wejścia trafiają tylko wskazane PDF-y. Test nie używa etykiet ani danych walidacji i testu końcowego. Przed rozszerzeniem ta sama komenda z `--before` sprawdza syntetyki i regresję bez nowej klasy.
+Test generuje PDF-y, uruchamia publiczne CLI i porównuje zawartość obu zawiadomień, sygnały oraz numery stron i linie źródłowe z `expected.json`. W profilu domyślnym trzy syntetyki mają dać 0 bajtów. W profilu demo obcy syntetyk nadal ma dać 0 bajtów. Regresja porównuje ścieżki i SHA-256 rozwojowego `case_10` oraz siedmiu pozostałych negatywów z czystym A. Do wejścia trafiają tylko wskazane PDF-y. Test nie używa etykiet ani danych walidacji i testu końcowego. Próbę przed dodaniem klasy odtworzysz na rewizji `c01401cd7abdf82655b18188f68cb46652dc239e` z flagą `--before`. Plik klasy dochodzi w rewizji `72337e2164f871fa3b1d6c63edde0381b7ed8b31`.
 
 ## Ostatnie 50 sekund prezentacji
 
-- **1:10–1:20** Pokaż `git diff --name-only HEAD^ HEAD`, skopiuj jeden plik poleceniem `cp` z próby jurora i uruchom CLI.
+- **1:10–1:20** Pokaż `git diff --name-only c01401cd7abdf82655b18188f68cb46652dc239e 72337e2164f871fa3b1d6c63edde0381b7ed8b31`, skopiuj jeden plik poleceniem `cp` z próby jurora i uruchom CLI.
 - **1:20–1:40** Pokaż oba JSON-y, 0 bajtów pisma obcego i termin na stronie 2.
 - **1:40–2:00** Pokaż wynik odbioru z czystej kopii, 11/11 zgodnych ścieżek i sum SHA-256 oraz 8/8 pustych negatywów rozwojowych. Pliki dowodowe zachowuje katalog podany w `--work`.
 

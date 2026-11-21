@@ -1,6 +1,6 @@
 # Odwołania2JSON
 
-Lokalny wariant regułowy A dla zadania UZP na HackNation 2026. Rozpoznaje odwołanie, pełnomocnictwo, przelew i dokument obcy. Po instalacji działa na CPU bez sieci i kluczy API.
+Wydanie konkursowe A2 dla zadania UZP na HackNation 2026 rozpoznaje odwołanie, pełnomocnictwo, przelew i dokument obcy. Działa lokalnie na CPU z polskim OCR. Po instalacji przetwarzanie nie wymaga sieci ani kluczy API.
 
 ## Instalacja i własne PDF-y
 
@@ -36,7 +36,7 @@ python -m odwolania2json --input moje-pdf --output wyniki \
 
 ### Opcjonalny OCR
 
-Użyj na Linuxie z Pythonem 3.13. OCR zadziała lokalnie po zapisaniu polskich danych językowych. A wywołuje go przy braku warstwy tekstowej na początku PDF-u.
+Tryb konkursowy korzysta z polskiego OCR. Natywnie włącz go na Linuxie z Pythonem 3.13 i polskimi danymi językowymi. A2 wywołuje OCR przy braku czytelnej warstwy tekstowej na początku PDF-u. Domyślne polecenie CLI bez flagi `--ocr-data` obsługuje PDF-y tekstowe.
 
 ```sh
 python -m pip install --only-binary=:all: -r requirements-ocr.txt
@@ -49,11 +49,27 @@ python -m odwolania2json --ocr-data /bezwzgledna/sciezka/tessdata
 
 Oczekiwany SHA-256 danych językowych to `c4476cdbc0e33d898d32345122b7be1cbf85ace15f920f06c7714756e1ef79b2`. Komponenty to pypdf, opcjonalnie PDFium przez pypdfium2 oraz Tesseract przez tesserocr.
 
+## Docker Compose
+
+Compose uruchamia ten sam pakiet A2 z lokalnym OCR i odciętą siecią. Z katalogu projektu na Linuxie:
+
+```sh
+mkdir -p input output diagnostics .output.odwolania2json
+export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
+# Wstaw swoje PDF-y do input/ przed uruchomieniem usługi.
+docker compose build cli
+docker compose run --rm cli
+```
+
+Dla silnika rootless ustaw `ODW_UID=0 ODW_GID=0` dla uruchomienia kontenera. Pełna instrukcja zawiera wariant Windows i własne katalogi hosta. [Instrukcja Compose](delivery/compose/README.md)
+
 ## Reguły i rozszerzanie
 
 Definicje klas w [katalogu konfiguracji](odwolania2json/classes) zawierają punktowane sygnały, próg rozpoznania, schemat, wzorce pól i operacje normalizacji. Pierwsza reguła pola, która daje poprawną wartość, wygrywa. Do prostych klas wystarczy własny plik JSON z unikatową nazwą `class`, listą `signals`, progiem `threshold`, obiektem `schema` i mapą `fields`. Reguła pola używa pierwszej grupy przechwytującej i opcjonalnej operacji, np. `date` z symbolem `<DATE>`. Pole opisane jako `date?` przyjmuje datę ISO lub `null`. Przykład niezależnej klasy z dwoma polami jest w `ExtensionTest`.
 
 Opcja `--config KATALOG` wybiera cały katalog klas. Skopiuj do niego klasy UZP, jeśli mają działać obok nowej. Sekcje prawne korzystają dodatkowo ze wspólnych operacji na fragmentach tekstu i konfigurowalnych wzorców ról. Słownik powodów odwołania jest przypięty w konfiguracji. Gdy brak wiarygodnej daty pierwszej czynności, wynikiem jest `null`. Gdy żadna reguła nie przypisze rodzaju czynności, konfiguracja wymusza ID 11, a diagnostyka oznacza `first_allegation.fallback=true`. Odczyt obejmuje maksymalnie sześć pierwszych stron.
+
+Pokaz dodania klasy `zawiadomienie` obejmuje dwa syntetyczne PDF-y, negatyw oraz sposób wskazania strony i reguły dla pola. Profil demonstracyjny dodaje jeden plik JSON. [Próba jurora i odbiór rozszerzenia](demo/rozszerzalnosc/README.md)
 
 ## Testy
 
@@ -74,4 +90,8 @@ python evaluation/accept_development.py "$UZP_DATA" runs/odbior-a
 
 Odbiór przelewu porównuje wszystkie pola z rozwojową referencją dopiero po uruchomieniu publicznego CLI. Kolejna próba obejmuje pełną sprawę, wieloosobowe pełnomocnictwo, dokument obcy, powtórne uruchomienie, zmianę ścieżek i usuwanie starych wyników. Polecenie wymaga nowej ścieżki przebiegu.
 
-[Plan testów A/B/C i zamrożony podział](PLAN.md) · [Raport pomiaru A](RAPORT_A.md)
+## Wybór kandydata i pomiary
+
+Wybór przed testem końcowym to A2 z lokalnym OCR. Dwa syntetyczne potwierdzenia przelewu z nagłówkiem rozbitym na dwa wiersze dostały poprawne wyniki. Na zbiorze rozwojowym 128 JSON-ów A2 ma te same bajty co A. [Porównanie A2](RAPORT_A2.md)
+
+Historyczna walidacja 0,9878 z `valid_run=false` dotyczy oryginalnego A. Eksperyment modeli B/C jest utrzymywany osobno na `codex/uzp-modele-bc`. [Raport A](RAPORT_A.md) · [Plan i zamrożony podział](PLAN.md)

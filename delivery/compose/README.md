@@ -32,7 +32,7 @@ Wejście `input/sprawa/pismo.pdf` daje `output/sprawa/pismo.json`. Dokument obcy
 
 ## Własne katalogi jurora
 
-Użyj trzech odrębnych katalogów na hoście. Compose składa ścieżkę wyjścia z katalogu nadrzędnego (`ODW_OUTPUT_PARENT`) i nazwy katalogu (`ODW_OUTPUT_NAME`). Ewidencję zapisuje obok wyjścia w `.<nazwa>.odwolania2json/`, zgodnie z natywnym A. Zostaw ewidencję na miejscu między uruchomieniami. Gdy usuniesz wejściowy PDF i ponownie uruchomisz usługę, CLI usunie odpowiadający mu poprzedni wynik. Plik ręcznie dodany do drzewa wyników pozostanie na miejscu.
+Użyj trzech odrębnych katalogów na hoście. Compose składa ścieżkę wyjścia z katalogu nadrzędnego (`ODW_OUTPUT_PARENT`) i nazwy katalogu (`ODW_OUTPUT_NAME`). Ewidencję zapisuje obok wyjścia w `.<nazwa>.odwolania2json/`, zgodnie z natywnym CLI. Zostaw ewidencję na miejscu między uruchomieniami. Gdy usuniesz wejściowy PDF i ponownie uruchomisz usługę, CLI usunie odpowiadający mu poprzedni wynik. Plik ręcznie dodany do drzewa wyników pozostanie na miejscu.
 
 Linux, po zbudowaniu obrazu:
 
@@ -69,7 +69,7 @@ Get-ChildItem -LiteralPath $outDir -Recurse -File
 
 W nowej powłoce usługa wraca do domyślnych ścieżek. Aby zacząć nowy przebieg, wybierz nowe wyjście i katalog diagnostyki.
 
-## Porównanie z A
+## Porównanie z natywnym CLI
 
 Z katalogu głównego czystej kopii na Linuxie z Dockerem i Pythonem 3.13+ przygotuj natywne środowisko i `pol.traineddata` według [głównego README](../../README.md#opcjonalny-ocr). `UZP_DATA` to ścieżka do kopii danych UZP na rewizji `de135d20811caf630f3e94dc655ba5eebd9a6710`. `TESSDATA` to bezwzględna ścieżka do katalogu z polskim plikiem językowym. Po aktywacji środowiska wykonaj jedno polecenie:
 
