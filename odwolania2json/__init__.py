@@ -1,0 +1,1 @@
+"""Lokalna ekstrakcja dokumentów UZP."""

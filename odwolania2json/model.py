@@ -1,0 +1,139 @@
+"""Wspólny kontrakt klas i zapis pochodzenia pól."""
+import json
+import math
+import re
+from bisect import bisect_right
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
+DEFAULT_CONFIG = Path(__file__).with_name("classes")
+FLAGS = re.IGNORECASE | re.MULTILINE
+
+
+@dataclass(frozen=True)
+class Document:
+    text: str
+    starts: tuple
+
+    @classmethod
+    def from_pages(cls, pages):
+        starts, parts = [], []
+        offset = 0
+        for number, page in enumerate(pages, 1):
+            starts.append((offset, number))
+            parts.extend((page, "\n\f\n"))
+            offset += len(page) + 3
+        return cls("".join(parts), tuple(starts))
+
+    def page(self, offset):
+        index = bisect_right(self.starts, (offset, float("inf"))) - 1
+        return self.starts[index][1]
+
+
+def load_classes(root=DEFAULT_CONFIG):
+    classes = {}
+    for path in sorted(root.glob("*.json")):
+        config = json.loads(path.read_text(encoding="utf-8"))
+        name = config["class"]
+        if name in classes or name in {"negative", "read_error"}:
+            raise ValueError(f"{path}: niedozwolona lub powtórzona klasa {name}")
+        for signal in config["signals"]:
+            re.compile(signal["pattern"], FLAGS)
+        for rules in config.get("fields", {}).values():
+            for rule in rules:
+                re.compile(rule["pattern"], FLAGS)
+        classes[name] = config
+    if not classes:
+        raise ValueError(f"{root}: brak konfiguracji klas")
+    return classes
+
+
+def classify(document, classes):
+    candidates = []
+    for name, config in classes.items():
+        text = "\f".join(document.text.split("\f")[:config.get("classification_pages", 2)])
+        matches = []
+        for signal in config["signals"]:
+            match = re.search(signal["pattern"], text, FLAGS)
+            if match:
+                matches.append((signal, match))
+        score = sum(signal["weight"] for signal, _ in matches)
+        if score >= config["threshold"]:
+            evidence = [{"rule": signal["name"], "page": document.page(match.start())}
+                        for signal, match in matches]
+            candidates.append((score, name, evidence))
+    candidates.sort(key=lambda entry: (-entry[0], entry[1]))
+    if not candidates or len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
+        return "negative", []
+    return candidates[0][1], candidates[0][2]
+
+
+def empty(schema):
+    if isinstance(schema, dict):
+        return {key: empty(child) for key, child in schema.items()}
+    if isinstance(schema, list):
+        return []
+    return None
+
+
+def iso_date(value):
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def schema_errors(value, schema, field="$"):
+    if isinstance(schema, dict):
+        if not isinstance(value, dict):
+            yield f"{field}: oczekiwany obiekt"
+            return
+        for key in sorted(value.keys() - schema.keys()):
+            yield f"{field}.{key}: nadmiarowy klucz"
+        for key, child in schema.items():
+            path = f"{field}.{key}"
+            if key not in value:
+                yield f"{path}: brak wymaganego klucza"
+            else:
+                yield from schema_errors(value[key], child, path)
+    elif isinstance(schema, list):
+        if not isinstance(value, list):
+            yield f"{field}: oczekiwana lista"
+            return
+        for index, item in enumerate(value):
+            yield from schema_errors(item, schema[0], f"{field}[{index}]")
+    elif value is None and schema.endswith("?"):
+        return
+    else:
+        check = {
+            "text": lambda v: isinstance(v, str),
+            "number": lambda v: type(v) is int or type(v) is float and math.isfinite(v),
+            "date": iso_date,
+            "integer": lambda v: type(v) is int,
+            "flag": lambda v: type(v) is int and v in (0, 1),
+            "reason": lambda v: type(v) is int and 1 <= v <= 12,
+            "person_type": lambda v: v in ("osoba_fizyczna", "osoba_prawna"),
+        }[schema.rstrip("?")]
+        if not check(value):
+            yield f"{field}: oczekiwany typ {schema}"
+
+
+class Extraction:
+    def __init__(self, document, schema):
+        self.document = document
+        self.data = empty(schema)
+        self.evidence = {}
+
+    def put(self, path, value, offset, rule):
+        if value is None:
+            return
+        target = self.data
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+        field = ".".join(str(key) for key in path)
+        self.evidence[field] = {"page": self.document.page(offset), "rule": rule}

@@ -1,0 +1,233 @@
+{
+  "class": "odwolanie",
+  "builder": "appeal",
+  "classification_pages": 2,
+  "threshold": 9,
+  "signals": [
+    {
+      "name": "nagłówek_odwołania",
+      "weight": 6,
+      "pattern": "^[ \\t]*O[ \\t]*D[ \\t]*W[ \\t]*O[ \\t]*Ł[ \\t]*A[ \\t]*N[ \\t]*I[ \\t]*E[ \\t]*:?[ \\t]*$"
+    },
+    {
+      "name": "adresat_kio",
+      "weight": 3,
+      "pattern": "^[ \\t]*(?:Prezes[ \\t]+)?Krajow(?:a[ \\t]+Izba|ej[ \\t]+Izby)[ \\t]+Odwoławcz(?:a|ej)\\b"
+    },
+    {
+      "name": "strony_w_nagłówku",
+      "weight": 3,
+      "pattern": "^[ \\t]*(?:\\d+[.)]\\s*)?(?:Odwołujący|Zamawiający)[ \\t–-]*(?:[^:\\n]{0,65})?:"
+    },
+    {
+      "name": "wniesienie_odwołania",
+      "weight": 4,
+      "pattern": "\\bwnosz(?:ę|ą|imy)\\s+(?:niniejsze\\s+)?odwołanie\\b"
+    },
+    {
+      "name": "zarzut_odwołania",
+      "weight": 2,
+      "pattern": "^[ \\t]*(?:Zarzut(?:[ \\t]+nr)?[ \\t]+1\\b|(?:I\\.?[ \\t]+)?Zarzuty[ \\t]*:)"
+    }
+  ],
+  "schema": {
+    "OdwolanieKIO": {
+      "data": "date?",
+      "czynnosc_dzien": "date?",
+      "czynnosc_powod_id": "reason",
+      "czynnosc_opis": "text",
+      "miejscowosc": "text?"
+    },
+    "Odwolujacy": [
+      {
+        "krs": "text?",
+        "nazwa": "text?",
+        "nip": "text?",
+        "regon": "text?",
+        "przez-pelnomocnika": "flag",
+        "pelnomocnik": {
+          "imie_nazwisko": "text?",
+          "nazwa": "text?",
+          "mail": "text?"
+        }
+      }
+    ],
+    "Zamawiajacy": [
+      {
+        "krs": "text?",
+        "nazwa": "text?",
+        "nip": "text?",
+        "regon": "text?",
+        "prowadzacy_postepowanie": "flag?"
+      }
+    ],
+    "ZamowieniePubliczne": {
+      "numer_bzp": "text?",
+      "numer_postepowania": "text?",
+      "numer_ted": "text?",
+      "tytul": "text?"
+    }
+  },
+  "patterns": {
+    "header": "^[ \\t]*O[ \\t]*D[ \\t]*W[ \\t]*O[ \\t]*Ł[ \\t]*A[ \\t]*N[ \\t]*I[ \\t]*E[ \\t]*:?[ \\t]*$",
+    "role": "^[ \\t]*(?:\\d+[.)][ \\t]*)?(?P<role>Odwołujący|Zamawiający)(?=[ \\t:–—-])[ \\t]*(?P<qualifier>(?:[–—-][ \\t]*[^:\\n\\f]{1,65})?)[ \\t]*:[ \\t]*",
+    "role_end": "^[ \\t]*(?:Dotyczy|Wartość zamówienia|Wpis od odwołania|Przedmiot zamówienia)[ \\t]*:|^[ \\t]*(?:O[ \\t]*D[ \\t]*W[ \\t]*O[ \\t]*Ł[ \\t]*A[ \\t]*N[ \\t]*I[ \\t]*E)[ \\t]*$",
+    "leader": "^[ \\t]*(?:\\d+[.)][ \\t]*)?Lider(?:[ \\t]+Konsorcjum)?[ \\t]*:[ \\t\\n]*",
+    "partner": "^[ \\t]*(?:\\d+[.)][ \\t]*)?(?:Partner|Członek)(?:[ \\t]+Konsorcjum)?[ \\t]*:",
+    "counsel_section": "\\b(?:reprezentowan[yaei]\\s+przez|pełnomocnik\\s+(?:odwołującego|wykonawcy)|pełnomocnik)\\s*:?[ \\t\\n]*",
+    "counsel": "\\b(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)\\s*((?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:[ \\t\\n]+(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})(?=\\s*(?:\\(|,|;|$|(?:PESEL|nr wpisu|do reprezentowania)\\b))",
+    "entity_end": ",\\s*(?:ul\\.|al\\.|pl\\.|os\\.|z siedzibą|KRS|NIP|REGON)\\b|\\s+z siedzibą\\b|\\n[ \\t]*(?:ul\\.|al\\.|adres\\b|KRS\\b|NIP\\b|REGON\\b|tel\\.|e-mail|https?://|\\d{2}-\\d{3})|,\\s*\\d{2}-\\d{3}|\\n[ \\t]*(?=[^\\n\\f]*@)",
+    "filing_date": "^[ \\t]*(?P<city>(?-i:[A-ZĄĆĘŁŃÓŚŹŻ])[\\w’'-]*(?:[ \\t]+[\\w’'-]+){0,4})[ \\t]*,?[ \\t]+(?:dnia[ \\t]+)?(?P<date><DATE>)(?:[ \\t]+(?:r\\.|roku))?[ \\t]*\\.?[ \\t]*$",
+    "standalone_date": "^[ \\t]*(?P<date><DATE>)(?:[ \\t]+(?:r\\.|roku))?[ \\t]*$",
+    "allegation_list_intro": "\\b(?:polegając(?:ych|e) na|(?:formułuj\\w*|podnosz\\w*)\\s+następujące zarzuty|zarzucam(?:y)?)\\s*:[ \\t\\n]*",
+    "enumeration": "^[ \\t]*(?:\\(?[1-9]\\d?[.)]|[IVX]{1,4}[.)])[ \\t]+(?=\\S)",
+    "formal_first": "^[ \\t]*(?:Zarzut[ \\t]*(?:nr[ \\t]*)?1\\b|Pierwszy zarzut\\b)[ \\t]*[.:–—-]?[ \\t]*",
+    "formal_next": "^[ \\t]*Zarzut[ \\t]*(?:nr[ \\t]*)?[2-9]\\d?\\b",
+    "action_line": "^[ \\t]*Zamawiający[ \\t]+(?:w dniu|dnia)[ \\t\\n]+(?P<date><DATE>)[\\s\\S]{0,280}?(?=(?:\\n[ \\t]*(?:Zarzut\\b|Zaskarżonym\\b|Uprzednio\\b)|\\.[ \\t]+(?:Uprzednio|Wcześniej)\\b|[.;][ \\t]*\\n|\\f|$))",
+    "action_date": "(?<!ustawy )\\b(?:z dnia|w dniu|dnia|powiadomiono w dniu)\\s+(?P<date><DATE>)",
+    "section_end": "^[ \\t]*(?:Zamawiający[ \\t]+w dniu|Zaskarżonym\\b|Zarzut[ \\t]+nr\\b|Wnoszę\\b|W związku\\b|Uzasadnienie\\b|Ponadto\\b|Uprzednio\\b)",
+    "body_start": "^[ \\t]*(?:Działając w imieniu\\b|Na podstawie art\\.[^\\n]{0,120}\\bwnosz\\w*|Wnosz(?:ę|ą|imy)\\s+odwołanie\\b|Zarzut[ \\t]+nr\\b)"
+  },
+  "header_fields": {
+    "ZamowieniePubliczne.numer_bzp": [
+      {
+        "name": "numer_bzp",
+        "pattern": "\\b(20\\d{2}\\s*/\\s*BZP\\s*[0-9]{8}(?:\\s*/\\s*\\d{2})?)\\b",
+        "operation": "compact"
+      }
+    ],
+    "ZamowieniePubliczne.numer_ted": [
+      {
+        "name": "numer_ted_z_etykiety",
+        "pattern": "\\b(?:TED|Dzienniku Urzędowym Unii\\s+Europejskiej)\\s*(?:nr|numer)?\\s*:?\\s*((?:20\\d{2}\\s*/\\s*S\\s*\\d{1,3}\\s*-\\s*\\d{5,8}|\\d{5,8}\\s*-\\s*20\\d{2}))\\b",
+        "operation": "ted"
+      },
+      {
+        "name": "numer_ted_w_nagłówku",
+        "pattern": "\\b((?:20\\d{2}\\s*/\\s*S\\s*\\d{1,3}\\s*-\\s*\\d{5,8}|\\d{6,8}\\s*-\\s*20\\d{2}))\\b",
+        "operation": "ted"
+      }
+    ],
+    "ZamowieniePubliczne.numer_postepowania": [
+      {
+        "name": "numer_wewnętrzny",
+        "pattern": "\\b(?:nr|numer|znak)\\s+(?:referencyjny(?:\\s+(?:sprawy|postępowania))?|postępowania|sprawy|wewnętrzny)\\s*[:.]?\\s*([A-Z0-9][A-Z0-9./_\\-]{2,})(?=[\\s,;”)]|$)",
+        "operation": "identifier"
+      }
+    ],
+    "ZamowieniePubliczne.tytul": [
+      {
+        "name": "cytowany_tytuł_zamówienia",
+        "pattern": "\\b(?:pn\\.|pod nazwą|zamówieni[aeu])\\s*[:\\-]?\\s*[„“\"]([^”\"\\f]{4,580})[”\"]"
+      },
+      {
+        "name": "etykieta_tytułu_zamówienia",
+        "pattern": "^[ \\t]*(?:Tytuł|Przedmiot) zamówienia\\s*:[ \\t]*([^\\n\\f]+)"
+      }
+    ]
+  },
+  "party_fields": {
+    "krs": [
+      {
+        "name": "krs_przy_podmiocie",
+        "pattern": "\\bKRS\\s*[:.\\-]?\\s*((?:\\d[ \\t\\-]*){10})(?![ \\t\\-]*\\d)",
+        "operation": "digits"
+      }
+    ],
+    "nip": [
+      {
+        "name": "nip_przy_podmiocie",
+        "pattern": "\\bNIP\\s*[:.\\-]?\\s*((?:\\d[ \\t\\-]*){10})(?![ \\t\\-]*\\d)",
+        "operation": "digits"
+      }
+    ],
+    "regon": [
+      {
+        "name": "regon_przy_podmiocie",
+        "pattern": "\\bREGON\\s*[:.\\-]?\\s*((?:\\d[ \\t\\-]*){9,14})(?![ \\t\\-]*\\d)",
+        "operation": "digits"
+      }
+    ]
+  },
+  "counsel_fields": {
+    "pelnomocnik.nazwa": [
+      {
+        "name": "kancelaria_z_adresu_korespondencji",
+        "pattern": "\\b(?:adres do korespondencji|kancelaria)\\s*:[ \\t\\n]*([^,\\f]+(?:,\\s*(?!ul\\.|al\\.|pl\\.)[^,\\n\\f]+)?)(?=,\\s*(?:ul\\.|al\\.|pl\\.)|\\n[ \\t]*(?:tel\\.|e-mail))"
+      }
+    ],
+    "pelnomocnik.mail": [
+      {
+        "name": "mail_w_sekcji_pełnomocnika",
+        "pattern": "\\b([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,})\\b"
+      }
+    ]
+  },
+  "reasons": {
+    "descriptions": {
+      "1": "Decyzja o odrzuceniu oferty",
+      "2": "Ogłoszenie wyboru oferty",
+      "3": "Decyzja o wykluczeniu wykonawcy",
+      "4": "Publikacja specyfikacji warunków zamówienia (SWZ)",
+      "5": "Modyfikacja treści SWZ",
+      "6": "Odpowiedzi/wyjaśnienia do SWZ",
+      "7": "Zaniechanie odrzucenia oferty",
+      "8": "Zaniechanie wykluczenia wykonawcy",
+      "9": "Decyzja o unieważnieniu postępowania",
+      "10": "Zaniechanie unieważnienia postępowania",
+      "11": "Opis przedmiotu zamówienia (OPZ)",
+      "12": "Projektowane postanowienia umowy"
+    },
+    "rules": [
+      {
+        "id": 7,
+        "pattern": "(?:zaniecha\\w*|nie)\\s+(?:\\w+\\s+){0,3}odrzuc\\w*\\b"
+      },
+      {
+        "id": 8,
+        "pattern": "(?:zaniecha\\w*|nie)\\s+(?:\\w+\\s+){0,3}wyklucz\\w*\\b"
+      },
+      {
+        "id": 10,
+        "pattern": "(?:zaniecha\\w*|nie)\\s+(?:\\w+\\s+){0,3}unieważn\\w*\\b"
+      },
+      {
+        "id": 6,
+        "pattern": "(?:udziel\\w*|przekaza\\w*)\\s+(?:\\S+\\s+){0,4}(?:odpowiedz\\w*|wyjaśn\\w*)|(?:odpowiedz\\w*|wyjaśn\\w*)\\s+(?:do\\s+treści\\s+|treści\\s+|do\\s+)?(?:SWZ|Specyfikacj\\w*\\s+Warunk\\w*\\s+Zamówie\\w*)"
+      },
+      {
+        "id": 5,
+        "pattern": "(?:modyfik\\w*|zmodyfik\\w*|zmian\\w*|zmieni\\w*)\\s+(?:\\S+\\s+){0,3}(?:SWZ|Specyfikacj\\w*\\s+Warunk\\w*\\s+Zamówie\\w*)"
+      },
+      {
+        "id": 4,
+        "pattern": "(?:opublik\\w*|publik\\w*|udostępn\\w*|ustal\\w*|postanowieni\\w*|sformułowa\\w*)\\s+(?:\\S+\\s+){0,6}(?:SWZ|Specyfikacj\\w*\\s+Warunk\\w*\\s+Zamówie\\w*)"
+      },
+      {
+        "id": 12,
+        "pattern": "(?:projektowan\\w*\\s+postanowieni\\w*\\s+umow\\w*|wzor\\w*\\s+umow\\w*)"
+      },
+      {
+        "id": 11,
+        "pattern": "(?:OPZ\\b|opis\\w*\\s+przedmiot\\w*\\s+zamówie\\w*)"
+      },
+      {
+        "id": 9,
+        "pattern": "\\bunieważn\\w*\\s+(?:\\w+\\s+){0,2}postępowani\\w*"
+      },
+      {
+        "id": 3,
+        "pattern": "\\bwyklucz\\w*"
+      },
+      {
+        "id": 1,
+        "pattern": "\\bodrzuc\\w*\\s+(?:\\w+\\s+){0,3}ofert\\w*"
+      },
+      {
+        "id": 2,
+        "pattern": "\\b(?:wyb(?:or|ór|ra)\\w*)\\s+(?:\\w+\\s+){0,4}ofert\\w*"
+      }
+    ],
+    "fallback": 11
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "class": "pelnomocnictwo",
+  "builder": "power_of_attorney",
+  "classification_pages": 1,
+  "threshold": 8,
+  "signals": [
+    {
+      "name": "nagłówek_pełnomocnictwa",
+      "weight": 6,
+      "pattern": "^[ \\t]*P[ \\t]*E[ \\t]*Ł[ \\t]*N[ \\t]*O[ \\t]*M[ \\t]*O[ \\t]*C[ \\t]*N[ \\t]*I[ \\t]*C[ \\t]*T[ \\t]*W[ \\t]*O(?:[ \\t]+(?:PROCESOWE|SZCZEGÓLNE))?[ \\t]*:?[ \\t]*$"
+    },
+    {
+      "name": "ustanowienie_pełnomocnika",
+      "weight": 4,
+      "pattern": "\\b(?:udziela(?:m|ją|my)?\\s+pełnomocnictwa|ustanawia(?:m|ją|my)?\\s+pełnomocnikiem|niniejszym\\s+upoważnia(?:m|ją|my)?)\\b"
+    },
+    {
+      "name": "role_mocodawcy_i_pełnomocnika",
+      "weight": 4,
+      "pattern": "\\bmocodawc[ąa]\\b[\\s\\S]{0,700}\\bpełnomocni(?:k|cy|kiem)\\b"
+    },
+    {
+      "name": "przyjęcie_pełnomocnictwa",
+      "weight": 3,
+      "pattern": "^[ \\t]*Pełnomocnictwo przyjmuj[ęe]\\b"
+    }
+  ],
+  "schema": {
+    "mocodawca": [
+      {
+        "data": {
+          "imie_nazwisko": "text?",
+          "krs": "text?",
+          "nazwa": "text?",
+          "nip": "text?",
+          "typ": "person_type"
+        },
+        "podpisujacy": [
+          {
+            "imie_nazwisko": "text"
+          }
+        ]
+      }
+    ],
+    "pelnomocnicy": [
+      {
+        "imie_nazwisko": "text",
+        "pesel": "integer?"
+      }
+    ]
+  },
+  "patterns": {
+    "header": "^[ \\t]*P[ \\t]*E[ \\t]*Ł[ \\t]*N[ \\t]*O[ \\t]*M[ \\t]*O[ \\t]*C[ \\t]*N[ \\t]*I[ \\t]*C[ \\t]*T[ \\t]*W[ \\t]*O(?:[ \\t]+(?:PROCESOWE|SZCZEGÓLNE))?[ \\t]*:?[ \\t]*$",
+    "grant": "\\b(?:udziela(?:m|my|ją)?\\s+pełnomocnictwa|ustanawia(?:m|my|ją)?\\s+pełnomocnikiem|(?:niniejszym\\s+)?upoważnia(?:m|my|ją))\\s*:?[ \\t\\n]*",
+    "principal_block": "^[ \\t]*Mocodawc(?:ą[ \\t]+jest|a(?=[ \\t:\\n]))[ \\t]*:?[ \\t]*(?:\\n[ \\t]*)?(?P<entity>(?!(?:ustanawiam|udzielam|upoważniam)\\b)[^\\f]+?)(?=^[ \\t]*(?:§[ \\t]*\\d+[.)][ \\t]*)?Pełnomocni(?:k|cy)\\b)",
+    "consortium": "\\b(?:konsorcjum\\)?[ \\t]*:|w składzie[ \\t]*:)[ \\t\\n]*(?P<members>\\d+[.)][ \\t\\n]+[\\s\\S]+)",
+    "member": "(?:^|;[ \\t\\n]*|\\n[ \\t]*)\\d+[.)][ \\t\\n]+(?P<entity>[\\s\\S]+?)(?=;[ \\t\\n]*\\d+[.)]|\\n[ \\t]*\\d+[.)][ \\t]|\\Z)",
+    "representing": "\\b(?:do reprezentacji|działając w imieniu(?: i na rzecz)?)\\s+",
+    "name_end": ",\\s*(?:(?:ul|al|pl|os)\\.|(?:z siedzibą|KRS|NIP|REGON|PESEL)\\b)|[ \\t]+z siedzibą\\b|\\s*\\((?:KRS|NIP|PESEL|dalej)\\b|,\\s*\\d{2}-\\d{3}|\\n[ \\t]*(?:ul\\.|al\\.|adres\\b|dane\\b|KRS\\b|NIP\\b|REGON\\b|PESEL\\b)",
+    "physical": "\\bosob[ayą]\\s+fizyczn|\\bPESEL\\b|\\bprowadząc\\w*\\s+działalność gospodarczą|\\bCentralnej Ewidencji i Informacji o Działalności Gospodarczej\\b",
+    "counsel": "\\b(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)\\s*((?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:[ \\t\\n]+(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})(?=\\s*(?:\\(|,|;|$|(?:PESEL|nr wpisu|do reprezentowania)\\b))",
+    "counsel_label": "^[ \\t]*(?:§[ \\t]*\\d+[.)][ \\t]*)?Pełnomocni(?:k|cy)(?=[ \\t:\\n])[ \\t]*:?[ \\t\\n]*",
+    "counsel_end": "^[ \\t]*(?:(?:§[ \\t]*\\d+[.)][ \\t]*)?(?:Postępowanie|Zakres|Zamawiający|Niniejszym)\\b|Pełnomocnictwo(?: udzielone| obejmuje| dotyczy)|(?:Mocodawca|W imieniu)[^\\n]*:[ \\t]*$)|\\bdo reprezentowania\\b",
+    "signed_heading": "^[ \\t]*W imieniu[ \\t]+(?P<entity>[^\\n\\f]+?)[ \\t]*:[ \\t]*$",
+    "acceptance": "^[ \\t]*Pełnomocnictwo przyjmuj[ęe][ \\t]*:?[ \\t]*$",
+    "signature": "^[ \\t]*(?:[._]{4,}[ \\t]*\\n)+[ \\t]*(?:Za[ \\t]+[^\\n\\f]+\\n[ \\t]*)?((?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:[ \\t]+(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})[ \\t]*$",
+    "sole_trader": "\\bprowadz\\w*\\s+działalność\\s+gospodarczą\\s+pod\\s+firmą[ \\t\\n]+",
+    "sole_trader_person": "\\b(?:Ja,\\s*)?(?:niżej\\s+)?podpisan(?:y|a)\\s+([^,\\n]+)"
+  },
+  "principal_fields": {
+    "data.krs": [
+      {
+        "name": "krs_przy_podmiocie",
+        "pattern": "\\bKRS\\s*[:.\\-]?\\s*((?:\\d[ \\t\\-]*){10})(?![ \\t\\-]*\\d)",
+        "operation": "digits"
+      }
+    ],
+    "data.nip": [
+      {
+        "name": "nip_przy_podmiocie",
+        "pattern": "\\bNIP\\s*[:.\\-]?\\s*((?:\\d[ \\t\\-]*){10})(?![ \\t\\-]*\\d)",
+        "operation": "digits"
+      }
+    ]
+  },
+  "counsel_fields": {
+    "pesel": [
+      {
+        "name": "pesel_przy_pełnomocniku",
+        "pattern": "\\bPESEL\\s*:?\\s*(\\d{11})(?!\\d)",
+        "operation": "integer"
+      }
+    ]
+  }
+}
