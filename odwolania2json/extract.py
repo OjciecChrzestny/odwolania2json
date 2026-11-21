@@ -6,7 +6,8 @@ from functools import partial
 
 from pypdf import PdfReader
 
-from .bank_scan import recovered_numbers
+from .bank_accounts import LABEL, account_observations, apply_accounts, fold
+from .bank_scan import recovered_numbers, row_text
 from .legal import BUILDERS as LEGAL_BUILDERS
 from .model import Document, Extraction, FLAGS, classify, cover_limit, excluded_heading, schema_errors
 from .ocr import LocalOCR
@@ -105,12 +106,21 @@ def extract(document, classes, *, capture_decision=False):
         details = BUILDERS[builder](result, config, capture_decision=True)
     else:
         details = BUILDERS[builder](result, config) if builder else {}
-    if builder == "transfer" and scan:
+    if builder == "transfer":
         bank = result.data["przelew_bankowy"]
+        pages = document.text.split("\n\x0c\n")[:-1]
+        evidence = [(i, account_observations(page.splitlines())) for i, page in enumerate(pages, 1)]
         if views is not None:
             details["classification_from_ocr_layout"] = True
-        if any(bank[key] is None for key in ("kwota", "data_operacji")):
-            for key, (value, page) in recovered_numbers(views if views is not None else scan()).items():
+        missing_number = any(bank[key] is None for key in ("kwota", "data_operacji"))
+        if scan and views is None and (missing_number or LABEL.search(fold(document.text))):
+            views = scan()
+        for view in views or ():
+            rows = row_text(view.positions) if view.positions else view.rows
+            evidence.append((view.page, account_observations(rows, view.positions)))
+        apply_accounts(result, evidence, scanned={view.page for view in views or ()})
+        if missing_number:
+            for key, (value, page) in recovered_numbers(views or ()).items():
                 if bank[key] is None:
                     result.put(("przelew_bankowy", key), value, document.starts[page - 1][0],
                                "ocr_wiersz_kwoty" if key == "kwota" else "ocr_wiersz_daty")

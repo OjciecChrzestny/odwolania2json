@@ -13,25 +13,45 @@ class ScanView:
     text: str
     rows: tuple
     verified: tuple = ()
+    positions: tuple = ()
 
 
-def visual_rows(tsv):
+@dataclass(frozen=True)
+class Word:
+    x: int
+    y: int
+    width: int
+    height: int
+    text: str
+
+    @property
+    def middle(self):
+        return self.y + self.height / 2
+
+
+def word_rows(tsv):
     words = []
     for line in tsv.splitlines():
         item = line.split("\t", 11)
-        if len(item) != 12 or item[0] != "5" or not item[11].strip():
-            continue
-        x, y, _, height = map(int, item[6:10])
-        words.append((y + height / 2, x, height, item[11].strip()))
+        if len(item) == 12 and item[0] == "5" and item[11].strip():
+            words.append(Word(*map(int, item[6:10]), item[11].strip()))
     grouped = []
-    for word in sorted(words):
+    for word in sorted(words, key=lambda w: (w.middle, w.x, w.height, w.text)):
         if grouped:
             row = grouped[-1]
-            if abs(word[0] - median(w[0] for w in row)) <= .55 * max(word[2], median(w[2] for w in row)):
+            if abs(word.middle - median(w.middle for w in row)) <= .55 * max(word.height, median(w.height for w in row)):
                 row.append(word)
                 continue
         grouped.append([word])
-    return tuple(" ".join(w[3] for w in sorted(row, key=lambda w: w[1])) for row in grouped)
+    return tuple(tuple(sorted(row, key=lambda w: w.x)) for row in grouped)
+
+
+def row_text(words):
+    return tuple(" ".join(w.text for w in row) for row in words)
+
+
+def visual_rows(tsv):
+    return row_text(word_rows(tsv))
 
 
 DATE_TOKEN = re.compile(r"(?<![\d./-])" + DATE + r"(?![\d./-])", re.I)

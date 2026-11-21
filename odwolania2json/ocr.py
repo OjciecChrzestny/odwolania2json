@@ -2,10 +2,13 @@
 import logging
 import re
 from contextlib import closing
+from difflib import SequenceMatcher
+from itertools import islice
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from .bank_scan import ScanView, numeric_boxes, recovered_numbers, token_value, visual_rows
+from .bank_accounts import valid_nrb
+from .bank_scan import ScanView, Word, numeric_boxes, recovered_numbers, token_value, row_text, word_rows
 
 
 def prepare_ocr(data):
@@ -57,6 +60,61 @@ def refine_bank_reference(text, api, bitmap, api_type, data):
     if value != readings[1] or original not in value or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_./-]{2,39}", value):
         return text
     return text[:match.start("value")] + value + text[match.end("value"):]
+
+
+def account_crops(positions):
+    """Retry nearly complete numeric groups in their own box, within one visual row."""
+    for row_index, row in enumerate(positions):
+        start = 0
+        while start < len(row):
+            word = row[start]
+            if not re.fullmatch(r"(?:PL)?[0-9IOol|()/]+", word.text):
+                start += 1
+                continue
+            end = start + 1
+            while end < len(row):
+                following, previous = row[end], row[end - 1]
+                gap = following.x - (previous.x + previous.width)
+                if gap > 2 * max(previous.height, following.height) or not re.fullmatch(r"[0-9IOol|()/]+", following.text):
+                    break
+                end += 1
+            chunk = row[start:end]
+            text = "".join(w.text for w in chunk).removeprefix("PL")
+            digits = re.sub(r"[^0-9]", "", text)
+            if 23 <= len(digits) <= 27 and 24 <= len(text) <= 28 and not valid_nrb(digits):
+                left = min(w.x for w in chunk)
+                top = min(w.y for w in chunk)
+                right = max(w.x + w.width for w in chunk)
+                bottom = max(w.y + w.height for w in chunk)
+                yield row_index, start, end, digits, (left, top, right, bottom)
+            start = end
+
+
+def read_account_crops(positions, bitmap, api_type, data):
+    crops = list(islice(account_crops(positions), 6))
+    if not crops:
+        return positions
+    rows = [list(row) for row in positions]
+    with api_type(path=str(data), lang="pol", psm=7) as api:
+        api.SetVariable("tessedit_char_whitelist", "0123456789")
+        api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height, bitmap.n_channels, bitmap.stride)
+        # Work right to left so replacing a run preserves the remaining indices.
+        for row, start, end, original, (left, top, right, bottom) in reversed(crops):
+            height = bottom - top
+            readings = []
+            for margin in (.25, .6):
+                x = max(0, left - round(height * margin))
+                y = max(0, top - round(height * .3))
+                w = min(bitmap.width, right + round(height * margin)) - x
+                h = min(bitmap.height, bottom + round(height * .3)) - y
+                api.SetRectangle(x, y, w, h)
+                value = "".join(api.GetUTF8Text().split())
+                if not valid_nrb(value) or SequenceMatcher(None, original, value).ratio() < .90:
+                    break
+                readings.append(value)
+            if len(readings) == 2 and readings[0] == readings[1]:
+                rows[row][start:end] = [Word(left, top, right - left, height, readings[0])]
+    return tuple(tuple(row) for row in rows)
 
 
 def confirm_numeric_boxes(boxes, bitmap, api_type, data):
@@ -127,13 +185,15 @@ class LocalOCR:
                                   bitmap.n_channels, bitmap.stride)
                 text = api.GetUTF8Text()
                 tsv = api.GetTSVText(0)
-                view = ScanView(index + 1, text, visual_rows(tsv))
+                positions = word_rows(tsv)
+                view = ScanView(index + 1, text, row_text(positions), positions=positions)
                 views.append(view)
                 if mode == 11:
                     missing = {"kwota", "data_operacji"} - recovered_numbers(views).keys()
                     boxes = numeric_boxes(tsv, view.rows, missing)
                     checked = confirm_numeric_boxes(boxes, bitmap, self.api_type, self.data)
-                    views[-1] = replace(view, verified=checked)
+                    positions = read_account_crops(positions, bitmap, self.api_type, self.data)
+                    views[-1] = replace(view, verified=checked, positions=positions)
         return views
 
 
