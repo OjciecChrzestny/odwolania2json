@@ -1,0 +1,22 @@
+{
+  "base_sha": "ae0bae4b5bf4907e5fb0e5ebc0aa6b1a3c8387a3",
+  "scope": {
+    "akceptacja": {
+      "dokumenty_z_jedna_nieczytelna_strona": 0,
+      "dokumenty_z_niezaleznie_zweryfikowanymi_polami": 0,
+      "niezaleznie_oznaczone_strony": 0,
+      "pdf": 0,
+      "rzeczywiste_mylace_negatywy": 0
+    },
+    "konkurs": {
+      "minimum_pelnych_spraw": 10,
+      "pdf": 0,
+      "pelne_sprawy": 0,
+      "rzeczywiste_negatywy": 0
+    }
+  },
+  "seal_sha256": "a9160e2b88e2217c4e0c47392d35b7818a053488ea915dd5c3c73e57f08a0a25",
+  "sealed_utc": "2026-11-21T22:43:20Z",
+  "status": "zamkniety_audyt_brak_rezerwy_do_pomiaru",
+  "wersja": 1
+}
