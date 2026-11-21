@@ -128,10 +128,10 @@ def present(path, work):
     start(pdf, "0:40–1:10 / Jakość ekstrakcji")
     title(pdf, "Dwa pomiary na różnych zbiorach")
     for x, label, score, corpus, note in [
-        (54, "Wariant A", "0,9878", "32 PDF-y walidacyjne",
-         ["valid_run=false", "1 przelew rozpoznany jako obcy."]),
-        (505, "Wariant A2", "0,9963", "128 PDF-ów rozwojowych",
-         ["Wyniki identyczne bajtowo z A.", "2 przelewy odzyskane na syntetykach."]),
+        (54, "Wariant A3", "0,9963", "128 PDF-ów rozwojowych",
+         ["40/40 poprawnych ID zarzutu.", "128/128 wyników jak w A2."]),
+        (505, "Wariant A2", "0,9822", "31 PDF-ów testu końcowego",
+         ["valid_run=false", "Pominięto jedno pełnomocnictwo."]),
     ]:
         text(pdf, x, 189, label, 24, "Lato Bold", GREEN)
         text(pdf, x, 274, score, 71, "Lato Bold")

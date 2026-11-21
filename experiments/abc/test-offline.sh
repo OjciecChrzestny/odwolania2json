@@ -1,18 +1,12 @@
 #!/bin/sh
-# Uruchamiany z dowolnego katalogu. Patch jest stosowany wyłącznie w kopii tymczasowej.
+# Próby na tej samej wersji pakietu co publiczne CLI.
 set -eu
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 python=$("${PYTHON:-python3}" -c 'import os, sys; print(os.path.abspath(sys.executable))')
 scratch=$(mktemp -d)
 trap 'rm -rf -- "$scratch"' EXIT
-git clone -q --shared --no-checkout "$repo" "$scratch/project"
-git -C "$scratch/project" checkout -q --detach "$(git -C "$repo" rev-parse HEAD)"
-cd "$scratch/project"
-mkdir -p experiments/abc "$scratch/tmp"
-cp "$repo"/experiments/abc/*.py "$repo"/experiments/abc/*.patch \
-   "$repo"/experiments/abc/uzp-reasons.txt experiments/abc/
-git apply --check experiments/abc/selector-a.patch
-git apply experiments/abc/selector-a.patch
+cd "$repo"
+mkdir "$scratch/tmp"
 unset OVH_AI_ENDPOINTS_ACCESS_TOKEN SCALEWAY_SECRET_KEY SCW_SECRET_KEY PYTHONPATH UZP_DATA
 export TMPDIR="$scratch/tmp" PYTHONDONTWRITEBYTECODE=1 PYTHONUTF8=1
 

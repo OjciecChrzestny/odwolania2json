@@ -1,6 +1,6 @@
 # Pierwszy zarzut bez dopasowania reguły A
 
-Baza `8a2219ed0707308b6034721381bd3073aec00e90`. Kod i testy `7a788965dc9f27eb24c31720d07d79e6e160f788`. Zmiana selektora jest w [selector-a.patch](selector-a.patch), który odbiór stosuje w tymczasowym klonie.
+Baza `8a2219ed0707308b6034721381bd3073aec00e90`. Kod i testy `7a788965dc9f27eb24c31720d07d79e6e160f788`. Zmiana selektora jest w [historycznej łatce selektora](https://github.com/OjciecChrzestny/odwolania2json/blob/7a788965dc9f27eb24c31720d07d79e6e160f788/experiments/abc/selector-a.patch), który odbiór stosuje w tymczasowym klonie.
 
 ## Wynik przed i po
 

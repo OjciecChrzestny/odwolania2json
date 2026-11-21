@@ -1,8 +1,8 @@
 # Odwołania2JSON — plan implementacji
 
-Juror wkłada własne PDF-y do `input/` i jednym poleceniem na laptopie i7 z 16 GB RAM odczytuje odpowiadające im pliki w `output/`. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Wydanie konkursowe łączy A2, lokalny OCR, dystrybucję Compose i osobny pokaz konfiguracji. B i C są eksperymentem dotyczącym pojedynczej decyzji o pierwszym zarzucie.
+Juror wkłada własne PDF-y do `input/` i jednym poleceniem na laptopie i7 z 16 GB RAM odczytuje odpowiadające im pliki w `output/`. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Wspólna gałąź łączy A3, lokalny OCR, dystrybucję Compose i osobny pokaz konfiguracji. B i C są eksperymentem dotyczącym pojedynczej decyzji o pierwszym zarzucie.
 
-**Stan wydania, 21 listopada 2026.** Wybrano A2 z lokalnym OCR przed testem końcowym ze względu na dwa odzyskane syntetyczne przelewy i zgodność 128 JSON-ów rozwojowych z A. Wynik walidacji 0,9878 przy `valid_run=false` pozostaje historycznym wynikiem A. Konfiguracja wbudowana zawiera trzy klasy konkursowe. Pokaz rozszerzenia i Compose mają własne instrukcje odbioru. B/C i `selector-a.patch` pozostają na odrębnej gałęzi. [Raport A](RAPORT_A.md) · [Raport A2](RAPORT_A2.md)
+**Historyczny wybór do pierwszego testu końcowego.** Wybrano A2 z lokalnym OCR ze względu na dwa odzyskane syntetyczne przelewy i zgodność 128 JSON-ów rozwojowych z A. Wynik walidacji 0,9878 przy `valid_run=false` pozostaje historycznym wynikiem A. Konfiguracja wbudowana zawiera trzy klasy konkursowe. Pokaz rozszerzenia i Compose mają własne instrukcje odbioru. Opcjonalny eksperyment B/C korzysta teraz z selektora A3 w tej samej wersji repozytorium. [Odbiór bez API](experiments/abc/README.md) [Raport A](RAPORT_A.md) · [Raport A2](RAPORT_A2.md)
 
 ## Kandydat A3
 

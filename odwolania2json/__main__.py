@@ -41,7 +41,8 @@ def target(root, name):
     return path
 
 
-def process(input_dir, output_dir, classes, diagnostics, ocr=None):
+def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
+            read_document=read_pdf, extract_document=extract):
     input_dir.mkdir(parents=True, exist_ok=True)
     pdfs = sorted(path for path in input_dir.rglob("*")
                   if path.suffix.lower() == ".pdf" and path.is_file())
@@ -69,13 +70,13 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None):
         current, records = set(), []
         for name, pdf in sorted(sources.items()):
             try:
-                document, ocr_pages = read_pdf(pdf, ocr, classes=classes)
+                document, ocr_pages = read_document(pdf, ocr, classes=classes)
             except (OSError, ValueError, PyPdfError, KeyError, TypeError, RuntimeError, IndexError, OverflowError) as exc:
                 logging.error("%s — błąd odczytu (%s)", name, type(exc).__name__)
                 records.append({"output": name, "class": "read_error", "status": "read_error",
                                 "error": str(exc), "fields": {}})
                 continue
-            value, record = extract(document, classes)
+            value, record = extract_document(document, classes)
             write_file(target(output_dir, name), b"" if value is None else json_bytes(value))
             current.add(name)
             records.append({"output": name, **record, "ocr_pages": ocr_pages})

@@ -12,7 +12,7 @@ Otwórz `prezentacja.pdf`, terminal i dwa syntetyczne PDF-y z przygotowanej pró
 
 **Na ekranie.** Slajd 2, wycinek źródłowy `Kwota: 123,45 PLN` i reguła `kwota_operacji`. Potem slajd 3. Nie pokazuj akt z odłożonych spraw.
 
-**Tekst.** „Reguła kwota operacji wskazuje stronę pierwszą. A ma mikro F jeden zero przecinek dziewięć osiem siedem osiem na trzydziestu dwóch walidacyjnych PDF-ach. Jeden przelew uznał za obcy i przebieg jest nieważny. A dwa ma zero przecinek dziewięć dziewięć sześć trzy na stu dwudziestu ośmiu rozwojowych PDF-ach. Odzyskał dwa syntetyczne przelewy. Wynik jury jest nieznany.”
+**Tekst.** „Reguła kwoty wskazuje stronę pierwszą. A trzy ma 99,63 procent mikro-F1 na 128 rozwojowych PDF-ach. Na osobnym, wcześniejszym teście dziesięciu spraw A dwa uzyskał 98,22 procent. Pominął pełnomocnictwo, więc przebieg był nieważny. Dziesięć nowych spraw czeka na test A trzy. Wynik jury pozostaje nieznany.”
 
 ## 1:10–2:00 · Dodanie klasy i regresja
 
@@ -25,7 +25,9 @@ Otwórz `prezentacja.pdf`, terminal i dwa syntetyczne PDF-y z przygotowanej pró
 Użyj osobnej czystej kopii zatwierdzonego kodu `KOD` i nowego katalogu `WORK`. Zainstaluj narzędzia pokazu w osobnym środowisku przez `python -m pip install -r requirements-pokaz.txt`. Do powtórzenia bez sieci po instalacji użyj wcześniej zbudowanego obrazu z etykietą rewizji. Budowę oraz użyte ścieżki podaje `RAPORT-PROBY.md`.
 
 ```sh
-# POKAZ wskazuje pliki delivery/final z gałęzi dokumentacyjnej.
+# KOD to katalog czystego klonu sprawdzanej rewizji.
+POKAZ="$KOD/delivery/final"
+RC_SHA=$(git -C "$KOD" rev-parse HEAD)
 python "$POKAZ/proba.py" "$KOD" "$WORK" przygotuj --sha "$RC_SHA" --image "$IMAGE"
 python "$POKAZ/proba.py" "$KOD" "$WORK" przelew --sha "$RC_SHA" --image "$IMAGE"
 git -C "$KOD" diff --name-only c01401cd7abdf82655b18188f68cb46652dc239e 72337e2164f871fa3b1d6c63edde0381b7ed8b31

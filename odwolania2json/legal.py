@@ -182,20 +182,33 @@ def reason_evidence(fragment, config):
     verb = patterns.get("challenge_verb")
     markers = list(re.finditer(verb, fragment.text, FLAGS)) if verb else []
     if not markers:
-        return match_reason(fragment, config), None
+        return match_reason(fragment, config), None, fragment
     remaining = list(fragment.text)
+    excluded = []
+    first_assertion = None
     for index, marker in enumerate(markers):
         stop = markers[index + 1].start() if index + 1 < len(markers) else None
         clause = fragment.slice(marker.end(), stop).before(patterns["challenge_clause_end"])
         if marker["disclaimed"]:
             end = marker.end() + len(clause.text)
             remaining[marker.start():end] = " " * (end - marker.start())
+            excluded.append((marker.start(), end))
         else:
+            if first_assertion is None and clause.text.strip():
+                first_assertion = clause
             chosen = match_reason(clause, config)
             if chosen:
-                return chosen, clause
+                return chosen, clause, clause
     available = Fragment("".join(remaining), fragment.offset)
-    return match_reason(available, config), available
+    chosen = match_reason(available, config)
+    if not chosen:
+        return None, available, first_assertion
+
+    # Fragment udostępniany odbiorcy odpowiada rzeczywistym pozycjom w PDF.
+    position = chosen[1] - fragment.offset
+    start = max((end for _, end in excluded if end <= position), default=0)
+    stop = min((begin for begin, _ in excluded if begin > position), default=len(fragment.text))
+    return chosen, available, fragment.slice(start, stop)
 
 
 def classify_reason(fragment, config):
@@ -221,10 +234,14 @@ def first_allegation(body, patterns):
     return None, None
 
 
-def challenged_action(result, config, body):
+def challenged_action(result, config, body, *, capture_decision=False):
     patterns = config["patterns"]
     hint = body.slice(0, 8500).before(patterns["formal_next"]).find(patterns["action_line"])
     allegation, selector = first_allegation(body, patterns)
+    details = {}
+    if capture_decision:
+        details["allegation_structure"] = ({"page": result.document.page(allegation.offset), "rule": selector}
+                                          if allegation is not None else None)
     # Dla zarzutu z nagłówkiem kolejny wiersz zwykle opisuje podstawę prawną i skutki.
     # Typ czynności jest ustalany z nagłówka, bez przenoszenia motywów z uzasadnienia.
     decision = allegation
@@ -233,13 +250,14 @@ def challenged_action(result, config, body):
     if allegation and selector == "pierwszy_numerowany_zarzut" and not explicit:
         decision = allegation.slice(0, min(len(allegation.text), 240)).before(
             r"(?m):[ \t]*$|,[ \t\n]*tj\.")
-    chosen, date_scope = reason_evidence(decision, config) if decision else (None, None)
+    chosen, date_scope, excerpt = reason_evidence(decision, config) if decision else (None, None, None)
     if hint and not chosen and not explicit:
         # W starszej redakcji fakt poprzedzający zarzut opisuje kwestionowaną czynność.
         hint_scope = body.group(hint)
         chosen = classify_reason(hint_scope, config)
         if chosen:
-            allegation, selector = hint_scope, "czynność_wprowadzająca_pierwszy_zarzut"
+            allegation, excerpt = hint_scope, hint_scope
+            selector = "czynność_wprowadzająca_pierwszy_zarzut"
 
     prefix = ("OdwolanieKIO",)
     if chosen:
@@ -262,10 +280,15 @@ def challenged_action(result, config, body):
     result.put((*prefix, "czynnosc_powod_id"), reason_id, location, record["rule"])
     description = config["reasons"]["descriptions"][str(reason_id)]
     result.put((*prefix, "czynnosc_opis"), description, location, "opis_kanoniczny_id")
-    return {"first_allegation": record}
+    details["first_allegation"] = record
+    if capture_decision and excerpt is not None and any(char.isalnum() for char in excerpt.text):
+        details["decision_fragment"] = excerpt
+        source_offset = location if chosen else excerpt.offset
+        details["decision_source"] = {"page": result.document.page(source_offset), "rule": selector}
+    return details
 
 
-def appeal(result, config):
+def appeal(result, config, *, capture_decision=False):
     patterns = config["patterns"]
     document = Fragment(result.document.text)
     first_page = document.before(r"\f")
@@ -287,7 +310,7 @@ def appeal(result, config):
         add_party(result, config, key, role, block, buyers > 1)
     fields(result, config["header_fields"], cover)
     body = document.after(patterns["header"])
-    return challenged_action(result, config, body)
+    return challenged_action(result, config, body, capture_decision=capture_decision)
 
 
 BUILDERS = {"power_of_attorney": power_of_attorney, "appeal": appeal}

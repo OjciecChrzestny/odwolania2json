@@ -29,7 +29,7 @@ APPEAL_HEADER = (
 FIRST = "Zaniechanie odrzucenia oferty dnia 2 stycznia 2026"
 SECOND = "Wybór najkorzystniejszej oferty dnia 1 stycznia 2026"
 FORMAL = f"Zarzut 1: {FIRST}:\nUzasadnienie zarzutu.\nZarzut 2: {SECOND}"
-UNMATCHED = "Zamawiający pozbawił wykonawcę prawa dalszego udziału w postępowaniu."
+UNMATCHED = "Zamawiający odmówił dopuszczenia naszej spółki do dalszego udziału w postępowaniu."
 UNMATCHED_FORMAL = f"Zarzut 1: {UNMATCHED}\nZarzut 2: {SECOND}"
 HINT = "Zamawiający w dniu 3 stycznia 2026 r. wykluczył wykonawcę"
 TRANSFER = (
@@ -303,6 +303,68 @@ class OfflineTest(unittest.TestCase):
                 self.assertTrue(diagnostics["first_allegation"]["fallback"])
                 self.assertIn("fragment_sha256", diagnostics["decision_source"])
                 rpc.assert_not_called()
+
+    def test_transport_uses_a3_positive_evidence_and_never_a_disclaimed_action(self):
+        paraphrase = "Zamawiający pozbawił wykonawcę prawa dalszego udziału w postępowaniu."
+        samples = (
+            (paraphrase, 3, paraphrase, False),
+            ("Nie kwestionujemy wyboru oferty. Kwestionujemy wykluczenie wykonawcy.",
+             3, "wykluczenie wykonawcy.", False),
+            ("Wykluczenie wykonawcy. Nie kwestionujemy wyboru oferty.",
+             3, "Wykluczenie wykonawcy.", False),
+            ("Nie kwestionujemy wyboru oferty. Kwestionujemy odmowę dalszego udziału w przetargu.",
+             11, "odmowę dalszego udziału w przetargu.", True),
+            ("Nie kwestionujemy wyboru oferty.", 11, None, True),
+        )
+        for i, (text, baseline_id, expected, fallback) in enumerate(samples):
+            pdf = self.appeal(f"potwierdzenie-{i}.pdf", f"Zarzut I: {text}\nZarzut II: {SECOND}")
+            document, _ = read_pdf(pdf)
+            base, diag = extract(document, self.classes)
+            self.assertEqual(base["OdwolanieKIO"]["czynnosc_powod_id"], baseline_id)
+            self.assertEqual(diag["first_allegation"]["fallback"], fallback)
+            hashes = []
+            for label, provider in PROVIDERS.items():
+                with self.subTest(sample=i, provider=label):
+                    rpc = Mock(return_value=ok(12))
+                    value, record = classify_document(document, self.classes, self.descriptions,
+                                                      Adapter(provider, "placeholder", rpc))
+                    if expected is None:
+                        rpc.assert_not_called()
+                        self.assertEqual(record["experiment"]["cause"], "no_reliable_fragment")
+                        self.assertEqual(json_bytes(value), json_bytes(base))
+                        continue
+                    payload = json.loads(rpc.call_args.args[2])
+                    snippet = payload["messages"][1]["content"]
+                    self.assertEqual(snippet.strip().rstrip("."), expected.rstrip("."))
+                    offset = record["decision_source"]["start_offset"]
+                    self.assertEqual(snippet, document.text[offset:offset + len(snippet)])
+                    self.assertNotIn(SECOND, snippet)
+                    hashes.append(record["experiment"]["request_sha256"])
+            if expected is not None:
+                self.assertEqual(hashes[0], hashes[1])
+
+    def test_cover_page_ocr_and_power_of_attorney_are_the_same_in_all_modes(self):
+        pdf = self.root / "input" / "przelew.PDF"
+        write_pdf(pdf, "PISMO PRZEWODNIE", "Karta obiegu dokumentu", "")
+        reference = self.root / "A"
+        ocr = Mock(return_value=[(2, POWER)])
+        diag = reference / "diagnostics/extraction.json"
+        self.assertEqual(process(pdf.parent, reference / "output", self.classes, diag, ocr), 0)
+        ocr.assert_called_once_with(pdf, 3, start=2)
+        original = (reference / "output/przelew.json").read_bytes()
+        self.assertTrue(json.loads(original)["pelnomocnicy"])
+        for label in PROVIDERS:
+            with self.subTest(provider=label):
+                ocr.reset_mock()
+                rpc = Mock()
+                out = self.root / label
+                self.assertEqual(run_variant(pdf.parent, out, label, token="placeholder", transport=rpc,
+                                             mode="test_technical", ocr=ocr), 0)
+                ocr.assert_called_once_with(pdf, 3, start=2)
+                rpc.assert_not_called()
+                record, = records(out)
+                self.assertEqual((record["class"], record["ocr_pages"]), ("pelnomocnictwo", [3]))
+                self.assertEqual((out / "output/przelew.json").read_bytes(), original)
 
     def test_https_framing_without_network(self):
         payload = shared_payload(FIRST, self.descriptions)

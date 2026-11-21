@@ -51,7 +51,7 @@ def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
     return Document.from_pages(pages), ocr_pages
 
 
-def extract(document, classes):
+def extract(document, classes, *, capture_decision=False):
     name, signals = classify(document, classes)
     if name == "negative":
         return None, {"class": name, "status": "negative", "signals": signals, "fields": {}}
@@ -59,7 +59,10 @@ def extract(document, classes):
     result = Extraction(document, config["schema"], signals)
     apply_fields(result, config.get("fields", {}), document.text)
     builder = config.get("builder")
-    details = BUILDERS[builder](result, config) if builder else {}
+    if capture_decision and builder == "appeal":
+        details = BUILDERS[builder](result, config, capture_decision=True)
+    else:
+        details = BUILDERS[builder](result, config) if builder else {}
     errors = list(schema_errors(result.data, config["schema"]))
     if errors:
         raise ValueError(f"{name}: " + "; ".join(errors))

@@ -68,7 +68,7 @@ def run_variant(input_dir, run_dir, variant, *, token, transport, mode, ocr=None
     observations = {}
     current = None
 
-    def read_document(path, local_ocr):
+    def read_document(path, local_ocr, *, classes):
         nonlocal current
         current = observations[path.relative_to(input_dir).with_suffix(".json").as_posix()] = {
             "started": perf_counter(), "input_sha256": None,
@@ -76,7 +76,7 @@ def run_variant(input_dir, run_dir, variant, *, token, transport, mode, ocr=None
         try:
             with path.open("rb") as source:
                 current["input_sha256"] = hashlib.file_digest(source, "sha256").hexdigest()
-            return read_pdf(path, local_ocr)
+            return read_pdf(path, local_ocr, classes=classes)
         except (OSError, ValueError, PyPdfError, KeyError, TypeError, RuntimeError,
                 IndexError, OverflowError) as exc:
             current["document_seconds"] = perf_counter() - current["started"]

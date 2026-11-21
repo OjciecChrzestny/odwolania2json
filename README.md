@@ -1,6 +1,6 @@
 # Odwołania2JSON
 
-Wydanie konkursowe A2 dla zadania UZP na HackNation 2026 rozpoznaje odwołanie, pełnomocnictwo, przelew i dokument obcy. Działa lokalnie na CPU z polskim OCR. Po instalacji przetwarzanie nie wymaga sieci ani kluczy API.
+Domyślny wariant regułowy A3 dla zadania UZP na HackNation 2026 rozpoznaje odwołanie, pełnomocnictwo, przelew i dokument obcy. Działa lokalnie na CPU z polskim OCR. Po instalacji przetwarzanie nie wymaga sieci ani kluczy API.
 
 ## Instalacja i własne PDF-y
 
@@ -36,7 +36,7 @@ python -m odwolania2json --input moje-pdf --output wyniki \
 
 ### Opcjonalny OCR
 
-Tryb konkursowy korzysta z polskiego OCR. Natywnie włącz go na Linuxie z Pythonem 3.13 i polskimi danymi językowymi. A2 wywołuje OCR przy braku czytelnej warstwy tekstowej na początku PDF-u. Domyślne polecenie CLI bez flagi `--ocr-data` obsługuje PDF-y tekstowe.
+Tryb konkursowy korzysta z polskiego OCR. Natywnie włącz go na Linuxie z Pythonem 3.13 i polskimi danymi językowymi. A3 wywołuje OCR przy braku czytelnego tekstu na początku PDF-u. Po rozpoznaniu pisma przewodniego może także odczytać brakującą warstwę tekstową na stronie 2 lub 3. Domyślne polecenie CLI bez flagi `--ocr-data` obsługuje PDF-y tekstowe.
 
 ```sh
 python -m pip install --only-binary=:all: -r requirements-ocr.txt
@@ -51,7 +51,7 @@ Oczekiwany SHA-256 danych językowych to `c4476cdbc0e33d898d32345122b7be1cbf85ac
 
 ## Docker Compose
 
-Compose uruchamia ten sam pakiet A2 z lokalnym OCR i odciętą siecią. Z katalogu projektu na Linuxie:
+Compose uruchamia ten sam pakiet A3 z lokalnym OCR i odciętą siecią. Z katalogu projektu na Linuxie:
 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
@@ -92,11 +92,11 @@ Odbiór przelewu porównuje wszystkie pola z rozwojową referencją dopiero po u
 
 ## Wybór kandydata i pomiary
 
-Wybór przed testem końcowym to A2 z lokalnym OCR. Dwa syntetyczne potwierdzenia przelewu z nagłówkiem rozbitym na dwa wiersze dostały poprawne wyniki. Na zbiorze rozwojowym 128 JSON-ów A2 ma te same bajty co A. [Porównanie A2](RAPORT_A2.md)
+A3 uzyskał mikro-F1 0,9963 na 128 rozwojowych PDF-ach, z prawidłowym przebiegiem i 40/40 poprawnych ID. Wszystkie pliki wynikowe miały te same bajty co w A2. Dwie zmiany nazw i katalogów dla każdego wejścia dały 256/256 zgodnych wyników i rekordów diagnostyki z pominięciem ścieżki. Nowe dziesięć spraw A3 pozostaje zapieczętowane. [Odbiór A3](RAPORT_A3.md)
 
-Historyczna walidacja 0,9878 z `valid_run=false` dotyczy oryginalnego A. Eksperyment modeli B/C jest utrzymywany osobno na `codex/uzp-modele-bc`. [Raport A](RAPORT_A.md) · [Plan i zamrożony podział](PLAN.md)
+Wcześniejsza walidacja A dała mikro-F1 0,9878 z `valid_run=false`. Warianty B i C są opcjonalnym eksperymentem przy wyborze ID pierwszego zarzutu. Oba sprawdzono na atrapach z zablokowanym TCP. Domyślne CLI i obraz Compose pracują bez API. [Raport A](RAPORT_A.md) · [Eksperyment B/C](experiments/abc/README.md) · [Plan i podział danych](PLAN.md)
 
-[Raport odbioru z czystego klonu](RAPORT_RC1.md)
+[Odbiór historycznego RC1](RAPORT_RC1.md)
 
 ## Materiały przekazania
 
