@@ -10,6 +10,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 
+from proba import CLASS_BY_FILE, STAGE_FILES, checked_stage, digest, git, read_json, verify, write_json
+
 W, H = 960, 540
 PAPER = "#F6F4EC"
 INK = "#152E29"
@@ -44,10 +46,12 @@ def line(pdf, x1, x2, y):
     pdf.line(x1, H - y, x2, H - y)
 
 
-def start(pdf, label):
+def start(pdf, label, receipt, backup=False):
     box(pdf, 0, 0, W, H, PAPER)
     text(pdf, 52, 53, label, 14, "Lato Bold", GREEN)
     line(pdf, 52, 908, 68)
+    prefix = "ZAPIS PRÓBY · SYNTETYKI" if backup else "Rewizja próby"
+    text(pdf, 54, 524, f"{prefix}  /  {receipt['rewizja']['sha']}", 12, ink=MUTED)
 
 
 def title(pdf, value):
@@ -91,13 +95,13 @@ def evidence(diagnostics, output, field):
     return row["fields"][field]
 
 
-def present(path, work):
+def present(path, work, receipt):
     pdf = Canvas(str(path), pagesize=(W, H), pageCompression=1, invariant=1)
     pdf.setTitle("Odwołania2JSON — pokaz dla UZP")
     transfer = work / "input/doc_01.pdf"
     notice = work / "rozszerzenie/input/doc_01.pdf"
 
-    start(pdf, "HackNation 2026 / Urząd Zamówień Publicznych")
+    start(pdf, "HackNation 2026 / Urząd Zamówień Publicznych", receipt)
     text(pdf, 52, 164, "Odwołania2JSON", 72, "Lato Bold")
     text(pdf, 55, 213, "Dokumenty KIO jako ustrukturyzowane dane", 30)
     text(pdf, 55, 264, "Odwołanie, pełnomocnictwo i potwierdzenie przelewu", 21, ink=MUTED)
@@ -114,7 +118,7 @@ def present(path, work):
         text(pdf, x, 480, detail, 18, ink=MUTED)
     pdf.showPage()
 
-    start(pdf, "0:40–1:10 / Źródło pola")
+    start(pdf, "0:35–1:20 / Źródło pola", receipt)
     title(pdf, "Kwota z pierwszej strony PDF-u")
     pdf_page(pdf, transfer, 1, 54, 164, 430, 392)
     text(pdf, 56, 468, "Fikcyjne potwierdzenie przelewu", 17, ink=MUTED)
@@ -125,23 +129,32 @@ def present(path, work):
     block(pdf, 528, 414, ["Diagnostyka prowadzi do strony", "z wierszem „Kwota: 123,45 PLN”."], 20, 28)
     pdf.showPage()
 
-    start(pdf, "0:40–1:10 / Jakość ekstrakcji")
-    title(pdf, "Dwa pomiary na różnych zbiorach")
-    for x, label, score, corpus, note in [
-        (54, "Wariant A3", "0,9963", "128 PDF-ów rozwojowych",
-         ["40/40 poprawnych ID zarzutu.", "128/128 wyników jak w A2."]),
-        (505, "Wariant A2", "0,9822", "31 PDF-ów testu końcowego",
-         ["valid_run=false", "Pominięto jedno pełnomocnictwo."]),
-    ]:
-        text(pdf, x, 189, label, 24, "Lato Bold", GREEN)
-        text(pdf, x, 274, score, 71, "Lato Bold")
-        text(pdf, x + 2, 310, corpus, 25, "Lato Bold")
-        line(pdf, x, x + 400, 335)
-        block(pdf, x + 2, 370, note, 21, 32)
-    text(pdf, 54, 488, "Ścisłe mikro-F1. Wynik na zbiorze jury pozostaje nieznany.", 20, "Lato Bold", RUST)
+    review_page(pdf, work, receipt)
+
+    start(pdf, "0:35–1:20 / Jakość ekstrakcji", receipt)
+    title(pdf, "Ścisłe mikro-F1 na polach")
+    quality = receipt["jakosc"]
+    if quality is None:
+        text(pdf, 55, 211, "Pomiar tej rewizji czeka na odbiór", 31, "Lato Bold")
+        block(pdf, 55, 273, ["Pokaz używa wyłącznie syntetycznych PDF-ów.",
+                            "Znamy wyniki prób funkcjonalnych na tych przykładach.",
+                            "Wynik na zbiorze jury pozostaje nieznany."], 23, 41)
+    else:
+        fraction = f"{100 * quality['micro_f1']:.2f}".replace(".", ",")
+        valid = quality["valid_run"] and quality["valid_contract"]
+        corpus = {"rozwojowy": "rozwojowy", "niezalezny": "niezależny"}[quality["zbior"]]
+        text(pdf, 55, 235, f"{fraction}%", 68, "Lato Bold", GREEN if valid else RUST)
+        text(pdf, 55, 280, f"Zbiór {corpus} · PDF-y: {quality['liczba_pdf']}", 27, "Lato Bold")
+        text(pdf, 55, 324, f"TP {quality['tp']}   FP {quality['fp']}   FN {quality['fn']}", 23)
+        status = f"valid_run={str(quality['valid_run']).lower()}   " \
+                 f"valid_contract={str(quality['valid_contract']).lower()}"
+        text(pdf, 55, 376, status, 20, "Mono")
+        if not valid:
+            text(pdf, 55, 421, "Pomiar diagnostyczny. Warunek ważności niezaliczony.", 23, "Lato Bold", RUST)
+        text(pdf, 55, 486, "Wynik na zbiorze jury pozostaje nieznany.", 19, ink=MUTED)
     pdf.showPage()
 
-    start(pdf, "1:10–2:00 / Dodanie klasy")
+    start(pdf, "1:20–2:00 / Dodanie klasy", receipt)
     title(pdf, "Zawiadomienie w jednym pliku JSON")
     text(pdf, 54, 166, "zawiadomienie.json", 23, "Mono", GREEN)
     text(pdf, 54, 198, "Sygnały klasy, próg, schemat i reguły pól", 19, ink=MUTED)
@@ -150,11 +163,12 @@ def present(path, work):
     terminal(pdf, 494, 232, 412, 143, "DOC_01.JSON",
              (work / "rozszerzenie/demo/output/doc_01.json").read_text(encoding="utf-8"))
     text(pdf, 494, 414, "Obce pismo  0 B", 24, "Lato Bold", GREEN)
-    text(pdf, 494, 448, "Regresja rozwojowa  11/11", 23, "Lato Bold")
-    text(pdf, 494, 476, "Odbiór RC, w tym 8 pustych negatywów", 16, ink=MUTED)
+    count = len(CLASS_BY_FILE)
+    text(pdf, 494, 448, f"Regresja syntetyczna  {count}/{count}", 23, "Lato Bold")
+    text(pdf, 494, 476, "Zgodne sumy SHA-256 przed i po zmianie", 16, ink=MUTED)
     pdf.showPage()
 
-    start(pdf, "Aneks / Implementacja")
+    start(pdf, "Aneks / Implementacja", receipt)
     title(pdf, "Ekstrakcja lokalna, bez API")
     block(pdf, 55, 197, ["Python i pypdf odczytują warstwę tekstową.",
                         "OCR skanów używa pypdfium2 / PDFium i tesserocr / Tesseract.",
@@ -169,36 +183,50 @@ def present(path, work):
     pdf.save()
 
 
-def backup(path, work):
+def review_page(pdf, work, receipt, backup=False):
+    start(pdf, "Ekran 3 / Ręczna kontrola" if backup else "0:35–1:20 / Ręczna kontrola",
+          receipt, backup=backup)
+    title(pdf, "Przelew bez numeru transakcji")
+    pdf_page(pdf, work / "input/doc_05.pdf", 1, 54, 159, 427, 416)
+    result = read_json(work / "domyslne/output/doc_05.json")["przelew_bankowy"]
+    terminal(pdf, 510, 159, 396, 109, "FRAGMENT DOC_05.JSON",
+             json.dumps({"numer_transakcji": result["numer_transakcji"]}, indent=2), 14, 16)
+    block(pdf, 510, 326, ["Program zwrócił puste pole.",
+                          "Prezenter sprawdza stronę 1.",
+                          "Brak numeru w źródle."], 23, 38, "Lato", INK)
+    text(pdf, 510, 465, "Przykład ręcznej weryfikacji", 19, "Lato Bold", GREEN)
+    pdf.showPage()
+
+
+def backup(path, work, receipt):
     pdf = Canvas(str(path), pagesize=(W, H), pageCompression=1, invariant=1)
     pdf.setTitle("Odwołania2JSON — ekrany rezerwowe")
     transfer = work / "domyslne"
     extension = work / "rozszerzenie"
-    receipt = json.loads((work / "czasy-calosc.json").read_bytes())
-    footer = f"Zapis próby  /  {receipt['sha'][:12]}  /  Tylko syntetyki"
 
-    start(pdf, "Ekran 1 / PDF i wynik CLI")
+    start(pdf, "Ekran 1 / PDF i wynik CLI", receipt, backup=True)
     title(pdf, "Potwierdzenie przelewu")
     pdf_page(pdf, work / "input/doc_01.pdf", 1, 54, 159, 394, 440)
     terminal(pdf, 464, 159, 442, 266, "OUTPUT/DOC_01.JSON",
              (transfer / "output/doc_01.json").read_text(encoding="utf-8"), 13, 21)
     text(pdf, 54, 475, "doc_02.json  0 B  ·  Wezwanie do zapłaty", 22, "Lato Bold", GREEN)
-    text(pdf, 54, 515, footer, 14, ink=MUTED)
     pdf.showPage()
 
-    start(pdf, "Ekran 2 / Źródło pola")
+    start(pdf, "Ekran 2 / Źródło pola", receipt, backup=True)
     title(pdf, "Kwota 123.45 w JSON-ie")
     pdf_page(pdf, work / "input/doc_01.pdf", 1, 54, 159, 440, 355)
     field = "przelew_bankowy.kwota"
     row = evidence(transfer / "diagnostics/last-run.json", "doc_01.json", field)
-    snippet = json.dumps({field: row}, ensure_ascii=False, indent=2)
+    snippet = json.dumps({field: {"page": row["page"], "rule": row["rule"]}},
+                         ensure_ascii=False, indent=2)
     terminal(pdf, 524, 159, 382, 185, "DIAGNOSTYKA / FIELDS", snippet, 15, 22)
     text(pdf, 524, 395, "„Kwota: 123,45 PLN”", 24, "Lato Bold", GREEN)
     text(pdf, 524, 427, "Fikcyjny PDF · strona 1", 18, ink=MUTED)
-    text(pdf, 54, 515, footer, 14, ink=MUTED)
     pdf.showPage()
 
-    start(pdf, "Ekran 3 / Nowa klasa")
+    review_page(pdf, work, receipt, backup=True)
+
+    start(pdf, "Ekran 4 / Nowa klasa", receipt, backup=True)
     title(pdf, "Termin z drugiej strony")
     text(pdf, 54, 169, "demo/rozszerzalnosc/zawiadomienie.json", 19, "Mono", GREEN)
     pdf_page(pdf, extension / "input/doc_01.pdf", 2, 54, 199, 409, 218, 430)
@@ -208,8 +236,8 @@ def backup(path, work):
     text(pdf, 54, 446, f"Strona {row['page']} · {row['rule']}", 20, "Lato Bold")
     text(pdf, 494, 391, "Obce pismo  0 B", 22, "Lato Bold", GREEN)
     text(pdf, 494, 430, "Regresja na tych samych syntetykach", 20, "Lato Bold")
-    text(pdf, 494, 460, "4/4 zgodne SHA-256 · trzy klasy i negatyw", 18, ink=MUTED)
-    text(pdf, 54, 515, footer, 14, ink=MUTED)
+    count = len(CLASS_BY_FILE)
+    text(pdf, 494, 460, f"{count}/{count} zgodnych SHA-256", 18, ink=MUTED)
     pdf.save()
 
 
@@ -218,15 +246,32 @@ def main():
     parser.add_argument("work", type=Path, help="syntetyczny przebieg proba.py calosc")
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
+    repo = Path(__file__).resolve().parents[2]
+    receipt_path = args.work / "potwierdzenie.json"
+    receipt = read_json(receipt_path)
+    identity = receipt["rewizja"]
+    verify(identity["sha"], git(repo, "rev-parse", "HEAD"), "SHA materiałów")
+    verify(git(repo, "status", "--porcelain"), "", "Stan checkoutu")
+    for stage in STAGE_FILES:
+        verify(receipt["etapy"][stage], checked_stage(args.work, stage, identity), f"Zapis etapu {stage}")
+    if receipt["jakosc"] is not None:
+        verify(receipt["jakosc"]["sha"], identity["sha"], "SHA pomiaru jakości")
     fonts = Path("/usr/share/fonts/truetype")
     for name, file in [
         ("Lato", "lato/Lato-Regular.ttf"), ("Lato Bold", "lato/Lato-Bold.ttf"),
         ("Mono", "dejavu/DejaVuSansMono.ttf"),
     ]:
         pdfmetrics.registerFont(TTFont(name, str(fonts / file)))
-    args.output.mkdir(parents=True, exist_ok=True)
-    present(args.output / "prezentacja.pdf", args.work)
-    backup(args.output / "ekrany-rezerwowe.pdf", args.work)
+    args.output.mkdir()
+    presentation = args.output / "prezentacja.pdf"
+    saved = args.output / "ekrany-rezerwowe.pdf"
+    present(presentation, args.work, receipt)
+    backup(saved, args.work, receipt)
+    write_json(args.output / "materialy.json", {
+        "rewizja": identity,
+        "sha256_potwierdzenia": digest(receipt_path),
+        "pliki": {path.name: digest(path) for path in (presentation, saved)},
+    })
 
 
 if __name__ == "__main__":
