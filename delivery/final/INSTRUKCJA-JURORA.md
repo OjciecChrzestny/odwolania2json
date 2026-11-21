@@ -85,17 +85,34 @@ python demo/rozszerzalnosc/pokaz.py zrodlo "$IN/sprawa/pismo.pdf" \
 
 ### Kontrola przez operatora
 
-W tym samym środowisku co ekstrakcja zdefiniuj polecenie wskazujące jej wejście, wyjście i diagnostykę. Wybierz PDF z listy. Polecenie `show` pokazuje wynik, ocenę stron, powody kontroli oraz identyfikator bieżącej wersji.
+Użyj tych samych katalogów wejścia, wyjścia i diagnostyki co przy ekstrakcji. Wybierz polecenie dla swojego trybu.
+
+Po ekstrakcji natywnej, w aktywnym środowisku Pythona:
 
 ```sh
 kontrola() {
   python -m odwolania2json --input "$IN" --output "$OUT" --diagnostics "$DIAG/last-run.json" review "$@"
 }
+```
+
+Po ekstrakcji w Compose, z tymi samymi ustawieniami `ODW_*` i z katalogu repozytorium:
+
+```sh
+kontrola() {
+  docker compose run --rm --pull never cli review "$@"
+}
+```
+
+Wyświetl kolejkę i podaj względną ścieżkę PDF-u z listy. `show` pokazuje wynik, ocenę stron, powody kontroli oraz identyfikator bieżącej wersji.
+
+```sh
 kontrola list
 kontrola show sprawa/pismo.pdf
 ```
 
-Po porównaniu ze źródłem skopiuj `review_id` do zmiennej `ID`. Dla poprawnego wyniku użyj `kontrola accept sprawa/pismo.pdf --expect "$ID"`. Jeśli źródło potwierdza np. inną kwotę, użyj `kontrola correct sprawa/pismo.pdf --expect "$ID" --field przelew_bankowy.kwota --value 125.50`. Powtórne `show` wyświetla decyzję zapisaną w dzienniku SQLite obok diagnostyki. Oddany JSON zawiera surową ekstrakcję. Przy braku niezależnie zweryfikowanych profili wszystkie dokumenty trafiają do kontroli człowieka.
+Po kodzie 1 z ekstrakcji nadal możesz sprawdzić dokumenty. Dla uszkodzonego PDF-u `show` zwraca `status: read_error`, `review_status: unavailable` i `review_id: null`.
+
+Jeśli `show` zwróci identyfikator, porównaj wynik ze źródłem i skopiuj `review_id` do zmiennej `ID`. Dla poprawnego wyniku użyj `kontrola accept sprawa/pismo.pdf --expect "$ID"`. Jeśli źródło potwierdza np. inną kwotę, użyj `kontrola correct sprawa/pismo.pdf --expect "$ID" --field przelew_bankowy.kwota --value 125.50`. Powtórne `show` wyświetla decyzję zapisaną w dzienniku SQLite obok diagnostyki. Oddany JSON zawiera surową ekstrakcję. Przy braku niezależnie zweryfikowanych profili wszystkie dokumenty trafiają do kontroli człowieka.
 
 ## Skąd bierze się wynik
 
