@@ -1,21 +1,21 @@
-"""Odbiór publicznego CLI na syntetykach i dozwolonym podzbiorze development."""
+"""Odbiór zmiany profilu przez publiczne CLI na syntetykach i podzbiorze DEV."""
 import argparse
 import hashlib
-import io
 import json
 import os
 import shutil
 import subprocess
 import sys
-import tarfile
 from pathlib import Path
 
 from pypdf import PdfReader
 
-from pokaz import HERE, ROOT, prepare
+from pokaz import HERE, ROOT, prepare, write_new_notice
 
-BASE = "0dd1ed2f37f109dc7750c1309402bfb3a2b557e9"
 DEVELOPMENT = ROOT / "evaluation/development-40.json"
+DEFAULT_CONFIG = ROOT / "odwolania2json/classes"
+EXTRA_CLASS = HERE / "zawiadomienie.json"
+CONTEST_CLASSES = ["negative", "odwolanie", "pelnomocnictwo", "przelew"]
 
 
 def equal(actual, expected, label):
@@ -28,13 +28,13 @@ def sha(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def development_input(dataset, destination):
+def development_input(dataset, destination, subset_manifest):
     manifest = json.loads(DEVELOPMENT.read_bytes())
     revision = subprocess.check_output(
         ["git", "-C", dataset, "rev-parse", "HEAD"], text=True,
     ).strip()
     equal(revision, manifest["revision"], "Rewizja danych UZP")
-    classes = {}
+    classes, selected = {}, []
     for row in manifest["documents"]:
         relative = Path(row["input"])
         if relative.parts[0] != "case_10" and row["class"] != "negative":
@@ -45,37 +45,30 @@ def development_input(dataset, destination):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
         classes[relative.with_suffix(".json").as_posix()] = row["class"]
-    equal(sorted(value for name, value in classes.items() if name.startswith("case_10/")),
-          ["negative", "odwolanie", "pelnomocnictwo", "przelew"], "Klasy case_10")
-    equal(list(classes.values()).count("negative"), 8, "Liczba negatywów development")
+        selected.append(row)
+    equal(sorted(label for name, label in classes.items() if name.startswith("case_10/")),
+          CONTEST_CLASSES, "Klasy case_10")
+    equal(list(classes.values()).count("negative"), 8, "Negatywy DEV")
+    subset_manifest.write_text(
+        json.dumps({**manifest, "documents": selected}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return classes
 
 
-def project_code(work):
-    baseline, candidate = work / "kod-a", work / "kod-demo"
-    baseline.mkdir()
-    archive = subprocess.check_output(["git", "archive", BASE, "odwolania2json"], cwd=ROOT)
-    with tarfile.open(fileobj=io.BytesIO(archive)) as code:
-        code.extractall(baseline, filter="data")
-    shutil.copytree(ROOT / "odwolania2json", candidate / "odwolania2json",
-                    ignore=shutil.ignore_patterns("__pycache__"))
-    return baseline, candidate
-
-
-def run_cli(args, code, input_dir, name, config=None, ocr=False):
+def run_cli(args, code, input_dir, name, config, ocr_data=None):
     output = args.work / name
-    diagnostic_dir = args.work / "diagnostics"
-    diagnostic_dir.mkdir(exist_ok=True)
-    diagnostics = diagnostic_dir / f"{name}.json"
+    diagnostics = args.work / "diagnostics" / f"{name}.json"
+    diagnostics.parent.mkdir(exist_ok=True)
     command = [sys.executable, "-m", "odwolania2json", "--input", input_dir,
                "--output", output, "--diagnostics", diagnostics]
     reads = [code, input_dir]
-    if config:
+    if config is not None:
         command += ["--config", config]
         reads.append(config)
-    if ocr:
-        command += ["--ocr-data", args.ocr_data]
-        reads.append(args.ocr_data)
+    if ocr_data is not None:
+        command += ["--ocr-data", ocr_data]
+        reads.append(ocr_data)
     if args.restrict_linux:
         output.mkdir()
         journal = output.with_name(f".{output.name}.odwolania2json")
@@ -84,16 +77,18 @@ def run_cli(args, code, input_dir, name, config=None, ocr=False):
         for path in ["/usr", "/etc/ld.so.cache", "/dev/null", "/dev/urandom",
                      sys.base_prefix, sys.prefix, *reads]:
             prefix += ["-r", path]
-        for path in [output, journal, diagnostic_dir]:
+        for path in [output, journal, diagnostics.parent]:
             prefix += ["-w", path]
         command = prefix + ["--"] + command
     env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
            "OMP_THREAD_LIMIT": "1"}
-    for name in ("PYTHONPATH", "UZP_DATA"):
-        env.pop(name, None)
+    for variable in ("PYTHONPATH", "UZP_DATA"):
+        env.pop(variable, None)
     subprocess.run(command, cwd=code, env=env, check=True)
     rows = json.loads(diagnostics.read_bytes())["documents"]
-    return output, {row["output"]: row for row in rows}
+    records = {row["output"]: row for row in rows}
+    equal(len(records), len(rows), f"Unikatowe rekordy diagnostyki {name}")
+    return output, records
 
 
 def results(output, records, classes):
@@ -103,23 +98,21 @@ def results(output, records, classes):
     for name, label in classes.items():
         equal(records[name]["class"], label, f"Klasa {name} ({output.name})")
         negative = label == "negative"
-        equal(records[name]["status"], "negative" if negative else "ok", f"Status {name}")
+        equal(records[name]["status"], "negative" if negative else "ok", f"Status {name} ({output.name})")
         equal((output / name).stat().st_size == 0, negative, f"Pusty JSON {name} ({output.name})")
     return {name: sha(output / name) for name in sorted(files)}
 
 
-def synthetic(args, baseline, candidate, config):
-    expected = json.loads((HERE / "expected.json").read_bytes())
-    input_dir = args.work / "input"
-    negatives = dict.fromkeys(expected, "negative")
-    for code, name in [(baseline, "syntetyki-a"), (candidate, "syntetyki-domyslne")]:
-        results(*run_cli(args, code, input_dir, name), negatives)
-        print(f"{name} | {len(negatives)}/{len(negatives)} wyników po 0 B")
-    if args.before:
-        return
-    classes = {name: "zawiadomienie" if spec else "negative" for name, spec in expected.items()}
-    output, records = run_cli(args, candidate, input_dir, "syntetyki-demo", config)
-    results(output, records, classes)
+def synthetic(input_dir, output, records, expected, extended):
+    classes = {name: "zawiadomienie" if extended and spec else "negative"
+               for name, spec in expected.items()}
+    digests = results(output, records, classes)
+    negatives = list(classes.values()).count("negative")
+    print(f"{output.name} | {negatives}/{len(classes)} wyników 0 B", flush=True)
+    if not extended:
+        return digests
+
+    verified_fields = 0
     for name, spec in expected.items():
         if spec is None:
             print(f"{name} | negatyw w profilu demo | 0 B")
@@ -134,35 +127,108 @@ def synthetic(args, baseline, candidate, config):
             page = observed["page"]
             line = spec["source_lines"][field]
             equal(line in pdf.pages[page - 1].extract_text().splitlines(), True, f"Wiersz {name} s. {page}")
+            verified_fields += 1
             print(f"  {field} | s. {page} | {observed['rule']} | {line}")
+    print(f"Profil demo | {len(classes) - negatives}/{len(classes)} zawiadomienia, "
+          f"{verified_fields} zweryfikowanych pól ze źródłem.", flush=True)
+    return digests
+
+
+def profile_files(config):
+    return {path.name: sha(path) for path in sorted(config.glob("*.json"))}
+
+
+def profiles(work):
+    config = work / "klasy"
+    names = sorted(json.loads(path.read_bytes())["class"] for path in DEFAULT_CONFIG.glob("*.json"))
+    equal(names, CONTEST_CLASSES[1:], "Klasy profilu konkursowego")
+    stock = profile_files(DEFAULT_CONFIG)
+    equal(profile_files(config), stock, "Kopia profilu konkursowego")
+    yield "konkurs", None
+
+    extra = config / EXTRA_CLASS.name
+    if extra.exists():
+        raise ValueError(f"Plik już istnieje w profilu konkursowym: {extra}")
+    shutil.copyfile(EXTRA_CLASS, extra)
+    equal(profile_files(config), {**stock, extra.name: sha(EXTRA_CLASS)}, "Jeden nowy plik profilu")
+    diff = subprocess.run(
+        ["git", "diff", "--no-index", "--", DEFAULT_CONFIG, config],
+        capture_output=True,
+    )
+    equal(diff.returncode, 1, f"Różnica profili ({diff.stderr.decode(errors='replace')})")
+    (work / "roznica-konfiguracji.diff").write_bytes(diff.stdout)
+    print(f"Profil demo | +{extra.name} | {sha(extra)}", flush=True)
+    yield "demo", config
+
+    extra.unlink()
+    equal(profile_files(config), stock, "Przywrócona kopia profilu konkursowego")
+    yield "przywrocony", config
+
+
+def score_development(args, output, subset_manifest):
+    path = args.work / "development-score.json"
+    with path.open("wb") as stream:
+        subprocess.run(
+            [sys.executable, ROOT / "evaluation/score.py", args.dataset, output, "--manifest", subset_manifest],
+            stdout=stream, check=True,
+        )
+    score = json.loads(path.read_bytes())
+    equal((score["fp"], score["fn"]), (0, 0), f"Pola względem etykiet DEV ({path})")
+    for row in score["documents"]:
+        if row["class"] != "negative":
+            print(f"{row['class']} | {row['tp']}/{row['tp'] + row['fn']} pól względem etykiet")
+    print(f"Etykiety DEV | TP={score['tp']}, FP={score['fp']}, FN={score['fn']}, "
+          f"mikro-F1={score['micro_f1']:.2%}.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", type=Path, required=True, help="nowy katalog przebiegu")
-    parser.add_argument("--dataset", type=Path, required=True, help="przypięta kopia UZP")
-    parser.add_argument("--ocr-data", type=Path, required=True, help="katalog pol.traineddata")
+    parser.add_argument("--dataset", type=Path, help="przypięta kopia danych DEV do pełnego odbioru")
+    parser.add_argument("--ocr-data", type=Path, help="opcjonalny katalog pol.traineddata dla DEV")
     parser.add_argument("--restrict-linux", type=Path, help="opcjonalny izolator Landlock z evaluation")
-    parser.add_argument("--before", action="store_true", help="odbiór przed dodaniem pliku konfiguracji")
     args = parser.parse_args()
+    if args.ocr_data and not args.dataset:
+        parser.error("--ocr-data wymaga --dataset")
     for name in ("work", "dataset", "ocr_data", "restrict_linux"):
         path = getattr(args, name)
         if path:
             setattr(args, name, path.resolve())
+
     prepare(args.work)
-    baseline, candidate = project_code(args.work)
-    config = args.work / "klasy"
-    if not args.before:
-        shutil.copyfile(HERE / "zawiadomienie.json", config / "zawiadomienie.json")
-    synthetic(args, baseline, candidate, config)
-    input_dir = args.work / "development-pdf"
-    classes = development_input(args.dataset, input_dir)
-    reference = results(*run_cli(args, baseline, input_dir, "development-a", ocr=True), classes)
-    compared = results(*run_cli(args, candidate, input_dir, "development-demo", config, ocr=True), classes)
-    equal(compared, reference, "Ścieżki i SHA-256 JSON-ów development")
-    for name, digest in compared.items():
-        print(f"{name} | {classes[name]} | {digest}")
-    print(f"Regresja: {len(compared)}/{len(classes)} zgodnych ścieżek i SHA-256, 8/8 negatywów po 0 B.")
+    input_dir = args.work / "input"
+    fresh = input_dir / "wejscie-04.pdf"
+    write_new_notice(fresh)
+    print(f"Nowy PDF | {fresh.name} | SHA-256 {sha(fresh)}", flush=True)
+    expected = json.loads((HERE / "expected.json").read_bytes())
+
+    code = args.work / "kod"
+    shutil.copytree(ROOT / "odwolania2json", code / "odwolania2json",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    dev_input = args.work / "development-pdf"
+    subset_manifest = args.work / "development-manifest.json"
+    if args.dataset:
+        dev_classes = development_input(args.dataset, dev_input, subset_manifest)
+
+    synthetic_digests, development_digests = {}, {}
+    for phase, config in profiles(args.work):
+        output, records = run_cli(args, code, input_dir, f"syntetyki-{phase}", config)
+        synthetic_digests[phase] = synthetic(input_dir, output, records, expected, phase == "demo")
+        if args.dataset:
+            output, records = run_cli(args, code, dev_input, f"development-{phase}", config, args.ocr_data)
+            development_digests[phase] = results(output, records, dev_classes)
+
+    equal(synthetic_digests["przywrocony"], synthetic_digests["konkurs"], "Powrót syntetyków do profilu konkursowego")
+    if args.dataset:
+        reference = development_digests["konkurs"]
+        for phase in ("demo", "przywrocony"):
+            equal(development_digests[phase], reference, f"Ścieżki i SHA-256 DEV ({phase})")
+        (args.work / "development-sha256.json").write_text(json.dumps(reference, indent=2) + "\n", encoding="utf-8")
+        print(f"DEV | {len(reference)}/{len(dev_classes)} zgodnych ścieżek i SHA-256 w trzech przebiegach, "
+              "3/3 dokumenty konkursowe i 8/8 negatywów po 0 B w każdym przebiegu.")
+        score_development(args, args.work / "development-konkurs", subset_manifest)
+    else:
+        print("Próba syntetyczna. Pełny odbiór obejmuje podzbiór DEV przekazany przez --dataset.")
     print(f"Dowody przebiegu: {args.work}")
 
 
