@@ -141,7 +141,9 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 
 **Najbliższy termin organizacyjny.** Szkic w HackTribe musi istnieć i wskazywać zadanie UZP przed 20:00 w sobotę 21 listopada. Na godzinę tego zapisu w materiałach projektu brakuje potwierdzenia. Termin finalnego zgłoszenia to 11:00 w niedzielę 22 listopada. [Przewodnik HackNation](https://hacknation.pl/przewodnik-uczestnika)
 
-**Następny krok techniczny.** Na osobnych skanach rozwojowych potwierdzeń i podobnych pism obcych odtworzyć błąd przelewu, a następnie poprawić klasyfikację i odczyt kwoty, daty oraz ról rachunków w A3. Odbiór wymaga zgodności tych pól z referencjami na przykładach kontrolnych, plików 0 B dla negatywów i sprawdzenia regresji na dotychczasowych 128 PDF-ach. Kolejne poprawki obejmą odczyt pierwszego zarzutu na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
+**Przelewy A3.** Wersja `1503772` przeszła odbiór na VPS. Mikro-F1 na 40 skanach rozwojowych wzrosło z 81,63% do 90,17%, a 128 dotychczasowych plików wynikowych pozostało identycznych bajtowo. Odłożony generator KontoBank dał 98,11% na jednym układzie. Na polskiej ilustracji Pekao24 poprawnie rozpoznano klasę, lecz pominięto oba widoczne pola. [Raport i polecenia weryfikacji](RAPORT_PRZELEWY_A3.md)
+
+**Następny krok techniczny.** Przed kolejną zmianą rozbudować nietkniętą rezerwę KARR o dwa niezależne polskie układy z różnymi rachunkami stron. Na osobnych skanach rozwojowych poprawić odczyt kwoty i daty z obrazu o niskiej rozdzielczości. Odbiór wymaga zgodności obu pól na nowych układach, 0 B dla faktury i zgodności bajtowej 128 wyników rozwojowych. Po tym odbiorze kolejka obejmuje pierwszy zarzut na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
 
 Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 

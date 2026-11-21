@@ -1,0 +1,104 @@
+{
+  "seal_sha256": "ff41aa86662a51e55a8db3a89f5af1f9da9766a227997019d9ae1d1ab8eae886",
+  "sealed_utc": "2026-11-21T19:03:38.166700+00:00",
+  "baseline": "5de75693429d9699368b958cd54eda4dd76e4900",
+  "policy_sha256": "0ade1b02ffebc4280ca1b30211aab10163e49c92c068b2f28bafe6410eb1db68",
+  "counts": {
+    "dev": 4,
+    "held_native": 11,
+    "held_scan": 11,
+    "held_pl": 1,
+    "held_neg": 3,
+    "uzp_dev_scan": 40
+  },
+  "manifest_sha256": {
+    "dev": "4c4f547b21c7671cac4619045d0198ba0d55280c33d4e16c7ddf2fd95ad620d1",
+    "held_native": "0fac0509d76d8fd9772c1e7591545f73264bb36ff1a17a630806578a1efc126e",
+    "held_scan": "14bdc754414bb65006717282ed7ecce83748d72112a49669b8bc756a7a051475",
+    "held_pl": "32f0c54dada1ab0fb01ed7c4f60e7a1d0f1878a710af382ecf62ccd206b0ad72",
+    "held_neg": "681ccf650bde431ac510b9ee21239a621293659c770676cf69b3a34a1cc1f936",
+    "uzp_dev_scan": "5285f10b6379607f54f1ef3769d218f374c1307a77a55513689f21a43d4f6103"
+  },
+  "inventory_sha256": "0963ccab0600df71eced8872b4312eee48845a98a650da0c7924cebfe79c38b7",
+  "source_sha256": {
+    "siedlec.pdf": "69ce03444da77aed9e83f7bfc5ef1c562a7c9b181988162446b9779fcb6004c3",
+    "ecorpo.pdf": "856a87b9c60663c1957370fc0db70ef21acc49aae2182dd4976c7af28cb6c785",
+    "mf_example.png": "2a5ef706ba66558d9dfbfc20bb9033f268f79a01bafa94ec9e4b3442319c4f54",
+    "asseco.pdf": "acf7a596f3e83730ef6fcdce424e2034b21edd7a2e872dd95b2df5c27e57b267",
+    "poznan.pdf": "d8be0f94b12624e4afd36452472028f2e8ef88995ec29e8bffe012d74c5c9b1c",
+    "citibank.pdf": "62207e8291766849fcd862576a959503d3fb78e37b832efb1c675c58aa5628da",
+    "pko.pdf": "29e5933bedffcb66c65c2ce90e55c58e7968bab52bfcf5c50315a9959084fedb",
+    "bps.pdf": "859824abfa5b37473217865cab671e033c65fdd3a50f099fea9bf15f7c17802b"
+  },
+  "new_vs_old_pdf_sha256_intersections": {
+    "development-40.json": 0,
+    "validation-10.json": 0,
+    "final-10.json": 0,
+    "manifest.json": 0
+  },
+  "old_distinct_pdf_hash_counts": {
+    "development-40.json": 128,
+    "validation-10.json": 32,
+    "final-10.json": 31,
+    "manifest.json": 30
+  },
+  "dev_held_byte_overlap": 0,
+  "dev_held_family_overlap": [],
+  "added_test_pre_tuning": "Pekao24 public educational sample redacted before evaluation, two visible target values. Three full independent guides as negatives. Repeated simulation titles/grouped native/raster samples. Rasterized UZP development is a paired diagnostic, not new independent evidence.",
+  "families": {
+    "dev": [
+      "Asseco CBP",
+      "MF KSeF",
+      "Novum",
+      "SoftNet eCorpoNet"
+    ],
+    "held_native": [
+      "KontoBank"
+    ],
+    "held_scan": [
+      "KontoBank"
+    ],
+    "held_pl": [
+      "Pekao24"
+    ],
+    "held_neg": [
+      "Bank BPS",
+      "Citi",
+      "PKO Bankomania"
+    ],
+    "uzp_dev_scan": [
+      "UZP development-40"
+    ]
+  },
+  "sources": {
+    "siedlec": "https://banksiedlec.pl/web/files/37822/Internet-Banking-klienta-indywidualnego-instrukcja-uzytkownika-wersja-28.40.pdf",
+    "ecorpo": "https://www.bs-wloszczowa.com.pl/aktualnosci/nowa-wersja-ecorponet/download/1.pdf",
+    "ksef": "https://ksef.podatki.gov.pl/informacje-ogolne-ksef-20/potwierdzenie-transakcji/",
+    "mf_example": "https://ksef.podatki.gov.pl/media/lyljflog/artykul-potwierdzenie-transakcji_04.png",
+    "asseco": "https://www.bsklodzko.pl/images/pdf/pliki-do-pobrania/def3000_CBP_Miniaplikacja_Przelewy.pdf",
+    "konto_documentation": "https://developer.kontomatik.com/first-steps/pdf-confirmations-parsing/#testing",
+    "konto": "https://bank.kontomatik.com/pdf/",
+    "poznan": "https://css.put.poznan.pl/sites/default/files/2025-03/PROCEDURY-27.10.2023.pdf",
+    "pko": "https://bankomania.pkobp.pl/media_files/63a7b53d-f643-4269-8712-67953e144680.pdf",
+    "citibank": "https://www.citibank.pl/poland/corporate/polish/files/pierwsze_kroki_uzytkownika_citi_payment_insights_pl.pdf",
+    "bps": "https://www.bankbps.pl/images/Dokumenty/09.2025/Podrecznik%20Uzytkownika%20systemu%20BPS%20Online%20dla%20klienta%20firmowowego_wrzesien_2025.pdf"
+  },
+  "candidate": "1503772cbffe5369a4c9bc8548221a445fed7e8e",
+  "reserve": {
+    "seal_sha256": "ef670eff07af4619d4a7e49a7262bfe8108f6311bd54de5ca37f21086914177e",
+    "created_utc": "2026-11-21T19:16:34.930895+00:00",
+    "source": "https://karrsa.eu/wp-content/uploads/2023/03/INSTRUKCJA-ROZLICZENIA-POZYCZKI-UNIWERSALNEJ.pdf",
+    "original_sha256": "92fcb5a40f880a36d7c29eb7a1f4f849106cd3a6292e5a97bbd757d2294c97c8",
+    "pages": {
+      "2": "faktura, negatyw",
+      "3": "przykład KARR w układzie mBank, pozytyw"
+    },
+    "tested": false,
+    "manifests": {
+      "native": "9bdf996d17790b9768d4c2252caeae2963388dd8f320e6829a73f8d203e793dd",
+      "scan": "1daa3c277054c6b2a9a2a8707b400a71b6e3de5728d62509010097ee1d3a5f18"
+    },
+    "overlap_pdf_sha256_with_v1_and_old_uzp": 0,
+    "notes": "Dwie wersje tych samych dwóch dokumentów. W demonstracji oba rachunki mają identyczne drukowane zera. ID składa się z zer. Ta para testuje kwotę, datę, tytuł i odrzucenie faktury; poprawności rozróżnienia stron nie można z niej wywnioskować."
+  }
+}
