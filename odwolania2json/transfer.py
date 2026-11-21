@@ -1,6 +1,7 @@
 """Read labelled bank-transfer tables when PDF/OCR flattens their columns."""
 import re
 
+from .bank_scan import table_numbers
 from .operations import DATE, apply_fields, normalize
 from .transfer_title import TITLE, apply_transfer_title
 
@@ -16,7 +17,6 @@ ACCOUNT = re.compile(
 )
 OWN = re.compile(r"^(?:Account (?:info(?:rmation)?|details)|Dane rachunku|Rachunek własny)\s*:?$", re.I)
 STOP = re.compile(r"^(?:Szczegóły|Transaction details|Kwota|Wartość|Data|Tytuł|Opis|Amount|Title|Status|Nr ref)\b", re.I)
-MONEY = re.compile(r"(?<![\d.,])(?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2}(?![\d.,])")
 DATE_VALUE = re.compile(DATE, re.I)
 REF = re.compile(
     r"^(?:(?P<bank>Referencj[ae] banku|Bank reference(?: number)?)"
@@ -104,23 +104,20 @@ def account_tables(result, lines):
 
 
 def amount_and_date(result, lines):
-    for i, (_, line) in enumerate(lines[:-1]):
-        if not (re.search(r"\b(?:Kwota|Wartość)\b", line, re.I)
-                and re.search(r"\bData (?:transakcji|realizacji|operacji|wykonania)\b", line, re.I)):
+    bank = result.data["przelew_bankowy"]
+    candidates = {}
+    for (_, header), (pos, values) in zip(lines, lines[1:]):
+        for priority, token in table_numbers(header, values):
+            candidates.setdefault(token.key, []).append((priority, token.value, pos + token.start))
+    for key, hits in candidates.items():
+        path = ("przelew_bankowy", key)
+        rule = result.evidence.get(".".join(path), {}).get("rule")
+        ranked = max(priority for priority, _, _ in hits)
+        best = [(value, pos) for priority, value, pos in hits if priority == ranked]
+        if len({value for value, _ in best}) != 1:
             continue
-        pos, values = lines[i + 1]
-        dates = list(DATE_VALUE.finditer(values))
-        if len(dates) != 1:
-            continue
-        date = dates[0]
-        # A date such as 12.03.2024 must not become the amount.
-        money = list(MONEY.finditer(values[:date.start()] + " " * len(date[0]) + values[date.end():]))
-        if len(money) != 1:
-            continue
-        for key, match, operation in (("data_operacji", date, "date"), ("kwota", money[0], "money")):
-            if result.data["przelew_bankowy"][key] is None:
-                result.put(("przelew_bankowy", key), normalize(match[0], operation),
-                           pos + match.start(), "kwota_i_data_w_kolumnach")
+        if bank[key] is None or (ranked == 3 and rule == "data_zaksięgowania"):
+            result.put(path, *best[0], "kwota_i_data_w_kolumnach")
 
 
 def reference_value(text, *, bank_reference):
