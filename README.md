@@ -1,10 +1,12 @@
 # Odwołania2JSON
 
-Domyślny wariant regułowy A3 dla zadania UZP na HackNation 2026 rozpoznaje odwołanie, pełnomocnictwo, przelew i dokument obcy. Działa lokalnie na CPU z polskim OCR. Po instalacji przetwarzanie nie wymaga sieci ani kluczy API.
+Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przelewów. Dla dokumentów obcych zapisuje plik 0 B. Wariant A3 stosuje reguły i lokalny polski OCR na CPU. Przetwarzanie działa bez sieci, GPU i klucza API.
+
+[Instrukcja jurora od czystej kopii z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md)
 
 ## Instalacja i własne PDF-y
 
-Wymagany jest Python 3.13 lub nowszy. Z katalogu repozytorium na Linuxie:
+Wymagany jest Python 3.13 lub nowszy. Przy pierwszej instalacji pip pobiera zależności. Poniższe polecenia uruchom z katalogu głównego repozytorium na Linuksie.
 
 ```sh
 python3.13 -m venv .venv
@@ -27,7 +29,7 @@ New-Item -ItemType Directory -Path input -Force | Out-Null
 
 Wejście `input/sprawa/pismo.pdf` daje `output/sprawa/pismo.json`. Dla dokumentu obcego plik ma dokładnie 0 bajtów. Dla błędu odczytu CLI pomija wynik tego PDF-u, zapisuje status `read_error`, kończy pozostałe dokumenty i zwraca kod 1. Kod 2 sygnalizuje błąd konfiguracji lub operacji na drzewie. Powtórny bieg usuwa przestarzałe wyniki zapisane w ewidencji obok drzewa (domyślnie `.output.odwolania2json/`). Samodzielnie dodane pliki pozostają na miejscu. Aby zacząć nowy przebieg, wskaż nowy katalog przez `--output`.
 
-Diagnostyka w `diagnostics/last-run.json` zapisuje klasę przed oceną, status, strony OCR oraz regułę i numer strony dla wydobytego pola. Inne katalogi wejściowe i wyjściowe oraz ścieżkę diagnostyki można wskazać jawnie:
+Diagnostyka w `diagnostics/last-run.json` zapisuje status, przypisaną klasę, strony poddane OCR oraz regułę i numer strony dla wydobytego pola. Ścieżki można wskazać jawnie. Użyj odrębnych katalogów wejściowych, wyjściowych i diagnostycznych.
 
 ```sh
 python -m odwolania2json --input moje-pdf --output wyniki \
@@ -36,36 +38,43 @@ python -m odwolania2json --input moje-pdf --output wyniki \
 
 ### Opcjonalny OCR
 
-Tryb konkursowy korzysta z polskiego OCR. Natywnie włącz go na Linuxie z Pythonem 3.13 i polskimi danymi językowymi. A3 wywołuje OCR przy braku czytelnego tekstu na początku PDF-u. Po rozpoznaniu pisma przewodniego może także odczytać brakującą warstwę tekstową na stronie 2 lub 3. Domyślne polecenie CLI bez flagi `--ocr-data` obsługuje PDF-y tekstowe.
+Do dokumentów skanowanych włącz polski OCR lub użyj Compose. Poniższe polecenia wykonaj na Linuksie w środowisku utworzonym powyżej. Koła binarne muszą być dostępne dla używanej wersji Pythona i architektury. Plik językowy jest przypięty do wydania `tessdata_fast` 4.1.0.
 
 ```sh
 python -m pip install --only-binary=:all: -r requirements-ocr.txt
-mkdir -p /bezwzgledna/sciezka/tessdata
+TESSDATA="$PWD/.venv/tessdata"
+mkdir -p "$TESSDATA"
 curl -fsSL https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/4.1.0/pol.traineddata \
-  -o /bezwzgledna/sciezka/tessdata/pol.traineddata
-sha256sum /bezwzgledna/sciezka/tessdata/pol.traineddata
-python -m odwolania2json --ocr-data /bezwzgledna/sciezka/tessdata
+  -o "$TESSDATA/pol.traineddata"
+printf '%s  %s\n' c4476cdbc0e33d898d32345122b7be1cbf85ace15f920f06c7714756e1ef79b2 \
+  "$TESSDATA/pol.traineddata" | sha256sum -c -
 ```
 
-Oczekiwany SHA-256 danych językowych to `c4476cdbc0e33d898d32345122b7be1cbf85ace15f920f06c7714756e1ef79b2`. Komponenty to pypdf, opcjonalnie PDFium przez pypdfium2 oraz Tesseract przez tesserocr.
+Po potwierdzeniu sumy uruchom OCR na domyślnych katalogach:
+
+```sh
+OMP_THREAD_LIMIT=1 python -m odwolania2json --ocr-data "$TESSDATA"
+```
+
+A3 odczytuje przez OCR wybrane strony, gdy brakuje czytelnej warstwy tekstowej. Odczyt używa pypdf, a OCR korzysta z PDFium przez pypdfium2 i z Tesseract przez tesserocr. [Pochodzenie i licencje komponentów](delivery/final/INSTRUKCJA-JURORA.md#komponenty-zewnętrzne)
 
 ## Docker Compose
 
-Compose uruchamia ten sam pakiet A3 z lokalnym OCR i odciętą siecią. Z katalogu projektu na Linuxie:
+Wymagany jest Docker Engine z kontenerami linuksowymi, Compose v2 i BuildKit. Budowa obrazu pobiera zależności. Kontener uruchamia A3 z polskim OCR i ma wyłączoną sieć. W trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed uruchomieniem kontenera.
 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
 export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
-# Wstaw swoje PDF-y do input/ przed uruchomieniem usługi.
+# Wstaw PDF-y do input/ przed uruchomieniem usługi.
 docker compose build cli
-docker compose run --rm cli
+docker compose run --rm --pull never -e OMP_THREAD_LIMIT=1 cli
 ```
 
-Dla silnika rootless ustaw `ODW_UID=0 ODW_GID=0` dla uruchomienia kontenera. Pełna instrukcja zawiera wariant Windows i własne katalogi hosta. [Instrukcja Compose](delivery/compose/README.md)
+[Compose z własnymi katalogami oraz instrukcja dla Windows](delivery/compose/README.md)
 
 ## Reguły i rozszerzanie
 
-Definicje klas w [katalogu konfiguracji](odwolania2json/classes) zawierają punktowane sygnały, próg rozpoznania, schemat, wzorce pól i operacje normalizacji. Pierwsza reguła pola, która daje poprawną wartość, wygrywa. Do prostych klas wystarczy własny plik JSON z unikatową nazwą `class`, listą `signals`, progiem `threshold`, obiektem `schema` i mapą `fields`. Reguła pola używa pierwszej grupy przechwytującej i opcjonalnej operacji, np. `date` z symbolem `<DATE>`. Pole opisane jako `date?` przyjmuje datę ISO lub `null`. Przykład niezależnej klasy z dwoma polami jest w `ExtensionTest`.
+Domyślne konfiguracje to `odwolanie.json`, `pelnomocnictwo.json` i `przelew.json`. Definicje klas zawierają punktowane sygnały, próg rozpoznania, schemat, wzorce pól i operacje normalizacji. Brak kandydata spełniającego próg lub remis daje wynik dokumentu obcego. Pierwsza reguła pola, która daje poprawną wartość, wygrywa. Do prostych klas wystarczy własny plik JSON z unikatową nazwą `class`, listą `signals`, progiem `threshold`, obiektem `schema` i mapą `fields`. Reguła pola używa pierwszej grupy przechwytującej i opcjonalnej operacji, np. `date` z symbolem `<DATE>`. Pole opisane jako `date?` przyjmuje datę ISO lub `null`. Przykład niezależnej klasy z dwoma polami jest w `ExtensionTest`. [Katalog konfiguracji klas](odwolania2json/classes)
 
 Sygnał klasy może mieć opcjonalną mapę `requires`. Każdy nazwany wzorzec z mapy musi pasować na tej samej stronie co wzorzec główny. Diagnostyka zapisuje nazwy spełnionych warunków w `criteria`. W klasie przelewu ustawienie `retry_ocr` przy sygnale nagłówka pozwala ponownie odczytać układ pierwszej strony skanu. Oba odczyty obowiązują te same kryteria rozpoznania.
 
@@ -94,14 +103,14 @@ Odbiór przelewu porównuje wszystkie pola z rozwojową referencją dopiero po u
 
 ## Wybór kandydata i pomiary
 
-A3 uzyskał mikro-F1 0,9963 na 128 rozwojowych PDF-ach, z prawidłowym przebiegiem i 40/40 poprawnych ID. Wszystkie pliki wynikowe miały te same bajty co w A2. Dwie zmiany nazw i katalogów dla każdego wejścia dały 256/256 zgodnych wyników i rekordów diagnostyki z pominięciem ścieżki. Nowe dziesięć spraw A3 pozostaje zapieczętowane. [Odbiór A3](RAPORT_A3.md)
+A3 uzyskał mikro-F1 0,9963 na 128 rozwojowych PDF-ach, z prawidłowym przebiegiem i 40/40 poprawnych ID. Wszystkie pliki wynikowe miały te same bajty co w A2. Dwie zmiany nazw i katalogów dla każdego wejścia dały 256/256 zgodnych wyników i rekordów diagnostyki z pominięciem ścieżki. To wynik historyczny na zbiorze rozwojowym. Odrębna historyczna próba A3 na skanach ujawniła błędy klasyfikacji przelewów. [Odbiór A3](RAPORT_A3.md) · [Raport historycznej próby na skanach](RAPORT_KONCOWY_A3.md)
 
-Wcześniejsza walidacja A dała mikro-F1 0,9878 z `valid_run=false`. Warianty B i C są opcjonalnym eksperymentem przy wyborze ID pierwszego zarzutu. Oba sprawdzono na atrapach z zablokowanym TCP. Domyślne CLI i obraz Compose pracują bez API. [Raport A](RAPORT_A.md) · [Eksperyment B/C](experiments/abc/README.md) · [Plan i podział danych](PLAN.md)
+Wcześniejsza walidacja A dała mikro-F1 0,9878 z `valid_run=false`. Warianty B i C to oddzielne eksperymenty z wyborem ID pierwszego zarzutu, sprawdzone na atrapach z zablokowanym TCP. Domyślne CLI i obraz Compose pracują bez API. [Aktualne warunki UZP dla wariantu z API](delivery/final/INSTRUKCJA-JURORA.md#warunki-użycia-api) · [Raport A](RAPORT_A.md) · [Eksperyment B/C](experiments/abc/README.md) · [Plan i podział danych](PLAN.md)
 
 [Odbiór historycznego RC1](RAPORT_RC1.md)
 
 ## Materiały przekazania
 
-[Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md) · [Prezentacja PDF](delivery/final/prezentacja.pdf) · [Ekrany rezerwowe](delivery/final/ekrany-rezerwowe.pdf) · [Scenariusz 40/30/50 s](delivery/final/SCENARIUSZ.md) · [Raport próby](delivery/final/RAPORT-PROBY.md)
+[Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md) · [Prezentacja PDF](delivery/final/prezentacja.pdf) · [Ekrany rezerwowe](delivery/final/ekrany-rezerwowe.pdf) · [Scenariusz finału](delivery/final/SCENARIUSZ.md) · [Raport próby](delivery/final/RAPORT-PROBY.md)
 
 Jeden wewnętrzny pomiar końcowy objął 31 PDF-ów na zamrożonym A2 z lokalnym OCR. Miernik zwrócił 0,9821958457 mikro-F1 oraz `valid_run=false` po sklasyfikowaniu jednego pełnomocnictwa jako dokumentu obcego. [Raport końcowy](RAPORT_KONCOWY.md)
