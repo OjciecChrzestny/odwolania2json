@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "round": "96f88b6",
+  "frozen_baseline_sha": "96f88b6fa61581ab54d35494cc59f43dc248bc01",
+  "measurement": {
+    "field_score": "score.py z bazowego SHA. Mikrouśrednianie 2TP/(2TP+FP+FN). Wartość null przy zerowym mianowniku. Atom to (ścieżka, indeks tablicy, rodzaj wartości, dokładna wartość). Null i pusty ciąg są pomijane. Złe podstawienie liczy FP i FN, brak niepustej wartości liczy FN, wartość nadmiarowa liczy FP. Brak pliku liczy utracone pola i unieważnia wynik, także przy negatywie. Brak 0 B u negatywu jest błędem kontraktu. F1 jest lokalne, zgodność z jury niepotwierdzona.",
+    "fields": {
+      "odwolanie": "Wszystkie niepuste pola schematu. Osobno cyfrowe ID pierwszego zarzutu / liczba odwołań i zgodność opisu z kanonem.",
+      "pelnomocnictwo": "Wszystkie niepuste pola, włącznie z indeksami list i rozdzieleniem ról.",
+      "przelew": [
+        "przelew_bankowy.data_operacji",
+        "przelew_bankowy.kwota",
+        "przelew_bankowy.tytul",
+        "przelew_bankowy.numer_transakcji",
+        "przelew_bankowy.z_rachunku",
+        "przelew_bankowy.na_rachunek"
+      ]
+    },
+    "contract": "check_outputs.py z bazowego SHA. Każdy PDF w mianowniku macierzy klas. Diagonala / dokumenty w gold. Raportuj FN klas i FP klas, read_error, missing, unknown, brakujące i dodatkowe pliki, błędy schematu i niepusty negatyw. valid_contract ocenia format względem raportowanej klasy i może być true przy 0 B za pozytyw rozpoznany jako negative. Macierz klasyfikacji i valid_run rozliczają go niezależnie. Przy błędach przebiegu lub kontraktu F1 ma status diagnostyczny.",
+    "review": "score_review.py z bazowego SHA. Cztery komórki macierzy i osobna kolumna braku decyzji, ogółem i według profilu, wraz z sumą błędnych autoakceptacji. Pokrycie = auto / wszystkie PDF-y. Trafność = poprawne auto / wszystkie auto. Zatrzymane błędy = błędne skierowane do kontroli / wszystkie błędne. Każdy ułamek z zerem w mianowniku daje null. Wykrywalność = oznaczone unreadable / strony niezależnie oznaczone unreadable przez człowieka. Zapisz brakujące, fałszywe oznaczenia i pominięcia. Oceny człowieka pochodzą z utrwalonego gold, nie z dziennika kandydata."
+  },
+  "cohorts": {
+    "known_128": {
+      "documents": 128,
+      "use": "Znana regresja 40/40/40 trzech klas i 8 negatywów. Rozlicz bajty oraz różnice względem gold. Oczekiwana bajtowa zgodność dla zmian poza ekstrakcją, bez niewyjaśnionych strat."
+    },
+    "blind_full_cases": {
+      "use": "Nowe pełne sprawy, trzy klasy i rzeczywiste negatywy. Cel co najmniej 10 niezależnych spraw. Liczniki klas i mikro-F1 tylko tej grupy."
+    },
+    "blind_transfers": {
+      "use": "Odrębna ślepa próba przelewów i mylących negatywów. Sześć pól, FN klasy, oba rachunki w przypisanych rolach, kompletne zamiany i pojedyncze przeciwne rachunki. Własny mianownik."
+    },
+    "page_review": {
+      "use": "Odrębny pomiar kompletności i czytelności stron oraz ryzyka kontroli na niezależnych adnotacjach. Jeden dokument z nieczytelną stroną i mylące negatywy. Pochodzenie i nakładanie się z inną grupą jawne."
+    }
+  },
+  "comparison": {
+    "unit": "Dwa pełne SHA, przypięty zestaw narzędzi, zamrożona konfiguracja i runtime. Te same PDF-y wg SHA-256 i ścieżek neutralnych. Zamrożone manifesty wg SHA-256 zawierają hashe gold. Każda grupa i wariant mają oddzielne wejścia, wyjścia i diagnostykę. Ujawnienie gold procesowi oceny po zapisaniu wyjść obu wariantów.",
+    "delta": "W obrębie każdej grupy raportuj kandydat minus baza względem tego samego gold. Naprawione i pogorszone trafienia po ścieżkach pól i zmiany FP. Zachowaj różnice plików, statusy walidacji i macierz klas dla obu wariantów. Nie sumuj grup.",
+    "attempt": "Po zatwierdzeniu obu SHA i pieczęci wszystkich grup przez koordynatora jeden wspólny przebieg porównawczy. Rezerwacja próby przed pierwszą ekstrakcją. Awaria zostawia dowody i spaloną próbę, bez automatycznego powtórzenia lub strojenia.",
+    "approvals": "Do czasu polecenia koordynatora wykonuje się wyłącznie próby syntetyczne. Przebieg produkcyjny wymaga osobnej zgody powiązanej z hashem pieczęci."
+  },
+  "release_gate": {
+    "max_incorrect_auto_accepted_per_profile": 0,
+    "missing_human_assessments": "Brak niezależnej oceny poprawności pól blokuje weryfikację automatycznej akceptacji danego profilu. Brak niezależnej oceny stron blokuje weryfikację wykrywalności. Nieznane adnotacje są jawne, czułość i trafność bez odpowiedniego mianownika są nieustalone. Wariant pozostaje review_required przy braku wystarczającego dowodu. Wynik syntetyczny weryfikuje mechanizm.",
+    "qualification": "Warunki konieczne to ważny przebieg, niezależne etykiety, dodatni mianownik, zero błędnych akceptacji na profil i jawna liczebność. Koordynator ocenia adekwatność i zatwierdza profil. Nie używa się próby odłożonej do strojenia."
+  },
+  "controls": [
+    "zamienione role dwóch rachunków",
+    "pojedynczy przeciwny rachunek",
+    "odwrócona kolejność listy",
+    "zastąpienie przez null",
+    "pominięty klucz o oczekiwanej wartości null",
+    "brak JSON pozytywu",
+    "wynik 0 B dla pozytywu zaklasyfikowanego jako negatyw",
+    "brak wymaganego pliku 0 B dla negatywu",
+    "niepusty negatyw",
+    "zero automatycznych akceptacji",
+    "zamiana obserwacji dwóch stron"
+  ]
+}
