@@ -3,9 +3,10 @@ import json
 import math
 import re
 from bisect import bisect_right
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from collections.abc import Callable
 
 DEFAULT_CONFIG = Path(__file__).with_name("classes")
 FLAGS = re.IGNORECASE | re.MULTILINE
@@ -15,6 +16,7 @@ FLAGS = re.IGNORECASE | re.MULTILINE
 class Document:
     text: str
     starts: tuple
+    bank_scan: Callable | None = field(default=None, repr=False, compare=False)
 
     @classmethod
     def from_pages(cls, pages):

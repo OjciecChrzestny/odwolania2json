@@ -1,7 +1,11 @@
 """Opcjonalny OCR uruchamiany lokalnie dla stron bez warstwy tekstowej."""
+import logging
 import re
 from contextlib import closing
-from functools import partial
+from dataclasses import dataclass, replace
+from pathlib import Path
+
+from .bank_scan import ScanView, numeric_boxes, recovered_numbers, token_value, visual_rows
 
 
 def prepare_ocr(data):
@@ -12,7 +16,7 @@ def prepare_ocr(data):
         raise ValueError("OCR wymaga instalacji requirements-ocr.txt") from exc
     if not (data / "pol.traineddata").is_file():
         raise ValueError(f"Brak pol.traineddata w {data}")
-    return partial(recognize, PdfDocument, PyTessBaseAPI, data)
+    return LocalOCR(PdfDocument, PyTessBaseAPI, data)
 
 
 _REFERENCE_LINE = re.compile(
@@ -55,22 +59,100 @@ def refine_bank_reference(text, api, bitmap, api_type, data):
     return text[:match.start("value")] + value + text[match.end("value"):]
 
 
-def recognize(document_type, api_type, data, path, limit, *, start=0):
+def confirm_numeric_boxes(boxes, bitmap, api_type, data):
+    if not boxes:
+        return ()
+    checked = []
+    with api_type(path=str(data), lang="pol", psm=7) as line_api:
+        line_api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height, bitmap.n_channels, bitmap.stride)
+        for key, value, (x, y, width, height) in boxes:
+            alphabet = "0123456789.,-+ " if key == "kwota" else ""
+            line_api.SetVariable("tessedit_char_whitelist", alphabet)
+            for margin in (.30, .65):
+                dx, dy = round(height * margin), round(height * .4)
+                left, top = max(0, x - dx), max(0, y - dy)
+                right, bottom = min(bitmap.width, x + width + dx), min(bitmap.height, y + height + dy)
+                line_api.SetRectangle(left, top, right - left, bottom - top)
+                token = line_api.GetUTF8Text().strip()
+                if line_api.MeanTextConf() < 75 or token_value(token, key) != value:
+                    break
+            else:
+                checked.append((key, value))
+    return tuple(checked)
+
+
+@dataclass(frozen=True)
+class LocalOCR:
+    document_type: type
+    api_type: type
+    data: Path
+
+    def __call__(self, path, limit, *, start=0):
+        return recognize(self.document_type, self.api_type, self.data, path, limit, start=start)
+
+    def oriented_pages(self, path, limit, *, start=0):
+        return recognize(self.document_type, self.api_type, self.data, path, limit, start=start, angles=True)
+
+    def transfer_views(self, path, orientations):
+        try:
+            return self._transfer_views(path, orientations)
+        except (OSError, ValueError, RuntimeError) as exc:
+            logging.warning("Dodatkowy odczyt skanu przelewu: %s", type(exc).__name__)
+            return []
+
+    def _transfer_views(self, path, orientations):
+        views = []
+        with closing(self.document_type(path)) as pdf, self.api_type(path=str(self.data), lang="pol") as api:
+            api.SetVariable("user_defined_dpi", "180")
+            for index, rotation in orientations:
+                with closing(pdf[index]) as page:
+                    chosen = self._page_views(page, index, rotation, api)
+                    # Automatic page segmentation can read upright text after rotating the bitmap.
+                    # Fixed segmentation needs an upright page if the first orientation yielded no fields.
+                    if rotation and not recovered_numbers(chosen):
+                        upright = self._page_views(page, index, 0, api)
+                        if recovered_numbers(upright):
+                            chosen = upright
+                    views.extend(chosen)
+        return views
+
+    def _page_views(self, page, index, rotation, api):
+        views = []
+        # PSM 6 reads a single block; PSM 11 locates sparse words separately.
+        for mode, factor in ((6, 2.5), (11, 3.0)):
+            scale = min(factor, 2600 / max(page.get_size()))
+            with closing(page.render(scale=scale, rotation=rotation, grayscale=True)) as bitmap:
+                api.SetPageSegMode(mode)
+                api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height,
+                                  bitmap.n_channels, bitmap.stride)
+                text = api.GetUTF8Text()
+                tsv = api.GetTSVText(0)
+                view = ScanView(index + 1, text, visual_rows(tsv))
+                views.append(view)
+                if mode == 11:
+                    missing = {"kwota", "data_operacji"} - recovered_numbers(views).keys()
+                    boxes = numeric_boxes(tsv, view.rows, missing)
+                    checked = confirm_numeric_boxes(boxes, bitmap, self.api_type, self.data)
+                    views[-1] = replace(view, verified=checked)
+        return views
+
+
+def recognize(document_type, api_type, data, path, limit, *, start=0, angles=False):
     with closing(document_type(path)) as pdf, api_type(path=str(data), lang="pol") as api:
         api.SetVariable("user_defined_dpi", "180")
         for index in range(start, limit):
             with closing(pdf[index]) as page:
                 scale = min(2.5, 2200 / max(page.get_size()))
-                best = ""
+                best, selected_angle = "", 0
                 for angle in (0, 90, 270, 180):
                     with closing(page.render(scale=scale, rotation=angle, grayscale=True)) as bitmap:
                         api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height,
                                           bitmap.n_channels, bitmap.stride)
                         text = api.GetUTF8Text()
                         if len(text) > len(best):
-                            best = text
+                            best, selected_angle = text, angle
                         if len(text.split()) >= 8 and api.MeanTextConf() >= 55:
                             if text == best:
                                 best = refine_bank_reference(text, api, bitmap, api_type, data)
                             break
-                yield index, best
+                yield (index, best, selected_angle) if angles else (index, best)

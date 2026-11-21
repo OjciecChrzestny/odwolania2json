@@ -31,6 +31,11 @@
       "name": "zaksięgowany_przelew",
       "weight": 5,
       "pattern": "(?=[^\\f]{0,1800}\\b(?:przelew|transfer)\\b)^[ \\t]*(?:Status(?: operacji| transakcji)?[ \\t]*:[ \\t]*(?:wykonan[ay]|zrealizowan[ay]|zaksięgowan[ay])|ZREALIZOWANO)[ \\t]*$"
+    },
+    {
+      "name": "rachunek_i_wiersz_kwoty_z_datą",
+      "weight": 2,
+      "pattern": "^[ \\t]*(?:POLECENIE PRZELEWU|POTWIERDZENIE (?:WYKONANIA |REALIZACJI )?PRZELEWU)(?: KRAJOWEGO)?[ \\t]*$(?=[^\\f]{0,3500}(?<![\\w])(?:PL[ \\t]*)?(?:[0-9]{26}|[0-9]{2}(?:[ \\t]+[0-9]{4}){6})(?![\\w]))(?=[^\\f]{0,3500}\\n[ \\t]*(?:PLN[ \\t]+)?[+\\-−]?(?:[0-9]{1,3}(?:[ .][0-9]{3})+|[0-9]+)[,.][ \\t]*[0-9]{2}(?:[ \\t]*(?:PLN|zł))?[ \\t]+(?:20[0-9]{2}[-./][0-9]{1,2}[-./][0-9]{1,2}|[0-9]{1,2}[-./][0-9]{1,2}[-./]20[0-9]{2})[ \\t]*$)"
     }
   ],
   "schema": {
