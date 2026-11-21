@@ -45,6 +45,23 @@ class PostedTransferTest(unittest.TestCase):
                                        "Kwota: ................ PLN", "Data operacji:", "Data wydruku 07.11.2025"),
                          "negative")
 
+    def test_column_labels_need_values_in_the_next_row(self):
+        heading = "Potwierdzenie realizacji dyspozycji"
+        labels = "Numer rachunku Kwota Waluta"
+        amount = "42 1234 5678 9012 3456 7890 1234 -1,234.50 PLN"
+        labels2 = "Bank Data wyciągu Identyfikator"
+        date = "Jednostka 17/04/2025 TEST321"
+        self.assertEqual(self.classify(heading, labels, amount, labels2, date, self.kind), "przelew")
+        self.assertEqual(self.classify(heading, labels, "wypełnia zleceniodawca",
+                                       "Dwa pola pomocnicze", amount, labels2, date, self.kind), "negative")
+        self.assertEqual(self.classify(heading, labels, amount, labels2, "brak", self.kind), "negative")
+
+    def test_posted_status_can_follow_the_transfer_heading(self):
+        self.assertEqual(self.classify("Dane zlecenia", "Przelew krajowy", "Stan: zaksięgowany",
+                                       self.amount, "Data operacji: 17.04.2025"), "przelew")
+        self.assertEqual(self.classify("Dane zlecenia", "Zakup kartą", "Stan: zaksięgowany",
+                                       self.amount, "Data operacji: 17.04.2025"), "negative")
+
     def test_unrelated_pages_cannot_supply_a_missing_field(self):
         config = {**self.classes["przelew"], "classification_pages": 2}
         pages = [self.heading + "\n" + self.amount, "\n".join([self.kind, self.value_date, self.reference])]
