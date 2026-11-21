@@ -5,7 +5,7 @@
     {
       "name": "nagłówek_przelewu",
       "weight": 7,
-      "pattern": "^[ \\t]*(?:(?:[^\\n]{0,110}\\bbank\\b[^\\n]{0,95}|Dotyczy:)[ \\t]+)?(?:POLECENIE PRZELEWU|(?:POTWIERDZENIE|DOWÓD) (?:REALIZACJI |WYKONANIA )?(?:POLECENIA )?(?:PRZELEWU|TRANSAKCJI|OPERACJI BANKOWEJ))\\b"
+      "pattern": "^[ \\t]*(?:(?:[^\\n]{0,110}\\bbank\\b[^\\n]{0,95}|Dotyczy:)[ \\t]+)?(?:POLECENIE PRZELEWU|(?:POTWIERDZENIE|DOWÓD) (?:REALIZACJI |WYKONANIA )?(?:POLECENIA )?(?:PRZELEWU|TRANSAKCJI|OPERACJI BANKOWEJ))\\b|^[ \\t]*(?:POTWIERDZENIE|DOWÓD)(?:[ \\t]*\\n[ \\t]*(?:(?:REALIZACJI|WYKONANIA)[ \\t]+)?|[ \\t]+(?:REALIZACJI|WYKONANIA)[ \\t]*\\n[ \\t]*)PRZELEWU(?:[ \\t]+KRAJOWEGO)?[ \\t]*$"
     },
     {
       "name": "rola_rachunku",
