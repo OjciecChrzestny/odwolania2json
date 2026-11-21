@@ -1,0 +1,153 @@
+{
+  "frozen_utc": "2026-11-21T21:36:55.811799+00:00",
+  "parent": "a42b78d090108a5ef840b601caeb5ca0249972ed",
+  "inventory_sha256": "832eede5c8cfea98cf101d27221f387376797f5a3815d1da938cb2f334d08cae",
+  "manifests": {
+    "hold": "dbf9ab56dc037560a623ce8c6dbe2af1a3a353c49f01a87af15ed973dc03e366",
+    "dev": "cde9517bbbabc0c485a3baa174a178608d8a5d24d8e17317963e749298c798dd"
+  },
+  "counts": {
+    "dev": {
+      "transfers": 3,
+      "negatives": 2
+    },
+    "hold": {
+      "transfers": 3,
+      "negatives": 2
+    }
+  },
+  "prior_hash_counts": {
+    "development-40": 128,
+    "validation-10": 32,
+    "final-10": 31,
+    "holdout-10-84cc976": 30,
+    "external-v1": 70,
+    "KARR-1": 4,
+    "KARR-2": 59,
+    "przelewy-v3": 16,
+    "previous-source-files": 20
+  },
+  "prior_hash_intersections": {
+    "dev": {
+      "development-40": 0,
+      "validation-10": 0,
+      "final-10": 0,
+      "holdout-10-84cc976": 0,
+      "external-v1": 0,
+      "KARR-1": 0,
+      "KARR-2": 0,
+      "przelewy-v3": 0,
+      "previous-source-files": 0
+    },
+    "hold": {
+      "development-40": 0,
+      "validation-10": 0,
+      "final-10": 0,
+      "holdout-10-84cc976": 0,
+      "external-v1": 0,
+      "KARR-1": 0,
+      "KARR-2": 0,
+      "przelewy-v3": 0,
+      "previous-source-files": 0
+    }
+  },
+  "dev_hold_intersections": {
+    "sha256": 0,
+    "raster_first_page": 0,
+    "sources": 0,
+    "layout_families": 0,
+    "banks_or_form_families": 0
+  },
+  "historical_external_first_page_fingerprints_compared": 145,
+  "historical_first_page_matches": 0,
+  "layouts": {
+    "dev": [
+      "Blankiet pocztowo-bankowy WP",
+      "CitiDirect BE – raport szczegółowy",
+      "Millenet – potwierdzenie wykonania operacji",
+      "PekaoBIZNES24"
+    ],
+    "hold": [
+      "BS – dyspozycja przekazu dewizowego",
+      "Credit Agricole CA24 – potwierdzenie transakcji",
+      "DNB iNORD Business – przekazy pieniężne",
+      "MPWiK – zgoda na obciążanie rachunku",
+      "mBank CompanyNet – wydruk realizacji"
+    ]
+  },
+  "notes": "Dev: two civil payment slips share the WP family; Millenet appeared in KARR and Citi manuals among historical negatives. The tested CompanyNet print is distinct from older mBank retail duplicate. All six authentic transfers pay UZP; bank, amount, case and payee strings are unavailable as classifier rules. CA24 document ID and the dash in the CompanyNet reference are not transaction IDs. Documents are individual page attachments, independent of production filenames.",
+  "protocol": "1 fixed weak scan per original (96 dpi, Gaussian blur 0.55 pixels, JPEG 55). Primary binary class TP/FP/FN/TN and structural checking: a transfer must yield a schema-valid transfer JSON, negatives exactly 0 bytes. Also report strict six-field micro-F1 with valid_run, all 128 development output bytes and false positives. Compare baseline and immutable candidate once on same held PDFs, no model calls. Score former reserve v3 only as regression. Repeat filename robustness on the two-sided trial; do not count renamed files separately.",
+  "seal_sha256": "73a2b91d6ad5585348501c9ea30566d44e6aefe3c99c6ad52a1b2dc175605324",
+  "sources": [
+    {
+      "group": "dev",
+      "layout": "PekaoBIZNES24",
+      "source": "https://bip.imielin.pl/files/files/2022/rowy%202022/Rowy%202/2022.06.06%20Odwo%C5%82anie_za%C5%82%C4%85cznik%204.pdf",
+      "source_page": 1,
+      "source_sha256": "babdc01ad13e192b6756d4c5104f43a38543fc3e4243cf24e6d90e3fec4cdd73"
+    },
+    {
+      "group": "dev",
+      "layout": "CitiDirect BE – raport szczegółowy",
+      "source": "https://wss.olsztyn.pl/wp-content/uploads/bip_files/GE_odwo%C5%82anie%20na%20wyb%C3%B3r_1624621861.pdf",
+      "source_page": 15,
+      "source_sha256": "fa2fc42f46879771746dac3c877f53dbb0b9f29a816f82e5ef98a89efebdde42"
+    },
+    {
+      "group": "dev",
+      "layout": "Millenet – potwierdzenie wykonania operacji",
+      "source": "https://www.e-bip.org.pl/upload/00976/29153/0377155-96509006.pdf",
+      "source_page": 1,
+      "source_sha256": "2746a68cce8dc3710f05b4c458d45020085b27395bb742e8b17ec0f96d767039"
+    },
+    {
+      "group": "dev",
+      "layout": "Blankiet pocztowo-bankowy WP",
+      "source": "https://mst-kcynia.rbip.mojregion.info/download/attachment/3399/druk-przelewu-smieci-2024.pdf",
+      "source_page": 1,
+      "source_sha256": "f2a7b280e741b1fbfbb65fdcf4e4738999ab0a487ca0d9944db9dd98c4df4462"
+    },
+    {
+      "group": "dev",
+      "layout": "Blankiet pocztowo-bankowy WP",
+      "source": "https://www.rsm.radom.pl/img/ppwg-oc_g1_1.pdf",
+      "source_page": 1,
+      "source_sha256": "840e642aad6d6be4fef050c0f06da259ccb3283792c32cb140bc50b786b1b546"
+    },
+    {
+      "group": "hold",
+      "layout": "DNB iNORD Business – przekazy pieniężne",
+      "source": "https://bip.ipn.gov.pl/download/4/5505/odwolaniecz2.pdf",
+      "source_page": 1,
+      "source_sha256": "c46adde51b637939a2a93acef75d23568a0ed2d5b2851953e61406d65f66051d"
+    },
+    {
+      "group": "hold",
+      "layout": "mBank CompanyNet – wydruk realizacji",
+      "source": "https://cwz.pomorskie.pl/wp-content/uploads/2023/10/odwolanieseen.pdf",
+      "source_page": 10,
+      "source_sha256": "f6d994f8a81ab14edc2ce8f7e82fca338fc86ca67811a9f9bd2ef4511ee7847d"
+    },
+    {
+      "group": "hold",
+      "layout": "Credit Agricole CA24 – potwierdzenie transakcji",
+      "source": "https://www.gov.pl/attachment/712e2847-55b1-4aa9-a158-90d5ddee95eb",
+      "source_page": 1,
+      "source_sha256": "511b7ae371f05957b1320ba5bc9b61ecbe9c3be85ec061357beac3b062ca98ad"
+    },
+    {
+      "group": "hold",
+      "layout": "BS – dyspozycja przekazu dewizowego",
+      "source": "https://www.bs-zabkowicesl.pl/images/pdf/przelewy_dewizowe_form.pdf",
+      "source_page": 1,
+      "source_sha256": "6b27c4ec2f36ecdd5f45dcb3685c4c8b6ca6d63ec6d993e4263aed2c967fee1b"
+    },
+    {
+      "group": "hold",
+      "layout": "MPWiK – zgoda na obciążanie rachunku",
+      "source": "https://www.mpwik.lublin.pl/wp-content/uploads/2023/01/wzor-zgoda-na-obciazenie.pdf",
+      "source_page": 1,
+      "source_sha256": "6fd7980b5faf4a03e344d255c613fcd934238eed889b314f5262d0c6dbb71690"
+    }
+  ]
+}
