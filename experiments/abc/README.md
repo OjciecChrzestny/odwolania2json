@@ -4,9 +4,11 @@
 - **B** — Qwen3.5-9B w OVHcloud AI Endpoints.
 - **C** — Mistral Small 3.2 24B Instruct 2506 w Scaleway Generative APIs.
 
-B i C bazują na tym samym czytniku, klasyfikatorze i selektorze A. [Patch](selector-a.patch) udostępnia wyłącznie w trybie eksperymentu dokładny tekst decyzji w pamięci. Dla zarzutu numerowanego jest to fragment nagłówka ograniczony regułą A. Gdy A rozpoznaje czynność na podstawie wcześniejszego opisu, adapter otrzymuje ten opis. Bez wiarygodnego fragmentu zostaje wynik A. Numer strony dopasowania, początek i koniec stron fragmentu, offset, reguła i SHA-256 dokładnego UTF-8 trafiają do diagnostyki poza `output/`. Zwykłe `python -m odwolania2json` działa jak A także po zastosowaniu patcha.
+B i C bazują na tym samym czytniku, klasyfikatorze i selektorze A. [Patch](selector-a.patch) udostępnia wyłącznie w trybie eksperymentu dokładny tekst decyzji w pamięci. Dla zarzutu numerowanego jest to fragment nagłówka ograniczony regułą A. Gdy A rozpoznaje czynność na podstawie wcześniejszego opisu, adapter otrzymuje ten opis. Rozpoznany, niepusty fragment kwalifikuje się do B/C również przy awaryjnym ID A. Bez wiarygodnego fragmentu zostaje wynik A. Numer strony dopasowania, początek i koniec stron fragmentu, offset, reguła i SHA-256 dokładnego UTF-8 trafiają do diagnostyki poza `output/`. Zwykłe `python -m odwolania2json` działa jak A także po zastosowaniu patcha.
 
 Po poprawnej odpowiedzi eksperyment podmienia tylko `OdwolanieKIO.czynnosc_powod_id` i `OdwolanieKIO.czynnosc_opis`. Opis pochodzi z konfiguracji A zweryfikowanej z [publicznym słownikiem UZP z rewizji de135d2](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/blob/de135d20811caf630f3e94dc655ba5eebd9a6710/oczekiwane-json/czynnosc_powod_id_dict.md). Lokalna kopia ma usuniętą końcową spację w wierszu ID 11. Data czynności i pozostałe pola zachowują wartości A. Każda nieudana próba zachowuje bajty A, zapisuje kod przyczyny i pozwala kontynuować partię.
+
+Dowód rozszerzonej kwalifikacji i opis pól diagnostycznych zawiera [raport regresji](RAPORT_FRAGMENT_BC.md).
 
 ## Odbiór offline na Linuksie
 
