@@ -4,6 +4,10 @@ Juror wkłada własne PDF-y do `input/` i jednym poleceniem na laptopie i7 z 16 
 
 **Stan wydania, 21 listopada 2026.** Wybrano A2 z lokalnym OCR przed testem końcowym ze względu na dwa odzyskane syntetyczne przelewy i zgodność 128 JSON-ów rozwojowych z A. Wynik walidacji 0,9878 przy `valid_run=false` pozostaje historycznym wynikiem A. Konfiguracja wbudowana zawiera trzy klasy konkursowe. Pokaz rozszerzenia i Compose mają własne instrukcje odbioru. B/C i `selector-a.patch` pozostają na odrębnej gałęzi. [Raport A](RAPORT_A.md) · [Raport A2](RAPORT_A2.md)
 
+## Kandydat A3
+
+Na VPS przed zmianami A3 zamrożono 10 nowych pełnych spraw z publicznych skanów organizatora. A3 przeszło odbiór rozwojowy 128/128 oraz 256 prób niezależności klasy i JSON od ścieżki wejściowej. Ścisłe mikro-F1 wynosi 0,9963235294. Na ośmiu fikcyjnych dokumentach dobranych do poprawianych błędów A2 spełnił trzy oczekiwania, a A3 wszystkie osiem. Nowy zbiór oczekuje na oddzielny pomiar po wyborze kandydata. [Metryka zamrożenia, commit i polecenia odbioru A3](RAPORT_A3.md)
+
 ## Kontrakt UZP i robocze decyzje
 
 Podstawą danych jest [rewizja UZP de135d2](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/tree/de135d20811caf630f3e94dc655ba5eebd9a6710). Repozytorium zawiera 60 spraw, 196 ścieżek PDF i 180 etykiet JSON. Na sprawdzonym późniejszym `7590db8` README jest identyczne. UZP poprawiło opisy ID 6 w etykietach spraw 19, 23, 25, 44 i 55. Zamrożone pomiary używają pierwotnej rewizji. [Porównanie UZP](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/compare/de135d20811caf630f3e94dc655ba5eebd9a6710...7590db84f39281b36f774d14f8961cdeb2a0c4c4)

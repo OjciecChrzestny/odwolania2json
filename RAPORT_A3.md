@@ -17,3 +17,43 @@ Audyt rodzin porównał pierwsze strony każdego z 30 nowych dokumentów z 60 st
 | Wersja bazowa | `373fafe5a9ff05638025636b323a3c7479a960d6`, drzewo produktu A2 `a359032b4478d458090e68b1b3c85084138eac98` |
 
 Katalog i pliki zapieczętowano w trybie tylko do odczytu. Manifest ma neutralne nazwy wejść. Prywatne referencje, tabela źródeł i audyt znajdują się poza kopią produktu. Polecenie weryfikujące integralność na VPS to `(cd ~/uzp-parallel/a3-data/holdout-10-84cc976 && sha256sum --quiet -c SHA256SUMS)`. Ten etap nie uruchamia ekstraktora na nowym zbiorze.
+
+## Wykonanie A3
+
+Sprawdzony commit produktu to `e98988f8f0d707e4c72fdcc99910999084a6442b` (drzewo pakietu `f6f5e747389147375c6c8b7e2683293ef6f80d6e`). Poprzedza go osobny commit metryki zamrożenia `e2b4882`. Kod dostaje tekst i położenie stron. Ścieżka PDF służy czytnikowi do otwarcia pliku i CLI do odtworzenia nazwy oraz podkatalogu wyniku.
+
+- Pełnomocnictwo obsługuje nagłówek „do reprezentacji” i zwrot „umocowuję”. Po rozpoznaniu pisma przewodniego reguła sprawdza strony 2–3, jeśli otwarcie dokumentu nie rozstrzyga klasy. Na dalszej stronie wymaga nagłówka i oświadczenia o umocowaniu. Ekstrakcja ról rozpoczyna się na stronie z dowodem. Opcjonalny polski OCR obejmuje brakującą warstwę tekstową w tym zakresie. Osobne próby chronią wezwania, instrukcje i wykazy załączników.
+- Odwołanie rozpoznaje pierwszy zarzut numerowany cyfrą, rzymskim I albo słownie. Wyszukuje nagłówek w obrębie odczytanych stron, również po długim wstępie. Odcina następny zarzut i uzasadnienie. W obrębie pierwszego zarzutu priorytet ma zdanie wyraźnie wskazujące przedmiot zaskarżenia. Jawne wyłączenie czynności usuwa ją z wyboru oraz z przypisania daty. Odróżnia dokonanie od zaniechania oraz rozpoznaje parafrazę „pozbawienie wykonawcy prawa dalszego udziału w postępowaniu”. Opis nadal wynika z lokalnego słownika ID.
+
+## Wyniki na VPS
+
+| Sprawdzenie | A2 | A3 |
+| --- | ---: | ---: |
+| Ścisłe mikro-F1 na 40 sprawach rozwojowych | 0,9963235294 | 0,9963235294 |
+| TP / FP / FN | 1355 / 5 / 5 | 1355 / 5 / 5 |
+| Poprawna klasa pełnomocnictwa / odwołania / przelewu | 40 / 40 / 40 | 40 / 40 / 40 |
+| Poprawne ID pierwszego zarzutu | 40/40 | 40/40 |
+| Prawidłowy pusty plik dokumentu obcego | 8/8 | 8/8 |
+| Kontrole dobrane do zmienianego zachowania, fikcyjne PDF-y | 3/8 | 8/8 |
+
+Na czystej kopii commita przeszło 16 testów. W odbiorze rozwojowym `valid_run=true` i `valid_contract=true`. Wszystkie 128 plików wynikowych A3 było identycznych bajt w bajt z A2. Powtórzenie tych samych wejść pod losowymi nazwami (także .PDF) oraz w katalogach i plikach nazwanych inną klasą dało 128/128 + 128/128 identycznych treści JSON i kompletnych rekordów diagnostyki po pominięciu pola ścieżki. Czas CLI na VPS wyniósł 11,53 s dla 128 PDF-ów i 22,92 s dla 256 przemianowań, z polskim OCR dostępnym lokalnie. Proces ekstrakcji działał w izolacji Landlock, bez TCP, etykiet, manifestów i dostępu do zbiorów końcowych.
+
+Pięć odzyskanych prób syntetycznych obejmuje rozszerzony tytuł pełnomocnictwa, umocowanie za pismem przewodnim, odrzucenie cytowanego formularza w instrukcji, pominięcie jawnie wyłączonej czynności oraz parafrazę wykluczenia. Dodatkowy PDF z rzeczywistym obrazem na trzeciej stronie, nazwany `potwierdzenie-przelewu.PDF`, został rozpoznany jako pełnomocnictwo. Pola mocodawcy i pełnomocnika były poprawne. Tesseract odczytał wyłącznie stronę 3 i na nią wskazały dowody pól. Dotychczasowy pokaz klasy dodawanej konfiguracją ponownie przeszedł regresję 11/11 plików i 8/8 negatywów. Poprawa 3/8 → 8/8 dotyczy kontrolowanych przypadków. Skuteczność A3 na nowym zbiorze pozostaje niezmierzona.
+
+## Odtworzenie odbioru rozwojowego
+
+Na VPS z katalogu repozytorium polecenia poniżej wymagają nowego katalogu wyników. `accept_a3.py` przyjmuje wyłącznie wbudowany manifest rozwojowy. Dwie dodatkowe ścieżki dla każdego wejścia wyznacza tylko ewaluator.
+
+```bash
+cd ~/uzp-parallel/a3
+tools_dir="$HOME/uzp-parallel/rc1-proof/acceptance.4PsV2H5A/tools"
+baseline_dir="$HOME/uzp-parallel/rc1-proof/acceptance.4PsV2H5A/development"
+dataset_dir="$HOME/uzp-baseline-a/data/uzp"
+repeat_dir=$(mktemp -d "$HOME/uzp-parallel/a3-proof/repeat.XXXXXXXX")
+PYTHONDONTWRITEBYTECODE=1 "$tools_dir/venv/bin/python" -B -m unittest discover -s evaluation -p 'test_*.py'
+PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 "$tools_dir/venv/bin/python" -B evaluation/accept_a3.py "$dataset_dir" "$tools_dir" "$baseline_dir" "$repeat_dir/development"
+```
+
+Oryginalne dowody są w `~/uzp-parallel/a3-proof/release-e98988f8f0d7/`. Plik `development/summary.json` ma SHA-256 `6dfed7b279ece2acdf9c13a4221e1c0b9e828df062f190de50b85d80441f8d37`. W tym samym katalogu są `synthetics/summary.json`, `real_ocr.py`, `real-ocr.log` i `extension.log`.
+
+**Następny krok** to wybór wersji do pojedynczego, odrębnego pomiaru na zapieczętowanych dziesięciu sprawach. Wszystkie powyższe sprawdzenia wykonano lokalnie na VPS bez wywołań LLM.
