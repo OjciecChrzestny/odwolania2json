@@ -1,61 +1,131 @@
 # Odwołania2JSON — plan implementacji
 
-Celem pierwszej wersji jest odtworzenie danych referencyjnych UZP dla całej sprawy uruchomionej przez CLI na CPU. Podstawą planu jest [rewizja de135d2 organizatora](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/tree/de135d20811caf630f3e94dc655ba5eebd9a6710). W katalogu dane znajduje się 60 spraw przykładowych, 196 plików PDF i 180 plików JSON, licząc także katalog dokumentów negatywnych. Wzorce w oczekiwane-json zawierają komentarze. Typy i pola trzeba uzgodnić z faktycznymi etykietami w dane.
+Juror wkłada własne PDF-y do `input/` i jednym poleceniem na laptopie i7 z 16 GB RAM odczytuje odpowiadające im pliki w `output/`. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Najpierw mierzymy kompletny wariant regułowy A. Kandydaci B i C zmieniają w nim jedną decyzję dotyczącą pierwszego zarzutu.
 
-## Decyzje przed pierwszą implementacją
+**Stan po recenzji, 21 listopada 2026.** Gotowe są trzy manifesty, kontrola podziału i lokalny miernik. Test końcowy został zamrożony przed strojeniem. Sprawdzono integralność plików i cechy układu PDF. Wartości etykiet końcowych pozostają poza analizą jakości. Implementacja CLI, walidator struktury wyjścia, pomiar A/B/C, próba na sprzęcie jury, Compose i prezentacja czekają na wykonanie.
 
-| Obszar | Propozycja | Co może zmienić decyzję |
-|---|---|---|
-| Uruchomienie | Python 3.13, standardowe argparse, pathlib i json, zależności w requirements.txt. Jedno polecenie lokalne odczytuje input/ i zapisuje output/ z zachowaniem ścieżek i nazw bazowych. | Kontrakt narzuca UZP. Sprawdzić zależności na świeżym środowisku bez GPU. |
-| Odczyt PDF | Pierwszy kandydat to pypdf. Porównać tekst zwykły i tryb layout na tych samych stronach. Zachować numer strony i podział na sekcje. | Jeśli zamiana kolejności kolumn powoduje błędy ról lub rachunków, sprawdzić współrzędne słów z pdfplumber na tych samych przykładach. |
-| Klasyfikacja | Cztery wyniki: odwołanie, pełnomocnictwo, przelew i dokument spoza zakresu. Reguły oparte na tytule, funkcji dokumentu i współwystępujących etykietach. | Zmierzyć macierz pomyłek po przemianowaniu plików. Samo wystąpienie słowa „odwołanie” nie wystarcza do rozpoznania klasy. |
-| Ekstrakcja | Wspólny przebieg dla plików, osobna specyfikacja pól dla każdej klasy, reguły zależne od sekcji i walidacja typów na wyjściu. | Wprowadzić model wyłącznie dla rodziny pól z powtarzalnym błędem kontekstowym, rozpoznanym na zbiorze rozwojowym. |
-| OCR | Kandydat to lokalny Tesseract z językiem polskim, wywoływany dla pojedynczej strony. Pierwszy pomiar obejmuje jakość i pokrycie tekstu. | Dołączyć po porównaniu odzyskanych pól, czasu i kosztu instalacji na sprzęcie jury. Przetestować dokument mieszany i przekręconą stronę. |
-| Stan i diagnostyka | Pliki wejścia/wyjścia, osobny raport diagnostyczny. Dla istotnego pola zapisać numer strony i regułę, która wskazała wartość. | Rejestr diagnostyczny pozostaje poza JSON-em przekazywanym jury. |
-| LLM | Qwen3.5-9B przez OVHcloud AI Endpoints (Gravelines) do pierwszej próby, Mistral Small 3.2 24B Instruct 2506 przez Scaleway Generative APIs (Paryż) do porównania. Oba modele na licencji Apache 2.0. | Do zgłoszenia wybrać wariant po porównaniu z regułami na wspólnej walidacji. |
+## Kontrakt UZP i robocze decyzje
+
+Podstawą danych jest [rewizja UZP de135d2](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/tree/de135d20811caf630f3e94dc655ba5eebd9a6710). Repozytorium zawiera 60 spraw, 196 ścieżek PDF i 180 etykiet JSON. Na sprawdzonym późniejszym `7590db8` README jest identyczne. UZP poprawiło opisy ID 6 w etykietach spraw 19, 23, 25, 44 i 55. Zamrożone pomiary używają pierwotnej rewizji. [Porównanie UZP](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/compare/de135d20811caf630f3e94dc655ba5eebd9a6710...7590db84f39281b36f774d14f8961cdeb2a0c4c4)
+
+| Obszar | Implementacja i odbiór |
+|---|---|
+| Uruchomienie i drzewo wyników | Docelowe komendy to `python -m pip install -r requirements.txt` i `python -m odwolania2json` w katalogu głównym. CLI korzysta z argparse, pathlib i json oraz wyłącznie z komponentów open source. Klasyfikować po treści i zachować ścieżkę oraz nazwę bazową, np. `input/K/x.pdf` → `output/K/x.json`. Obsłużyć kilka dokumentów jednej klasy w sprawie. Po zmianie wejścia wynik zawiera wyłącznie bieżące pliki. Pusty folder daje zero wyników. |
+| Negatyw i błędy odczytu | UZP wymaga pustego pliku `.json` dla dokumentu obcego. Do odpowiedzi mentora zapisujemy dokładnie 0 bajtów. W rozpoznanym typie zachowujemy strukturę i dopuszczalne `null`. Uszkodzenie lub nieczytelny skan ma własny komunikat i status w diagnostyce, a przetwarzanie pozostałych PDF-ów trwa dalej. |
+| Przelew | Odczytać wszystkie sześć pól. Są to `data_operacji`, liczbowa `kwota`, `tytul`, `numer_transakcji` oraz ciągi `z_rachunku` i `na_rachunek` w prawidłowych rolach. Zachować zera w identyfikatorach. Numer transakcji występuje w 10/10 przelewów walidacyjnych. |
+| Pełnomocnictwo | Odwzorować listę mocodawców wraz z ich danymi i podpisującymi oraz listę pełnomocników. Sprawdzić wielu uczestników i brakujące wartości. |
+| Odwołanie | Rozdzielić odwołującego, zamawiającego i pełnomocników oraz numery BZP, TED i numer wewnętrzny. Datę czynności, ID 1–12 i opis wiązać z pierwszym zarzutem. Przy braku wiarygodnej daty czynności zwrócić `null`. Opis generować ze słownika na podstawie ID. |
+| Struktura i pochodzenie pól | Przepisać wzorce UZP do walidowalnych schematów klas. Wzorce odwołania i pełnomocnictwa zawierają komentarze, a przykład odwołania ma także brakujący przecinek. Sprawdzić klucze, typy, listy i dopuszczalne braki na danych rozwojowych. Poza `output/` zapisywać stronę oraz regułę wskazującą wartość pola. |
+| Czytnik i konfiguracja | Zacząć od pypdf, porównać tekst zwykły i `layout` na tych samych stronach rozwojowych. Od pierwszej klasy wczytywać z konfiguracji sygnały rozpoznania, schemat i operacje ekstrakcji. Rozważyć pdfplumber przy pomyłkach kolumn i ról. Lokalny Tesseract z językiem polskim włączać po pomiarze odzyskanych pól, czasu i kosztu instalacji na skanie mieszanym i obróconym. |
+
+[README i kontrakt UZP](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/blob/de135d20811caf630f3e94dc655ba5eebd9a6710/README.md) · [Schematy i słownik](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/tree/de135d20811caf630f3e94dc655ba5eebd9a6710/oczekiwane-json)
+
+## Zamrożony podział 40/10/10
+
+| Zbiór | Pełne sprawy | Odwołania / pełnomocnictwa / przelewy | Negatywy | Razem |
+|---|---:|---|---:|---:|
+| [Rozwojowy](evaluation/development-40.json) | 40 | 40 / 40 / 40 | 8 | 128 |
+| [Walidacyjny](evaluation/validation-10.json) | 10 | 10 / 10 / 10 | 2 | 32 |
+| [Końcowy](evaluation/final-10.json) | 10 | 10 / 10 / 10 | 1 | 31 |
+
+**Test końcowy** obejmuje sprawy `03, 08, 12, 14, 24, 29, 31, 39, 47, 51`. Zawiera każdy PDF z tych katalogów, w tym dokument obcy należący do sprawy 24. SHA-256 pliku `final-10.json` po normalizacji końców wierszy do LF wynosi `f36fffc9127520e0caad2df4413a2e6769b2b4d9e2dc1de5de9c668e9efa0a8b`.
+
+**Walidacja** obejmuje sprawy `04, 09, 16, 22, 27, 33, 37, 44, 50, 56`. Zachowano pierwotny manifest z negatywami w 04 i 37. **Rozwój** obejmuje pozostałe 40 całych spraw, w tym negatyw w 10, oraz siedem dodatkowych, unikatowych negatywów z `dane/negatywne/`. Ich neutralne foldery `case_61`–`case_67` służą wyłącznie do podawania pojedynczego pliku i nie zwiększają liczby spraw UZP.
+
+**Dobór końcowy.** Wybór oparto na numerach spraw, obecności dokumentu obcego i układzie pierwszej strony. Pozostawiono w rozwoju sprawy 19, 23, 25 i 55 ze znanymi poprawkami etykiet oraz 32, 53 i 57 omawiane podczas przeglądu szablonów. Spośród wolnych spraw z dodatkowym PDF-em przypisano 24 do testu i 10 do rozwoju. Sprawy połączone przez jednakowy ścisły odcisk układu dowolnej z trzech klas traktowano łącznie przy wyborze do testu. W zakresach 01–10, 11–20, 21–30, 31–40 wybrano po dwie sprawy, a w 41–50 i 51–60 po jednej. W dwóch ostatnich zakresach wybrano razem 47 i 51, które mają ten sam układ przelewu. Pozostałe wolne miejsca w pierwszych czterech zakresach zajęły dopuszczalne numery o najmniejszym SHA-256 napisu ASCII `odwolania2json/final-v1/NN`. Dobór nie korzystał z wartości pól ani wyników ekstrakcji.
+
+**Kontrola hashy.** Dla każdej z trzech par zbiorów przecięcie numerów pełnych spraw, SHA-256 bajtów PDF i SHA-256 treści etykiet po ujednoliceniu LF wyniosło **0**. Wszystkie 180 etykiet mają różne hashe LF. Z 196 źródłowych ścieżek PDF pozostaje 191 różnych plików. Pięć kopii z `dane/negatywne/` pominięto, zachowując oryginały w sprawach 04, 10, 24 i 37. Sprawa 10 ma dwie takie kopie. Pliki źródłowe nadal leżą w kompletnym repozytorium UZP, dlatego każde wejście należy zbudować wyłącznie z manifestu przypisanego do próby.
+
+**Wspólne szablony.** Audyt pierwszej strony w pypdf 6.21.4 porównuje osobno każdą klasę. Ścisły odcisk obejmuje obrót i wymiary strony oraz pozycję, font i rozmiar pisma pierwszych sześciu niepustych fragmentów tekstu. Szerszy wzorzec to kolejność co najmniej dwóch różnych, z góry wymienionych nagłówków po ujednoliceniu wielkości liter, odstępów i końcowego dwukropka. W tabeli podano liczbę różnych wspólnych sekwencji nagłówków.
+
+| Para | Odwołanie | Pełnomocnictwo | Przelew | Negatyw |
+|---|---:|---:|---:|---:|
+| Rozwój – walidacja | 6 | 4 | 2 | 1 |
+| Rozwój – test końcowy | 6 | 2 | 1 | 0 |
+| Walidacja – test końcowy | 3 | 1 | 1 | 0 |
+
+Wśród porównywalnych stron wykryto **0 wspólnych ścisłych odcisków** między testem końcowym a pozostałymi zbiorami. Rozwój i walidacja współdzielą po jednym takim odcisku dla odwołania (49, 58 i walidacyjne 56) oraz przelewu (59 i walidacyjne 56). Poniższe przykłady pokazują szersze rodziny obecne w każdym zbiorze.
+
+- W odwołaniach z 15 / 09 / 08 powtarza się kolejność „Odwołujący → Zamawiający → Dotyczy → Odwołanie” (rozwój / walidacja / test).
+- W pełnomocnictwach z 01 / 37 / 31 powtarzają się nagłówki pełnomocnictwa, mocodawcy i przyjęcia pełnomocnictwa.
+- Przelewy z 40 / 44 / 47 mają wspólną kolejność zleceniodawcy i jego rachunku, odbiorcy i jego rachunku, daty operacji i tytułu.
+
+Ścisły odcisk dało się policzyć dla 180/180 dokumentów trzech klas i 7/11 unikatowych negatywów. Szerszą sekwencję rozpoznano w 59/60 odwołań, 37/60 pełnomocnictw, 49/60 przelewów i 3/11 negatywów. To porównanie cech pierwszej strony, a część rodzin przechodzi między zbiorami. Wynik końcowy opisuje nowe **sprawy** w tej próbce. Pojedynczy negatyw w teście ma wartość przykładu kontrolnego.
+
+**Rozdzielenie danych.** Proces przygotowania kopiuje wskazany `pdf` do ścieżki `input` z manifestu. Ekstraktor dostaje wyłącznie takie PDF-y, bez dostępu do repozytorium UZP, oryginalnych nazw, etykiet i manifestów. Osobny proces oceny czyta mapowanie na `reference`. Podczas rozwoju diagnozujemy błędy na zbiorze rozwojowym. Walidacja służy do jednego porównania zamrożonych A/B/C. Test końcowy uruchamiamy raz po zapisaniu wersji kodu, konfiguracji i wyboru wariantu. Po tym biegu zapisujemy ograniczenia i raport.
+
+Poniższe polecenia należy wykonać z katalogu projektu, przy kopii UZP w `../hacknation-2026`.
+
+```sh
+git -C ../hacknation-2026 rev-parse HEAD
+python evaluation/check_splits.py ../hacknation-2026
+python -m unittest discover -s evaluation -p "test_*.py"
+```
+
+Oczekiwany HEAD UZP to `de135d20811caf630f3e94dc655ba5eebd9a6710`. Powtórzenie audytu szablonów wymaga `python -m pip install pypdf==6.21.4` i `python evaluation/check_splits.py ../hacknation-2026 --templates`. Kontrola samych hashy korzysta z biblioteki standardowej. Miernik obsługuje etykiety LF i CRLF również dla starego manifestu walidacji. PDF-y porównuje bajt po bajcie.
 
 ## Kolejność pracy i warunki ukończenia
 
-1. **Ustalić kontrakt oceny.** Potwierdzić u mentora, co dokładnie zapisać dla negatywu (pusty plik, pusty obiekt lub inna reprezentacja), jak liczone są brakujące pola, null, kolejność list i normalizacja tekstu. Regulamin zadania (§ 2) ustala F1 jako jedyne kryterium preselekcji oraz finał 50% F1 i 50% rozszerzalności. README potwierdza te wagi. Szczegółowy PDF opisuje inny podział finału. Do planowania przyjąć regulamin. Zapisać wersję reguł. Przy braku odpowiedzi jawnie oznaczyć lokalny wynik jako przybliżony.
-2. **Zbudować manifest i miernik.** Powiązać PDF-y z etykietami. Przykładowo potwierdzenie_przelewu.pdf ma etykietę przelew.json. Policzyć duplikaty po hashu, obejrzeć podobieństwa szablonów, sprawdzić powtarzalność spraw. Proponowany podział początkowy to 40/10/10 pełnych spraw na rozwój, walidację i końcową próbę, z korektą po zgrupowaniu duplikatów. Negatywy uwzględnić w każdym możliwym podzbiorze bez powielania identycznych plików. Miernik ma dać pełną zgodność dla wzorca porównanego z samym sobą i wskazać konkretne pole po zmianie wartości. Raportować F1 pól, błędy per klasa, fałszywe przypisania negatywów i czas. Przybliżoną normalizację raportować osobno od ścisłego porównania.
-3. **Przejść od PDF do pierwszego poprawnego pliku.** Zacząć od przelewu. Odczytać kwotę, datę, tytuł, rachunek źródłowy i docelowy. Zachować zera w identyfikatorach. Uruchomić CLI na pliku o neutralnej nazwie i porównać cały JSON z etykietą. Zmierzyć, czy tryb layout zachowuje powiązanie etykieta–wartość. Na tym etapie wybrać domyślny czytnik.
-4. **Obsłużyć całą sprawę.** W pełnomocnictwie odróżnić mocodawcę, osoby podpisujące i pełnomocników, także gdy jest ich wielu. W odwołaniu rozdzielić odwołującego i zamawiającego, numery BZP/TED oraz numer wewnętrzny. Datę czynności i powód powiązać z pierwszym zarzutem. Opis generować ze słownika UZP na podstawie ustalonego ID. W jednej próbie obsłużyć trzy właściwe klasy i dodatkowy dokument obcy. Powtórzyć po przemianowaniu plików.
-5. **Wybrać ulepszenie na podstawie strat.** Dla błędnych pól rozróżnić brak czytelnego tekstu, złą kolejność odczytu, błędną klasę, błędne przypisanie roli i błędną normalizację. Każdy eksperyment zmienia tylko jeden element. Zachować go, gdy poprawia wynik na zablokowanej walidacji, można wskazać poprawione i pogorszone przypadki, a przebieg mieści się w budżecie laptopa jurora.
-6. **Porównać trzy warianty.** Wykonać poniższy test na zamrożonym zbiorze. Zapisać wyniki przed zmianą reguł, promptu lub czytnika.
-7. **Próba wydania.** Uruchomić instalację i pełne CLI z czystego checkoutu na CPU w ramach 16 GB RAM. Sprawdzić skan, uszkodzony PDF, pusty folder, brak sieci oraz powtórzenie przebiegu bez starych wyników. Otworzyć odłożony zestaw końcowy po zamrożeniu decyzji. Zapisać wynik, ograniczenia i instrukcję odtworzenia. Dopiero po tych krokach rozważyć dodatkowy interfejs.
-8. **Dowieść rozszerzalności na żywo.** Podczas implementacji klas standardowych przygotować wczytywanie konfiguracji opisującej sygnały klasy, schemat i reguły pól. Na wydaniu dodać jedną przykładową klasę plikiem konfiguracyjnym i przetworzyć nowy syntetyczny PDF. Pokazać zmianę konfiguracji, uzyskany JSON i ponowną próbę regresji trzech klas UZP. Osobny profil demonstracyjny pozwala zachować właściwe odrzucanie dokumentów obcych w profilu konkursowym.
-9. **Spakować produkt dla jury.** Wydanie zawiera tytuł, źródła, README z przetestowanymi poleceniami instalacji, uruchomienia i powtórzenia pokazu, requirements.txt, konfigurację Docker Compose z katalogami wejścia i wyjścia, opis architektury oraz instrukcje konfiguracji istniejącej klasy i dodania nowej. Uruchomić tę samą przykładową sprawę natywnie i przez Compose na CPU z czystego checkoutu. Przykład regułowy ma dawać identyczne JSON-y. Dla wybranego wariantu API udokumentować licencję, liczbę parametrów, firmę i region UE/EOG, zużycie oraz sposób przekazania jury działającego klucza poza Git. Zestawić komponenty zewnętrzne i licencje.
-10. **Przećwiczyć prezentację gotowego wydania.** Proponowany pokaz trwa 3 minuty, do dostosowania do czasu przydzielonego przez jury. W pierwszej minucie wczytać sprawę z neutralnymi nazwami plików i otworzyć jej wyniki. W drugiej wskazać w PDF podstawę trudnego pola, wynik dla negatywu, wynik F1 na odłożonych danych i jeden zaobserwowany błąd. W trzeciej pokazać rozszerzenie z kroku 8 i wymienić wykorzystane rozwiązania zewnętrzne. Druga osoba odtwarza pokaz wyłącznie z README na świeżej kopii. Przygotować także lokalną kopię wyników tej samej wersji na wypadek awarii sieci, wyraźnie oznaczoną jako zapis wcześniejszego przebiegu.
-11. **Sprawdzić zgłoszenie.** Oznaczyć wersję demonstracyjną identyfikatorem commita. Przygotować tytuł i link GitHub do działającego prototypu. Sprawdzić dostęp do prywatnego repozytorium z perspektywy uprawnionego odbiorcy, działanie klucza testowego, jeśli jest potrzebny, i odnośniki do instrukcji oraz wyników. Lider potwierdza kanał zgłoszenia UZP, wysyła projekt i zapisuje potwierdzenie. FAQ podaje zamknięcie okna HackTribe 22 listopada 2026 o 11:00 czasu polskiego. Wewnętrzny cel to zakończenie próby i przygotowanie zgłoszenia co najmniej godzinę wcześniej.
+Godziny od startu w sobotę 21 listopada o 11:00 czasu polskiego. Szkic projektu w HackTribe należy założyć **przed 20:00 w sobotę**. Zgłoszenie końcowe zamyka się **w niedzielę 22 listopada o 11:00**. Cel wewnętrzny to wysyłka do 10:00. [Przewodnik HackNation](https://hacknation.pl/przewodnik-uczestnika) · [Instrukcja HackTribe](https://hacknation.pl/api/public/przewodnik/1f73a661-0852-4e9e-b3ed-58c93bce6456?asset=aa346c52-8bd9-44ac-9499-364e44c4b6b4)
 
-## Odbiór produktu i pokrycie kryteriów
-
-| Kryterium | Dowód na wydaniu | Stan przy aktualizacji planu |
-|---|---|---|
-| Preselekcja: F1 na tajnym zbiorze co najmniej 10 spraw. Maksymalnie trzy zespoły w finale. | Powtarzalny pomiar wersji zgłoszeniowej na osobnym zbiorze końcowym; wynik lokalny opisany wraz z regułami miernika. | Zweryfikowany miernik i manifest walidacji. Pomiar produktu do wykonania. |
-| Finał: 50% F1 i 50% łatwości rozszerzania. README rozwija drugą połowę na rozmiar modelu, dodawanie klas i funkcje dodatkowe. | Porównanie A/B/C, opis wyboru modelu, działający przykład dodania klasy oraz opis architektury. Przykładową dodatkową funkcją może być wskazanie strony źródłowej pola. GUI jest opcjonalne. | Do wykonania. |
-| Produkt end-to-end | Juror wkłada własne PDF-y, uruchamia lokalny program zgodnie z instrukcją, odczytuje wyniki trzech klas i widzi obsługę negatywu. Próbę przechodzi ten sam commit co prezentacja. | Do wykonania. |
-| Prezentacja i przekazanie | Przećwiczony pokaz, dostępny link do prototypu, kod, instrukcje, dokumentacja konfiguracji klas i zweryfikowany Compose. Regulamin wymienia Compose przy przekazaniu przez zwycięzcę (§ 3 ust. 5); przygotowujemy go już na wydanie demonstracyjne. | Do wykonania. |
-
-Podstawa oceny: [regulamin zadania, § 2–4](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aa36e74b-f96c-46cf-9970-5937ed203222.pdf), [szczegółowy opis PDF](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aeabc57d-7420-4069-946e-2c4de71d87ed.pdf), [README UZP](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026), [FAQ HackNation](https://hacknation.pl/faq).
+| Budżet | Odbieralny wynik |
+|---|---|
+| H0–2 | Zamrożony podział i rozłączność spraw oraz hashy są sprawdzone. Ustalić z mentorem reprezentację pustego wyniku i reguły F1, zapisać decyzję i wersję kontraktu. |
+| H2–6 | Z czystego środowiska uruchomić pierwsze CLI na rozwojowym `case_01/doc_02.pdf`. Wynikiem jest `output/case_01/doc_02.json` z sześcioma polami przelewu zgodnymi z referencją. Konfiguracja zawiera sygnały klasy, schemat i reguły. |
+| H6–12 | Jedna sprawa przechodzi przez trzy klasy i dokument obcy. Dodatkowe próby obejmują zmianę nazw, dwie instancje tej samej klasy, pusty folder, nieczytelny skan, uszkodzony PDF i ponowny bieg po usunięciu wejścia. Walidator sprawdza zbiór ścieżek, format negatywu, klucze i typy osobno od mikro-F1. Przed H9 sprawdzić, czy szkic w HackTribe wskazuje UZP. |
+| H12–15 | Poprawić największe straty na danych rozwojowych. Rozróżnić jakość tekstu, kolumny, klasyfikację, role i normalizację. Zamrozić kod A, selektor pierwszego zarzutu, prompt i parametry. Policzyć A na wszystkich 32 walidacyjnych PDF-ach i zapisać wyjścia, czas oraz szczyt RAM. |
+| H15–17 | Przeprowadzić porównanie opisane poniżej. Jeśli pełne A jest opóźnione, czas na B/C przechodzi na ekstrakcję i próbę wydania. W pierwszej kolejności odłożyć GUI i dodatkowy czytnik. Rozbudowę OCR uzależnić od wykazanych strat na skanach. |
+| H17–20 | Zapisać SHA kandydata i wybór wariantu przed otwarciem testu końcowego. Przeprowadzić jeden pomiar końcowy i próbę dodania klasy. Z czystej kopii na CPU do 16 GB uruchomić natywnie i przez Compose tę samą sprawę. Wariant A ma dać identyczne JSON-y. Zapisać zimny czas instalacji, czas partii, RAM, wynik i ograniczenia. |
+| H20–23 | Konto z dostępem jurora klonuje prywatne repozytorium i samodzielnie przechodzi od własnych PDF-ów do JSON-ów według README. Sprawdzić domyślną komendę, montowanie wejścia i wyjścia w Compose, licencje, dokumentację klas i działający limit klucza przekazanego poza Git, jeśli wydanie go wymaga. Przećwiczyć pokaz z zegarem i bez sieci. Wysłać tytuł, link do prototypu i materiały w formularzu, w tym prezentację PDF do 10 MB zgodnie z instrukcją HackTribe. Zachować potwierdzenie. |
+| H23–24 | Godzina rezerwy na dostarczenie materiałów lub poprawienie dostępu jurora. |
 
 ## Pierwszy test na 10 sprawach
 
-**Pytanie.** Czy zastąpienie jednej reguły wywołaniem modelu poprawia F1 całej ekstrakcji? W tej próbie model wskazuje `czynnosc_powod_id` pierwszego zarzutu. Opis czynności każdy wariant wyprowadza z tej samej tabeli UZP. Pozostałe pola, klasyfikator, tekst z PDF i wybór fragmentu są wspólne. Wynik dotyczy tej jednej decyzji ekstraktora.
+**Pytanie.** Jak zmienia się mikro-F1 pełnego przebiegu, gdy regułę wyznaczającą `czynnosc_powod_id` pierwszego zarzutu zastępuje odpowiedź modelu? Klasyfikacja, czytnik, tekst, wybór fragmentu i wszystkie pozostałe pola są wspólne. Każdy wariant wyprowadza `czynnosc_opis` z tego samego słownika. Poprawne ID i poprawny opis mogą dać dwa trafienia wynikające z jednej decyzji.
 
-1. **Zamrozić dane.** W rewizji UZP wskazanej na początku planu walidacja obejmuje katalogi `przyklad_` o numerach **04, 09, 16, 22, 27, 33, 37, 44, 50, 56**. Jest to 30 PDF-ów trzech klas z referencjami i dwa negatywy w sprawach 04 i 37. Każdy z tych negatywów ma identyczną kopię w zbiorze UZP. Policzyć go raz i wykluczyć oba hashe ze zbiorów rozwojowego i końcowego. Przed strojeniem odłożyć kolejne 10 pełnych spraw na test końcowy. Do wejścia przekazać wyłącznie PDF-y pod neutralnymi nazwami. Manifest zachowuje hash, ścieżkę i mapowanie na referencję wyłącznie dla miernika.
-2. **Przygotować przebieg bez kluczy.** Na danych rozwojowych ustalić wybór fragmentu, listę 12 ID, sposób obsługi braku przesłanek i walidację odpowiedzi. Przygotować adapter API z odpowiedzią testową, obsługą limitu czasu i błędnego JSON-u. Zamrozić kod, schemat, prompt i parametry. Policzyć wariant A na komplecie 32 PDF-ów i zapisać jego wyjścia.
-3. **Sprawdzić dostęp do API.** Dopiero teraz potrzebny jest klucz OVHcloud, przed pierwszym rzeczywistym wywołaniem Qwena. Klucz Scaleway jest potrzebny analogicznie przed pierwszym wywołaniem Mistrala. Na maszynie wykonującej test ustawić prywatne zmienne środowiskowe `OVH_AI_ENDPOINTS_ACCESS_TOKEN` i `SCALEWAY_SECRET_KEY`. Odczytywać je tylko w odpowiednim adapterze. Pierwsze wywołanie każdego API wykonać na krótkim fikcyjnym zarzucie spoza walidacji i sprawdzić nazwę modelu oraz poprawność odpowiedzi.
-4. **Wykonać warianty B i C.** A to same reguły, B to reguły + Qwen 9B, C to reguły + Mistral 24B. Przy tym samym dokumencie oba modele dostają identyczny fragment i instrukcję, bez referencyjnej odpowiedzi. Wywołać API tylko dla dokumentu rozpoznanego przez wspólny klasyfikator jako odwołanie. Użyć stałych identyfikatorów modeli i zapisać parametry generacji. Przy błędzie usługi lub odpowiedzi spoza schematu wrócić do reguły A i oznaczyć fallback. Wszystkie 32 PDF-y wchodzą do oceny każdego wariantu.
-5. **Policzyć wynik.** Podstawową miarą lokalną jest mikro-F1 na niepustych wartościach pól w całym zbiorze: `2TP/(2TP+FP+FN)`. Porównywać dla dokumentu pary (ścieżka pola, wartość) po wczytaniu JSON, z indeksami list w ścieżce. Identyczna para daje TP, pominięta wartość FN, dodatkowa FP, a podstawienie złej wartości daje FP i FN. Zgodne braki i null nie powiększają TP. Dla negatywu każda wydobyta wartość daje FP. Osobno sprawdzić zgodność pustego wyniku z kontraktem. To lokalne przybliżenie do czasu publikacji sposobu oceny UZP.
-6. **Zapisać porównanie.** Dla A, B i C raportować TP/FP/FN, mikro-F1 i zmianę względem A w punktach procentowych, dokładność ID na 10 odwołaniach, liczbę błędnych rozpoznań na dwóch negatywach, liczbę fallbacków, tokeny, koszt i czas. Wypisać sprawy poprawione i pogorszone. ID i opis są dwoma polami JSON, lecz ich wspólna poprawa wynika z jednej decyzji. Przy remisie F1 z A zachować reguły. Jeśli oba modele poprawiają F1 w równym stopniu, preferować Qwen 9B po sprawdzeniu awarii i kosztu. Wynik na 10 sprawach kwalifikuje wariant do niezależnego testu końcowego.
+1. **Przygotować A i adaptery.** Na danych rozwojowych sprawdzić selektor na odwołaniu z dwoma różnymi zarzutami, ustalić postępowanie przy braku przesłanek i zweryfikować schemat odpowiedzi dla 12 ID. Zarejestrować stronę oraz hash fragmentu. Przygotować odpowiedzi testowe na brak klucza, 429, timeout i wadliwy JSON.
+2. **Porównać uzgodnionych kandydatów.** A to reguły. B dodaje Qwen3.5-9B przez OVHcloud AI Endpoints w Gravelines. C dodaje Mistral Small 3.2 24B Instruct 2506 przez Scaleway Generative APIs w Paryżu. Oba modele są na Apache 2.0. Przypiąć rzeczywiste identyfikatory i parametry generacji. Po wyniku A wykonać próbę dostępu na krótkim fikcyjnym zarzucie. Sekrety `OVH_AI_ENDPOINTS_ACCESS_TOKEN` i `SCALEWAY_SECRET_KEY` odczytuje odpowiedni adapter. Tylko dokument rozpoznany przez wspólny klasyfikator jako odwołanie uruchamia model. Oba modele otrzymują ten sam fragment i instrukcję, bez referencji. Dla każdej awarii zapisać przyczynę, zastosować regułę A i dokończyć partię.
+3. **Zmierzyć efekt i koszt.** Dla wszystkich 32 wyników zapisać TP/FP/FN, mikro-F1 i zmianę względem A w pkt proc., macierz klas, dokładność ID z mianownikiem 10, fałszywe rozpoznania z mianownikiem 2, błędnie wybrane fragmenty, przypadki poprawione i pogorszone oraz użycia reguły awaryjnej. Zmierzyć tokeny wejścia i wyjścia, koszt po stawce danego dostawcy, czas na dokument i czas partii. Punkt odniesienia w EUR za milion tokenów wejścia/wyjścia to 0,10/0,15 dla Qwena (katalog podaje 9,7 mld parametrów) i 0,15/0,35 dla Mistrala. Do wydania zapisać stawkę i datę pomiaru, licencję, firmę świadczącą API i lokalizację serwerów w UE/EOG. [Model OVHcloud](https://www.ovhcloud.com/en/public-cloud/ai-endpoints/catalog/qwen-3-5-9b/) · [Cennik OVHcloud](https://www.ovhcloud.com/fr/public-cloud/prices/) · [Cennik Scaleway](https://www.scaleway.com/en/pricing/model-as-a-service/) · [Region Scaleway](https://www.scaleway.com/en/docs/generative-apis/faq/)
+4. **Wybrać przed testem końcowym.** Warunkiem kwalifikacji są poprawne drzewo, struktura JSON i działający powrót do A. Przy remisie F1 z A wybrać A. Przy równym dodatnim zysku modeli preferować mniejszy po sprawdzeniu czasu, kosztu i awarii. Walidacja obejmuje 7 z 12 ID. Jeden wynik zmienia dokładność ID o 10 pkt proc., a jeden negatyw odsetek błędnych rozpoznań o 50 pkt proc. Zapisujemy zakres dowodu i numer wersji kandydata.
 
-**Stan wykonania.** [Manifest](evaluation/validation-10.json) i [miernik](evaluation/score.py) są gotowe. W próbie kontrolnej wzorzec porównany z samym sobą dał 331 TP i mikro-F1 1,0000. Po zamianie dwóch rachunków, pominięciu kwoty i błędnym wydobyciu pola z negatywu miernik wykazał 3 FP, 3 FN i mikro-F1 0,9909. Wyniki A/B/C pozostają do zmierzenia. Wywołanie miernika z katalogu projektu ma postać `python evaluation/score.py <katalog-repo-UZP> <katalog-wyników-wariantu>`.
+### Jak czytać wynik miernika
 
-**Następny krok.** Wydzielić końcowy zbiór przed strojeniem i wykonać pierwszy przebieg wariantu A na rozwojowym potwierdzeniu przelewu, od PDF-u pod neutralną nazwą do JSON-u porównanego z referencją. Klucze API będą potrzebne po uzyskaniu wyniku A. Nie umieszczać sekretów w czacie, repozytorium ani raporcie.
+`fields()` porównuje niepuste wartości wraz z typem i ścieżką, w tym indeksem listy. Ścisłe mikro-F1 wynosi `2TP/(2TP+FP+FN)`. Złe podstawienie daje FP i FN. Pominięta wartość daje FN, a niepusta wartość wydobyta z negatywu daje FP. `valid_run` i `false_positive_documents` trzeba czytać razem z F1. Zaplanowany walidator struktury powinien dodatkowo wskazywać konkretną ścieżkę błędnego pola. Ewentualny wynik po normalizacji raportować osobno.
 
-Dokumentacja kandydatów: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html), [pdfplumber](https://github.com/jsvine/pdfplumber), [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
+| Kontrola na walidacji | Obserwacja |
+|---|---|
+| Referencje jako predykcja | 331 TP, 0 FP, 0 FN, F1 1,0000. Potwierdzone także po zmianie zakończeń wierszy etykiet na LF. |
+| Zamiana rachunków lub zamiana miejsc dwóch pełnomocników w 04 | W każdej próbie 329 TP, 2 FP, 2 FN. Indeksy zachowują kolejność. |
+| Brak klucza, którego wzorcowa wartość to `null` | F1 nadal 1,0000. Zastąpienie niepustej daty przez `null` daje 1 FN. |
+| Brak pliku przelewu / brak pliku negatywu | Oba przebiegi mają `valid_run=false`. W przykładzie brak przelewu daje 6 FN, brak negatywu pozostawia F1 1,0000. |
+| Jedno błędne pole w negatywie | 1 FP i 1 błędny dokument. Obiekt zawierający tylko pole `null` daje 0 FP pól i 1 błędny dokument. Miernik akceptuje dla negatywu zarówno 0 bajtów, jak i `{}`. |
+| Zamiana rachunków, pominięta kwota i pole w negatywie | 328 TP, 3 FP, 3 FN, F1 0,9909. |
+| Poprawne ID z opisami wyprowadzonymi ze słownika | 10/10 ID, 330 TP, 1 FP, 1 FN, F1 0,9970. Przypięta etykieta w sprawie 44 zapisuje spójnik „i” w miejscu ukośnika. |
 
+Mikro-F1 może zawyżać wynik przy wymaganych kluczach lub silniejszej karze za błędną klasę. Może go zaniżać, jeżeli jury akceptuje alternatywną kolejność list i normalizuje tekst. Powyższe liczby opisują próby kontrolne miernika. Pierwszy wynik jakości ekstraktora powstanie po uruchomieniu A.
+
+Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-walidacja`. Opcja `--manifest` wybiera inną próbę. Dopiero po zamrożeniu wydania wykonać `python evaluation/score.py ../hacknation-2026 wyniki-koncowe --manifest evaluation/final-10.json`. [Miernik](evaluation/score.py) · [Kontrola podziału](evaluation/check_splits.py)
+
+## Odbiór produktu i pokrycie kryteriów
+
+| Moment | Dowód dla jurora lub UZP |
+|---|---|
+| Zgłoszenie | Tytuł i link GitHub do działającego prototypu. Własne wyniki i dokumentacja techniczna są dodatkami do zgłoszenia. W przypadku prywatnego repozytorium sprawdzić klonowanie i start z uprawnionego konta odbiorcy. |
+| Preselekcja | Wyłącznie F1 na co najmniej 10 nieujawnionych sprawach. Do finału UZP przechodzą maksymalnie trzy zespoły. Lokalny wynik ma podaną rewizję danych, SHA programu i zasady miernika. |
+| Finał | Według § 2 regulaminu zadania 50% za F1 i 50% za łatwość rozbudowy. Jury ocenia kod, opis architektury i treść prezentacji. README rozwija drugą połowę na maksymalnie 20 pkt za rozmiar modelu, 20 za dodawanie klas i 10 za funkcje dodatkowe. Szczegółowy PDF podaje 50/30/20, a ogólny przewodnik wydarzenia wymienia pięciu finalistów. W tym zadaniu stosujemy regulamin UZP. |
+| Przekazanie przez zwycięzcę | § 3 ust. 5 wiąże wypłatę z umową przeniesienia praw i przekazaniem kodu, instrukcji uruchomienia, konfiguracji Docker Compose oraz dokumentacji architektury, konfiguracji istniejącej klasy i dodania nowej. Compose sprawdzamy wcześniej na tym samym wydaniu. Rozwiązania zewnętrzne wskazujemy w prezentacji zgodnie z § 4. |
+
+**Dowód rozszerzalności.** W profilu demonstracyjnym dodać `zawiadomienie.toml` z sygnałami klasy, dwiema definicjami pól i ich regułami. Nowy syntetyczny PDF ma dać oczekiwaną `sygnatura` i `termin` bez edycji kodu. Pokazać diff konfiguracji, wynik i opis przepływu od sygnału do pola. Po przełączeniu na profil konkursowy ten sam PDF ma dać pusty wynik, a regresja wszystkich trzech klas i negatywów ma odtworzyć wynik sprzed dodania klasy.
+
+**Próba prezentacji.** Przećwiczyć dwuminutowy pokaz zalecany w przewodniku. Pierwsze 40 sekund to własny dokument, komenda, JSON i pusty negatyw. Następne 30 sekund to podstawa pola na wskazanej stronie PDF, zapisany wynik jakości i rzeczywisty błąd. Ostatnie 50 sekund to dodanie klasy i regresja. Dłuższą wersję dostosować do czasu przyznanego przez jury. Zimną instalację zmierzyć osobno. Na tym samym SHA powtórzyć pokaz według README bez sieci: lokalne A przetwarza nowy PDF, wcześniejszy wynik modelu jest jawnie podpisany jako zapis poprzedniego przebiegu.
+
+[Regulamin zadania, § 2–4](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aa36e74b-f96c-46cf-9970-5937ed203222.pdf) · [Szczegółowy opis PDF](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aeabc57d-7420-4069-946e-2c4de71d87ed.pdf) · [FAQ HackNation](https://hacknation.pl/faq)
+
+**Do potwierdzenia u mentora.** Jak jury traktuje brak pliku, `null`, typy liczb, permutacje list i normalizację? Czy negatyw ma dokładnie 0 bajtów? Jak postępować przy nieczytelnym skanie, braku podstawy do ID i niezgodności opisu z kanonicznym słownikiem? Jak są oceniane A bez modelu, limity API, kanał przekazania klucza, dostęp do repozytorium i czas pokazu?
+
+**Następny krok.** Uruchomić pierwszy przebieg A dla rozwojowego `case_01/doc_02.pdf`, odczytać wszystkie sześć pól przelewu i porównać cały JSON z etykietą przez osobny proces oceny.
+
+Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 
 ## Synchronizacja VPS
 

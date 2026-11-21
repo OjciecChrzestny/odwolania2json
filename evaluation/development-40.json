@@ -1,0 +1,1029 @@
+{
+  "revision": "de135d20811caf630f3e94dc655ba5eebd9a6710",
+  "documents": [
+    {
+      "input": "case_01/doc_01.pdf",
+      "pdf": "dane/przyklad_01/pelnomocnictwo.pdf",
+      "sha256": "1ccda932ca2e961e3e1f3fc6eea0f01a9015c6b1d4c01aa128eb952d3a3186c3",
+      "reference": "dane/przyklad_01/pelnomocnictwo.json",
+      "reference_sha256": "a31d5f4271b885eb64414898c1bc656cfc6efe1f3d4e86730b5566ebc7304cc2",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_01/doc_02.pdf",
+      "pdf": "dane/przyklad_01/potwierdzenie_przelewu.pdf",
+      "sha256": "6470c51d6b8a2a35ea734db7a80d16b5461a5658946eb9fe92a04888ea48975b",
+      "reference": "dane/przyklad_01/przelew.json",
+      "reference_sha256": "2cc3aa5db41ed8a48d0ab1b00d1e480e5be04aaaf934026c08d98e6b1717a043",
+      "class": "przelew"
+    },
+    {
+      "input": "case_01/doc_03.pdf",
+      "pdf": "dane/przyklad_01/odwolanie.pdf",
+      "sha256": "fefe2d2b2d8fb124803d65f499536f7412d6469e7a2b940213863167b9477fa4",
+      "reference": "dane/przyklad_01/odwolanie.json",
+      "reference_sha256": "f76d7102953fe56c676a4192ec654a1a9f9fb7f9e09288a96ee69c22043be274",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_02/doc_01.pdf",
+      "pdf": "dane/przyklad_02/potwierdzenie_przelewu.pdf",
+      "sha256": "36ff6205a457214f3324617228449a3e64d4da9e44ac700f030699e0930f1443",
+      "reference": "dane/przyklad_02/przelew.json",
+      "reference_sha256": "68151318100880a04ef9ad6de0feaf918615c102569766ca61b51a2904982895",
+      "class": "przelew"
+    },
+    {
+      "input": "case_02/doc_02.pdf",
+      "pdf": "dane/przyklad_02/odwolanie.pdf",
+      "sha256": "71dec9ce1d77792fbe84685035a784f1024703b9d9badc630f64ee3aff6c2d93",
+      "reference": "dane/przyklad_02/odwolanie.json",
+      "reference_sha256": "94cc6ac6b585778ac6c8a34bde5a4fc0cdaa07bbb0d2502e96f47b393333063f",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_02/doc_03.pdf",
+      "pdf": "dane/przyklad_02/pelnomocnictwo.pdf",
+      "sha256": "c560925ccb270810a824146a53ceb02c3c3776a1462d8e21cc647d40d68b7a47",
+      "reference": "dane/przyklad_02/pelnomocnictwo.json",
+      "reference_sha256": "374b67e5abf1905f66876c9caa9056db9e84818fa8b00dd737cd954cde9cd1cd",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_05/doc_01.pdf",
+      "pdf": "dane/przyklad_05/potwierdzenie_przelewu.pdf",
+      "sha256": "145ab1ff12eb8012450e277f25fdc0f02509889d2107763248ff4f0f18f12644",
+      "reference": "dane/przyklad_05/przelew.json",
+      "reference_sha256": "f430304da9518f5902545904fcd27908bf7634d2e48b3600b7d08e5f60848cde",
+      "class": "przelew"
+    },
+    {
+      "input": "case_05/doc_02.pdf",
+      "pdf": "dane/przyklad_05/pelnomocnictwo.pdf",
+      "sha256": "414fbd7134acfb69562f66b9488bc830a67729ac7614dbef807981463b580973",
+      "reference": "dane/przyklad_05/pelnomocnictwo.json",
+      "reference_sha256": "6ded7cc6bb33b6e00678feb00a18a092ee68e00a00115991795e9b71972fe55a",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_05/doc_03.pdf",
+      "pdf": "dane/przyklad_05/odwolanie.pdf",
+      "sha256": "af3169477709d2d4311090500a83d51700361782f631f073cbde5d6bafcb8013",
+      "reference": "dane/przyklad_05/odwolanie.json",
+      "reference_sha256": "d80a9ef9c420c6e432e7025e4783b4754d9c9f303a9afdc9d19f45a2af1f1d0f",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_06/doc_01.pdf",
+      "pdf": "dane/przyklad_06/pelnomocnictwo.pdf",
+      "sha256": "6e3e37642b8a70e50ce932ac1b3dcaf1a06b39c868b3d898c54828c3456651f1",
+      "reference": "dane/przyklad_06/pelnomocnictwo.json",
+      "reference_sha256": "493b565e440734b1307e8183cd52002b93180bc062ca301feec11c168a689966",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_06/doc_02.pdf",
+      "pdf": "dane/przyklad_06/potwierdzenie_przelewu.pdf",
+      "sha256": "b810f49fd31ea28b1bfdaa9aba83a61d59c7dc54bd04a9136af9605995822b5c",
+      "reference": "dane/przyklad_06/przelew.json",
+      "reference_sha256": "3b2c6bd167710a3c90afe9062386c41369908defad7fd2ad9a391b55cbc6d8ea",
+      "class": "przelew"
+    },
+    {
+      "input": "case_06/doc_03.pdf",
+      "pdf": "dane/przyklad_06/odwolanie.pdf",
+      "sha256": "fe96ea67895156760773f97a322b6b743dceec6331dc55902a44a6d5c6b3f300",
+      "reference": "dane/przyklad_06/odwolanie.json",
+      "reference_sha256": "b13580bb992425b6f5c6c0ffda34ee1101c70850b87e61773e588c06649f6917",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_07/doc_01.pdf",
+      "pdf": "dane/przyklad_07/pelnomocnictwo.pdf",
+      "sha256": "53e5c7f3f249b49e7b3719cda544ba788734b5ceb8bab26d12a635577fd32fcf",
+      "reference": "dane/przyklad_07/pelnomocnictwo.json",
+      "reference_sha256": "7e68749492be4c7ce4b23bd0db3a77700f0e061e29b33969a9081470fe30444a",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_07/doc_02.pdf",
+      "pdf": "dane/przyklad_07/potwierdzenie_przelewu.pdf",
+      "sha256": "643aa8ba114356f16da23db54fbac6a59ca74cfff856fff55cde0e2af8cab515",
+      "reference": "dane/przyklad_07/przelew.json",
+      "reference_sha256": "aaf5ed124583bda068c4b73064005b462a1b1f52a64934f3ee46e5edfeeb12c5",
+      "class": "przelew"
+    },
+    {
+      "input": "case_07/doc_03.pdf",
+      "pdf": "dane/przyklad_07/odwolanie.pdf",
+      "sha256": "8093bfdc7fd0f6b3f952894bfbf8c7f7a4092f3221b8987bae38ebc1ddf612d8",
+      "reference": "dane/przyklad_07/odwolanie.json",
+      "reference_sha256": "82f87c36146b7855e42b3d15990227b3da7e9708b7cba4f203feaafeec49d736",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_10/doc_01.pdf",
+      "pdf": "dane/przyklad_10/odwolanie.pdf",
+      "sha256": "98cbece5ecead3f8441956fb524ee74d99f2700c5d6473a4c6dae2a60c5cc122",
+      "reference": "dane/przyklad_10/odwolanie.json",
+      "reference_sha256": "e6ffa607894ecb3bec56b42a360b28fab432c0a58bf52b51bc3ee2eebea10305",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_10/doc_02.pdf",
+      "pdf": "dane/przyklad_10/2025-OJS107-00364525-pl-ts.pdf",
+      "sha256": "c9f874f28ee7575beaffb34343d64a956553deab96e448226d5c067a16191fa3",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    },
+    {
+      "input": "case_10/doc_03.pdf",
+      "pdf": "dane/przyklad_10/pelnomocnictwo.pdf",
+      "sha256": "d86a928b48da17ebce17280e825049b1f16c5a27c17e1d99d0580183a5b8f19a",
+      "reference": "dane/przyklad_10/pelnomocnictwo.json",
+      "reference_sha256": "d10e2efb7c6e7e07f9957565971f3124ed1e8da209626b5b6e240ea55f4bd3a6",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_10/doc_04.pdf",
+      "pdf": "dane/przyklad_10/potwierdzenie_przelewu.pdf",
+      "sha256": "e38699819b49a7a8835a2d8e7466423c9e39669990694f9b725c83d5273a79c1",
+      "reference": "dane/przyklad_10/przelew.json",
+      "reference_sha256": "2bb014a4b271d953dedb85379c847e2018aa494b88c251063b7f8f0f1acc1ca4",
+      "class": "przelew"
+    },
+    {
+      "input": "case_11/doc_01.pdf",
+      "pdf": "dane/przyklad_11/odwolanie.pdf",
+      "sha256": "0dfa11d2433050e5e554019929957249dd3767041b4adba23b6de5703f758750",
+      "reference": "dane/przyklad_11/odwolanie.json",
+      "reference_sha256": "b94f132ec4ceaa40dbeaf5839ed45a60597851656b977bc518f779eea69e3248",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_11/doc_02.pdf",
+      "pdf": "dane/przyklad_11/potwierdzenie_przelewu.pdf",
+      "sha256": "3edeacc9a880a3a8757a042faad9ca8c48a1111d765b8355f422ad9e11cbe875",
+      "reference": "dane/przyklad_11/przelew.json",
+      "reference_sha256": "43172245c9a3357777c9490bdc37c2f68e1d016895e7cdb1356c05e099b0b82b",
+      "class": "przelew"
+    },
+    {
+      "input": "case_11/doc_03.pdf",
+      "pdf": "dane/przyklad_11/pelnomocnictwo.pdf",
+      "sha256": "fbc057c66d1abf54c20a3d6a602a491849faf80d3313f8c64fffb2787b3827d1",
+      "reference": "dane/przyklad_11/pelnomocnictwo.json",
+      "reference_sha256": "62b3c76904b4b45039c8c232616cb0f68951a8ffbe671d00cfc4f1f47cba1674",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_13/doc_01.pdf",
+      "pdf": "dane/przyklad_13/odwolanie.pdf",
+      "sha256": "3784e36df338a94ef25c30db89ece3d0939ca0c5b7d0e3cb580e6413746f0028",
+      "reference": "dane/przyklad_13/odwolanie.json",
+      "reference_sha256": "be3361fcd154cad5aa31cd1510f57547f05362c5176548fa76831497d8609b41",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_13/doc_02.pdf",
+      "pdf": "dane/przyklad_13/pelnomocnictwo.pdf",
+      "sha256": "3df024b21b58f4bf191e9100d19f79c0d47797a34789eae525617a28721bf483",
+      "reference": "dane/przyklad_13/pelnomocnictwo.json",
+      "reference_sha256": "d2f84183c3ffd38dbd27b6dda7e6ae1d990467051ab416739c71990a0b272a25",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_13/doc_03.pdf",
+      "pdf": "dane/przyklad_13/potwierdzenie_przelewu.pdf",
+      "sha256": "98cc5e9bf4f70a66b93898c61ddf663eb2f2c83bb16064cdfecf8fe6b3169054",
+      "reference": "dane/przyklad_13/przelew.json",
+      "reference_sha256": "e51509934f98dfafae1574ac84e16a40b260a331c2f8b2ace837af518290daf1",
+      "class": "przelew"
+    },
+    {
+      "input": "case_15/doc_01.pdf",
+      "pdf": "dane/przyklad_15/pelnomocnictwo.pdf",
+      "sha256": "4a698c87e0ded6fc1238f5fdf43c7e6f9640980893f826fc780f54d6555310f4",
+      "reference": "dane/przyklad_15/pelnomocnictwo.json",
+      "reference_sha256": "b4cda857f7495d8db697b9944fa083e4542804b4edfea928e9949c1436d2ba6d",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_15/doc_02.pdf",
+      "pdf": "dane/przyklad_15/odwolanie.pdf",
+      "sha256": "81714ff907b32078b6a7cb1479719599d9b19b3aab9dfedfaa759522c91e68e1",
+      "reference": "dane/przyklad_15/odwolanie.json",
+      "reference_sha256": "af46c62f1031d77897eb5324681ee4d58c3288c3ade7be2c8858d985541c1c15",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_15/doc_03.pdf",
+      "pdf": "dane/przyklad_15/potwierdzenie_przelewu.pdf",
+      "sha256": "9606e891489e9ebc2485b259cb4662bb21411137ceb57c3529911829016a52ac",
+      "reference": "dane/przyklad_15/przelew.json",
+      "reference_sha256": "f6fca4aadc8b07af7d14d04d181a43922870eaf745e408cbd4ac5eda1725d3e8",
+      "class": "przelew"
+    },
+    {
+      "input": "case_17/doc_01.pdf",
+      "pdf": "dane/przyklad_17/pelnomocnictwo.pdf",
+      "sha256": "0d423220173b5e728214d0e6e33eb72b71191066784971ea392b74225088a789",
+      "reference": "dane/przyklad_17/pelnomocnictwo.json",
+      "reference_sha256": "7e4aa6b8ee19d8933441f77599b2d5229cadb4ee8cf972ab346c76e7deb07b05",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_17/doc_02.pdf",
+      "pdf": "dane/przyklad_17/odwolanie.pdf",
+      "sha256": "cca9ff79076dfda1cfcfcbf50572c2201ef0a1aa63095eb6f9b6911ac66e2bff",
+      "reference": "dane/przyklad_17/odwolanie.json",
+      "reference_sha256": "b35378bfbe0c5db80d4a0cdf2860ef73bcdb94cb1aed39301a5d91fbc87ebec0",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_17/doc_03.pdf",
+      "pdf": "dane/przyklad_17/potwierdzenie_przelewu.pdf",
+      "sha256": "eb5e525610a25cbf818a2d836c7695918377e9eee701f3f0edd44edbbed50038",
+      "reference": "dane/przyklad_17/przelew.json",
+      "reference_sha256": "8d06d4e4d9fbb775cf6e98d98f0410fcb85f081055222f1727d485897d076f61",
+      "class": "przelew"
+    },
+    {
+      "input": "case_18/doc_01.pdf",
+      "pdf": "dane/przyklad_18/odwolanie.pdf",
+      "sha256": "74858b6da09ba93e2622d05991f7cd7d987675708ad644017ea047ec59c9aff3",
+      "reference": "dane/przyklad_18/odwolanie.json",
+      "reference_sha256": "fb62f73422b6909b9d443864674e14a56e4574c2666bc30497cdbc639fd894b3",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_18/doc_02.pdf",
+      "pdf": "dane/przyklad_18/pelnomocnictwo.pdf",
+      "sha256": "824f58229330f033ee44a5d76ab0ca619d178c2783e07dfcf3250aa67f77f6ac",
+      "reference": "dane/przyklad_18/pelnomocnictwo.json",
+      "reference_sha256": "af0bf22eeeecec652bda910d97881648fd7005488e150232bb3ef57f2f8da4ad",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_18/doc_03.pdf",
+      "pdf": "dane/przyklad_18/potwierdzenie_przelewu.pdf",
+      "sha256": "a6498271331f36d2e02fb502dc7f2fd810c81873fb1901347161ae1c0b134c46",
+      "reference": "dane/przyklad_18/przelew.json",
+      "reference_sha256": "e9e0874b990ecb88d1714056a05988302ae29184a7b83182b3c1f57d06f37db8",
+      "class": "przelew"
+    },
+    {
+      "input": "case_19/doc_01.pdf",
+      "pdf": "dane/przyklad_19/pelnomocnictwo.pdf",
+      "sha256": "40310cc7fa444590280a6667ef735918af19f17bc0e462040b1db8d0dfdd151d",
+      "reference": "dane/przyklad_19/pelnomocnictwo.json",
+      "reference_sha256": "c5f43e43b8ae08a0f6f350582ad35dfd61eb13653c284d1044ec55fed3a3e798",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_19/doc_02.pdf",
+      "pdf": "dane/przyklad_19/odwolanie.pdf",
+      "sha256": "87e357c9b9053067116548f4aada7b63c68788ee0e0b38d87d85c48b590de31c",
+      "reference": "dane/przyklad_19/odwolanie.json",
+      "reference_sha256": "4c023baae72bfbdb94efdb5cf8219199ac77fbc9948e287ae311d9d49a66055a",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_19/doc_03.pdf",
+      "pdf": "dane/przyklad_19/potwierdzenie_przelewu.pdf",
+      "sha256": "e868ed4fc2ac78a09a7309ebc25a21a9b58a7a6234ce41fb89cee043ab0b3cd0",
+      "reference": "dane/przyklad_19/przelew.json",
+      "reference_sha256": "e999bfee292c6dadf50a51f7ef49c1b0d433dd49c7318ac1db7fc6423756c0d6",
+      "class": "przelew"
+    },
+    {
+      "input": "case_20/doc_01.pdf",
+      "pdf": "dane/przyklad_20/odwolanie.pdf",
+      "sha256": "3ebd4a494af8e4fe70d120672a470c23591900d32e73622e2a663f8a9c55182e",
+      "reference": "dane/przyklad_20/odwolanie.json",
+      "reference_sha256": "7b888c2b407af471a38e840c70f7ee157ee9ad17324b22081466a8f8d6dab184",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_20/doc_02.pdf",
+      "pdf": "dane/przyklad_20/potwierdzenie_przelewu.pdf",
+      "sha256": "4de5cabe945c59cb3da38bb55f4433c61806862aee614f13e2d757ed88a3ecbc",
+      "reference": "dane/przyklad_20/przelew.json",
+      "reference_sha256": "1eccdf219df8272450bb34904748a5b6acc6f1be3713512c131b18e88b39a4f4",
+      "class": "przelew"
+    },
+    {
+      "input": "case_20/doc_03.pdf",
+      "pdf": "dane/przyklad_20/pelnomocnictwo.pdf",
+      "sha256": "963aa83dba2021cacb65ecfa38fc6fbef36a32bfcc9cf49f7c0d65a564eb510a",
+      "reference": "dane/przyklad_20/pelnomocnictwo.json",
+      "reference_sha256": "f98fa38bdcea35d752749e471b194a7e15a58d83272a24b95113694101373821",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_21/doc_01.pdf",
+      "pdf": "dane/przyklad_21/potwierdzenie_przelewu.pdf",
+      "sha256": "01e55a5728faed08ffcd8d71df862bcb7715604ebe5687d7042175237aa5c236",
+      "reference": "dane/przyklad_21/przelew.json",
+      "reference_sha256": "4290719d90da141aacd06d59b9e471a89cae96e8f104913a92560bb1b87cb7a4",
+      "class": "przelew"
+    },
+    {
+      "input": "case_21/doc_02.pdf",
+      "pdf": "dane/przyklad_21/odwolanie.pdf",
+      "sha256": "51833ac47fe351f308339e1b3de2aa7bf9b04c173dc12e86f7d1c44cec74bf0a",
+      "reference": "dane/przyklad_21/odwolanie.json",
+      "reference_sha256": "5bd7d2f1bf3fa46394c9d02d089f4528441ad3dbcc89ca970f803589c8f9f188",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_21/doc_03.pdf",
+      "pdf": "dane/przyklad_21/pelnomocnictwo.pdf",
+      "sha256": "744c1339a12449e4852f8a9c2a8453c4e9106cc2225cf06d7eab4395fe51d062",
+      "reference": "dane/przyklad_21/pelnomocnictwo.json",
+      "reference_sha256": "c04580b8a7bb86db7863c3e4cd114da775387a6572ea6cf0c1841cb821b8c89f",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_23/doc_01.pdf",
+      "pdf": "dane/przyklad_23/potwierdzenie_przelewu.pdf",
+      "sha256": "0c98d368372cefa3d5f06bc28913bcc1dc88003806d82f7eac66ab74ca6c0d27",
+      "reference": "dane/przyklad_23/przelew.json",
+      "reference_sha256": "06961e5c0ffe7c94b947bbe9b9446513a91854cc4b516de51f4e57666ec26dc0",
+      "class": "przelew"
+    },
+    {
+      "input": "case_23/doc_02.pdf",
+      "pdf": "dane/przyklad_23/pelnomocnictwo.pdf",
+      "sha256": "8cdccec2f6b1ac4373f4e910ec42e1c3cbdb980215d34faf6d06bb5a8e993ef9",
+      "reference": "dane/przyklad_23/pelnomocnictwo.json",
+      "reference_sha256": "9058eb0a0bbfc1d68748581765a8e563162f451105c1e5907faa2b22c98b4b46",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_23/doc_03.pdf",
+      "pdf": "dane/przyklad_23/odwolanie.pdf",
+      "sha256": "c85d7a9cda0b46d772d730d424f826393bba74c82fdb0f981da82f289a4216ce",
+      "reference": "dane/przyklad_23/odwolanie.json",
+      "reference_sha256": "8ad7e237da6f5ef15ef46edbcf05c3b0692dc16651ba3a3cb16b2c2bc02bd194",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_25/doc_01.pdf",
+      "pdf": "dane/przyklad_25/potwierdzenie_przelewu.pdf",
+      "sha256": "0c5cd00f3cdd06834b3c1ac2c4999181fb2a25ea98e4f77bf67b850ab8e5891c",
+      "reference": "dane/przyklad_25/przelew.json",
+      "reference_sha256": "d53f4c2ff277b32d3bbe443d4a49dce4f8b3958341700a941622136e91e37e5d",
+      "class": "przelew"
+    },
+    {
+      "input": "case_25/doc_02.pdf",
+      "pdf": "dane/przyklad_25/pelnomocnictwo.pdf",
+      "sha256": "22b1ee9770f82bd6e393c3995e7b03034dc3c6df7b7111972fbcd06a4ac52f69",
+      "reference": "dane/przyklad_25/pelnomocnictwo.json",
+      "reference_sha256": "30cd8fb0398ee8e529ba01661b894643595254a2cd9cdff7246c32edec86643b",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_25/doc_03.pdf",
+      "pdf": "dane/przyklad_25/odwolanie.pdf",
+      "sha256": "f5a256b2f51bcb55053d55e86c0ba51a651901951427d4534664faef95d87334",
+      "reference": "dane/przyklad_25/odwolanie.json",
+      "reference_sha256": "a243e4a9a58cf532e3d41de38138237daf19c71e0dea2262eb56f5fa2a8f95f5",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_26/doc_01.pdf",
+      "pdf": "dane/przyklad_26/odwolanie.pdf",
+      "sha256": "189672f170117c8473616ca8160ec1fac940193b929d27df5ec7d40e57696d6e",
+      "reference": "dane/przyklad_26/odwolanie.json",
+      "reference_sha256": "8737df5f2c3bce0a1f58fb3ee4cbab76cc83852251c7f3bd847bf8f705bc330f",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_26/doc_02.pdf",
+      "pdf": "dane/przyklad_26/potwierdzenie_przelewu.pdf",
+      "sha256": "54523de83cc38f2210d8fbebc23afc499fe76b5b8952f18d5cdaf2e4c6438624",
+      "reference": "dane/przyklad_26/przelew.json",
+      "reference_sha256": "9a9a2eed6823fdf3c27f4412a5ee435cf22934227be22c758f9c5e1f20c785fe",
+      "class": "przelew"
+    },
+    {
+      "input": "case_26/doc_03.pdf",
+      "pdf": "dane/przyklad_26/pelnomocnictwo.pdf",
+      "sha256": "619777d550e66ce1b3c609d6919e76c3be9793145173720b4980a891bc28c4dd",
+      "reference": "dane/przyklad_26/pelnomocnictwo.json",
+      "reference_sha256": "da4d6735ee72d59341bdd912ebd2731b997a93f9cf595284aea13ad43ab9aa57",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_28/doc_01.pdf",
+      "pdf": "dane/przyklad_28/potwierdzenie_przelewu.pdf",
+      "sha256": "2a73e2917d50a3b440001d5aaa1107f0ef103d42235a25b830e23cbbb58e6dda",
+      "reference": "dane/przyklad_28/przelew.json",
+      "reference_sha256": "2eb714db3364d783a574069e85ce41a12ca9b757149d9e42546306a5a36efb18",
+      "class": "przelew"
+    },
+    {
+      "input": "case_28/doc_02.pdf",
+      "pdf": "dane/przyklad_28/pelnomocnictwo.pdf",
+      "sha256": "93229212a18f28f18a62f4ad1146b9227608db7a0ed0fc2ee8a5415c70c0293f",
+      "reference": "dane/przyklad_28/pelnomocnictwo.json",
+      "reference_sha256": "261d55f96f9c2e4530227ee29d48e9eeeae2e00fe1e9f1c9ba456bb8a0e18f2e",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_28/doc_03.pdf",
+      "pdf": "dane/przyklad_28/odwolanie.pdf",
+      "sha256": "d173666ebdfa66717fa5a0f5ffa88388aea5c81067c3bf1c7ea4f1de72749948",
+      "reference": "dane/przyklad_28/odwolanie.json",
+      "reference_sha256": "f888e2f4ecd3e6ec1295a458dd89a4ed60ac67b4cd1fe786016cedd3dc3f345a",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_30/doc_01.pdf",
+      "pdf": "dane/przyklad_30/odwolanie.pdf",
+      "sha256": "76698b558bce6700bc6ea57894fa683ea76d7109a25a24149142c873f0c2c6a3",
+      "reference": "dane/przyklad_30/odwolanie.json",
+      "reference_sha256": "8a45f739e622add96a1f9bb81ee5cbff2e576510d8c7e0c0402f2addbc344389",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_30/doc_02.pdf",
+      "pdf": "dane/przyklad_30/pelnomocnictwo.pdf",
+      "sha256": "a01829742513da2d484e95a5e5e4f094090c2e009732aca6b5d73b86dcf3371f",
+      "reference": "dane/przyklad_30/pelnomocnictwo.json",
+      "reference_sha256": "d20b99f0ad372ccec7f952144daaba17112b86918d5384ef6c4bbf443b562049",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_30/doc_03.pdf",
+      "pdf": "dane/przyklad_30/potwierdzenie_przelewu.pdf",
+      "sha256": "f7853f2b5187474dfc47c191d6e8b6ac2010f24fa78aa9f213a66259e2dfe5ca",
+      "reference": "dane/przyklad_30/przelew.json",
+      "reference_sha256": "95913e43ccc4554f9ffd6515a5dbfaee2900ad53644536487784c762e2bee109",
+      "class": "przelew"
+    },
+    {
+      "input": "case_32/doc_01.pdf",
+      "pdf": "dane/przyklad_32/potwierdzenie_przelewu.pdf",
+      "sha256": "6282bd1b64a1c720b7b84dfb4941d3353af2e8d591ae69ca01713beb9047f7a9",
+      "reference": "dane/przyklad_32/przelew.json",
+      "reference_sha256": "f0694bd304c300a5a0488ca2512132fe998749a96cce51ce399b5212d176e9e9",
+      "class": "przelew"
+    },
+    {
+      "input": "case_32/doc_02.pdf",
+      "pdf": "dane/przyklad_32/odwolanie.pdf",
+      "sha256": "737cd45caf31e487f3873b899f96d9643d7e7d9e4c0b8bc70a959d7bdd210bdd",
+      "reference": "dane/przyklad_32/odwolanie.json",
+      "reference_sha256": "82be99bf4df65531380884133d1a3d08948d33dece8571ca6aef0869d52a2bb1",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_32/doc_03.pdf",
+      "pdf": "dane/przyklad_32/pelnomocnictwo.pdf",
+      "sha256": "f4d23aa8f4f7068719d536bc5efdbe703dfc614abf5de7bde0b12542efa755ee",
+      "reference": "dane/przyklad_32/pelnomocnictwo.json",
+      "reference_sha256": "177aab726489e3a56249bc0019c29ff1f2b98f05e2afa2ebad6b9d3475f07c05",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_34/doc_01.pdf",
+      "pdf": "dane/przyklad_34/pelnomocnictwo.pdf",
+      "sha256": "0f4f7c5f7114139f585b8cdab9523c624111fd9cfa1b6c396442e1513b20057a",
+      "reference": "dane/przyklad_34/pelnomocnictwo.json",
+      "reference_sha256": "81b7ea1551ec062c0a16429c9b30e5b06a99476fb2e50dd396b621ed73e8ec41",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_34/doc_02.pdf",
+      "pdf": "dane/przyklad_34/potwierdzenie_przelewu.pdf",
+      "sha256": "2d4e9f2137da0067486a6cb6222aaae7fabb9c99cffce5cc744adc7918cc36d7",
+      "reference": "dane/przyklad_34/przelew.json",
+      "reference_sha256": "bac76d5579692d9dbce119db4f59a0db328ae23a9cb7952c52138d27a85aca80",
+      "class": "przelew"
+    },
+    {
+      "input": "case_34/doc_03.pdf",
+      "pdf": "dane/przyklad_34/odwolanie.pdf",
+      "sha256": "7df7416d8b13aeb5447132ec7834c1c01da72368aaf8cd864ca7d09b1c303538",
+      "reference": "dane/przyklad_34/odwolanie.json",
+      "reference_sha256": "b237efc462123c0b98bdf5f06201c90b03a9f89978e92bd3f121ab4d1496c7bd",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_35/doc_01.pdf",
+      "pdf": "dane/przyklad_35/pelnomocnictwo.pdf",
+      "sha256": "27f0ffc00a8bdfc132907e2c522f979d0d3273138ae80fe98b4ec0d5fed49703",
+      "reference": "dane/przyklad_35/pelnomocnictwo.json",
+      "reference_sha256": "a22fd7bfbf4887c29db657ed1c132f5aacaf5513bc6171dba9698c422033cf02",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_35/doc_02.pdf",
+      "pdf": "dane/przyklad_35/potwierdzenie_przelewu.pdf",
+      "sha256": "77063773a072dbd9f58f921b1628eb908d089915873f47ae5d65b8e3662280be",
+      "reference": "dane/przyklad_35/przelew.json",
+      "reference_sha256": "7a0cdee5260adc1c1de86f231f7fbccd629c3dd412148ad6c26c302eedd9f733",
+      "class": "przelew"
+    },
+    {
+      "input": "case_35/doc_03.pdf",
+      "pdf": "dane/przyklad_35/odwolanie.pdf",
+      "sha256": "7dd490cc875c766e62d8573b6d70af18da58cf1727a9dcb8e74e31773b0859a1",
+      "reference": "dane/przyklad_35/odwolanie.json",
+      "reference_sha256": "a995e9f23b7409b2edba43254a31b7768db55cdaa5e363da749ed47526f3aab6",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_36/doc_01.pdf",
+      "pdf": "dane/przyklad_36/pelnomocnictwo.pdf",
+      "sha256": "21e871cc8d30bd9d59c2e31cced2ced2716fc6f8023679e09e65ebf61504e54e",
+      "reference": "dane/przyklad_36/pelnomocnictwo.json",
+      "reference_sha256": "38bec3b83c91adb5a639c809c5970ae43b34771d21870a070910a4a9b7dfcb84",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_36/doc_02.pdf",
+      "pdf": "dane/przyklad_36/potwierdzenie_przelewu.pdf",
+      "sha256": "55712db58eb70c9f676833ca3cc1ddd31c2eff94f1e5e3cd6785365e53f5a261",
+      "reference": "dane/przyklad_36/przelew.json",
+      "reference_sha256": "ec3b560d65ec26f1b4431951627414d9a83e3d1dae3b5d57f2930069483e808a",
+      "class": "przelew"
+    },
+    {
+      "input": "case_36/doc_03.pdf",
+      "pdf": "dane/przyklad_36/odwolanie.pdf",
+      "sha256": "d7045901b7841bca1c3032582a3fa0bcb4e1de5d1f930beb781ef0a5d9b12c17",
+      "reference": "dane/przyklad_36/odwolanie.json",
+      "reference_sha256": "d9e3f7633b74afe39aa83e444439c19134dabba4ccef80f09c1b01d843003f85",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_38/doc_01.pdf",
+      "pdf": "dane/przyklad_38/potwierdzenie_przelewu.pdf",
+      "sha256": "3848dc97c24a0f4ef66e9c4c8f008e8a13299efe37c35cccf0603598e8478e05",
+      "reference": "dane/przyklad_38/przelew.json",
+      "reference_sha256": "3373cba1546f7400d5669498de43df232b2e8ccc58be40455089ab5dd9886c19",
+      "class": "przelew"
+    },
+    {
+      "input": "case_38/doc_02.pdf",
+      "pdf": "dane/przyklad_38/pelnomocnictwo.pdf",
+      "sha256": "e0c5eadd41cb6ad4f9aec666e1c23015fd97cc022f60268267ade2d6bfae081f",
+      "reference": "dane/przyklad_38/pelnomocnictwo.json",
+      "reference_sha256": "c80bfc08e67f3c7af5e0cd75b1650033a0b286bfda5653fb3d2ad8a1104e47ae",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_38/doc_03.pdf",
+      "pdf": "dane/przyklad_38/odwolanie.pdf",
+      "sha256": "f3250765383c1b94c0880f9feb0cfe6e2a10804d3975dc450a183f987b677081",
+      "reference": "dane/przyklad_38/odwolanie.json",
+      "reference_sha256": "5ebef4023b486919bf502e94ede30fa5695c2d0dc35dc5138ee509f75b3d850b",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_40/doc_01.pdf",
+      "pdf": "dane/przyklad_40/odwolanie.pdf",
+      "sha256": "00684aa051d2b908d663f249db463ce12be9de6bf3391e76c9982fd37b56b6ab",
+      "reference": "dane/przyklad_40/odwolanie.json",
+      "reference_sha256": "e7538dbe87c56adbe687962840370ec7829a13022d4d788aaa9626d51ac27580",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_40/doc_02.pdf",
+      "pdf": "dane/przyklad_40/potwierdzenie_przelewu.pdf",
+      "sha256": "965fb1282fc1ca56825247a4a8617a90cadd5462a93a6c6081bea25c56d4a3e4",
+      "reference": "dane/przyklad_40/przelew.json",
+      "reference_sha256": "673a94ab87ba7e91b8cb4aa2c39f2bd1807bd4393acab71a7fab17c162517287",
+      "class": "przelew"
+    },
+    {
+      "input": "case_40/doc_03.pdf",
+      "pdf": "dane/przyklad_40/pelnomocnictwo.pdf",
+      "sha256": "b9260395c6d8d40ba4d7678fb0caee7910d16c7ddcc623f6528de124e793cd04",
+      "reference": "dane/przyklad_40/pelnomocnictwo.json",
+      "reference_sha256": "3e0b0b688caa9e6468fa9d06051cb584bf85055c0b57167fea1c2c6594cb39e4",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_41/doc_01.pdf",
+      "pdf": "dane/przyklad_41/odwolanie.pdf",
+      "sha256": "1a1f2a652ef13e1694b50cef7ea06adef132cf5297fddaddc190de88210e5416",
+      "reference": "dane/przyklad_41/odwolanie.json",
+      "reference_sha256": "66491967b4be1689fb5d0ed2c05b204e00046d16c2a399a631b7e47f92dcc62e",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_41/doc_02.pdf",
+      "pdf": "dane/przyklad_41/potwierdzenie_przelewu.pdf",
+      "sha256": "6e5df4e2c81ffbfcc007f4ca7b86d63196bf7abbe89441c357e9b714d640813d",
+      "reference": "dane/przyklad_41/przelew.json",
+      "reference_sha256": "02414ae2c326f70679f987baf0d8e1be2f6e247538b2a1ebc39bcabe856b2b04",
+      "class": "przelew"
+    },
+    {
+      "input": "case_41/doc_03.pdf",
+      "pdf": "dane/przyklad_41/pelnomocnictwo.pdf",
+      "sha256": "b1abb0ecdbf2ae97e6875fb799015bcda7bad19fb90d8970d8a045bfae10940a",
+      "reference": "dane/przyklad_41/pelnomocnictwo.json",
+      "reference_sha256": "03ec3b5b3c550dd6c6b151af00a33db52106fd0ceda21fc9e17bef53d6e8acdb",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_42/doc_01.pdf",
+      "pdf": "dane/przyklad_42/pelnomocnictwo.pdf",
+      "sha256": "042bb3412ade18a17e7b0b0169e591c7a7818c874d969ac13f43e208c326eff5",
+      "reference": "dane/przyklad_42/pelnomocnictwo.json",
+      "reference_sha256": "66d69859fb7339c05000689848298bcde61409e02b107f71dc380bd5597616b8",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_42/doc_02.pdf",
+      "pdf": "dane/przyklad_42/potwierdzenie_przelewu.pdf",
+      "sha256": "ab73ca4aa160c004fc3b20a88b0fb3c3f00842e3633920083a8799ee55bd5eb9",
+      "reference": "dane/przyklad_42/przelew.json",
+      "reference_sha256": "c07d2e48adcdd056163f8fff365eb56f0b7b31cd94c2f3f71e8a1cdb80f51b51",
+      "class": "przelew"
+    },
+    {
+      "input": "case_42/doc_03.pdf",
+      "pdf": "dane/przyklad_42/odwolanie.pdf",
+      "sha256": "ce42678373661a74631047c034c72184532823014383d1a75ab628561336993c",
+      "reference": "dane/przyklad_42/odwolanie.json",
+      "reference_sha256": "f388cc3550f21af067c786b22a05d8965c34751b6dc7cca564ec5efd1ec44a2c",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_43/doc_01.pdf",
+      "pdf": "dane/przyklad_43/pelnomocnictwo.pdf",
+      "sha256": "3c8d46a690736ae6526038d371f18ad078bb762b41aa1656780e7cb0ef39cd10",
+      "reference": "dane/przyklad_43/pelnomocnictwo.json",
+      "reference_sha256": "a3deb0342b7fb4010465de45cb838b145054723d52da03f5384c8309b8bb5e20",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_43/doc_02.pdf",
+      "pdf": "dane/przyklad_43/odwolanie.pdf",
+      "sha256": "8839b6e6d70ea46ccdf2a2756c375ce11e5825cc34061278d14e4ee95dd11019",
+      "reference": "dane/przyklad_43/odwolanie.json",
+      "reference_sha256": "02d14ea3a73335326fbf843f3375d30868b7662d26aee9b86742ed3e5f74da99",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_43/doc_03.pdf",
+      "pdf": "dane/przyklad_43/potwierdzenie_przelewu.pdf",
+      "sha256": "c458fa4aaf2875cf9fb8f5a7d6d12a4bf21dae6468adf71a57a5f04bac954347",
+      "reference": "dane/przyklad_43/przelew.json",
+      "reference_sha256": "499aed00162b9652069040888e2b94be7cc1dc6c7279ef808ed9c32557e0cfa9",
+      "class": "przelew"
+    },
+    {
+      "input": "case_45/doc_01.pdf",
+      "pdf": "dane/przyklad_45/pelnomocnictwo.pdf",
+      "sha256": "24fa7b00f3913bed22ffb5b5f7dcbce0cb646a838d2740e0d7109ba9eec4dd4a",
+      "reference": "dane/przyklad_45/pelnomocnictwo.json",
+      "reference_sha256": "7e0a31943fad9b07762b207fcf2611f2fcb44b6ed28f9bac6a2975804d0235f3",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_45/doc_02.pdf",
+      "pdf": "dane/przyklad_45/odwolanie.pdf",
+      "sha256": "33ed4fda9600344391ee6459b7d14b744c3c473733b341476d4fca4a503f31e2",
+      "reference": "dane/przyklad_45/odwolanie.json",
+      "reference_sha256": "93fc1f1c307413f65fd2c452940e9f0a3f19f726b860adbbdc8f39b5d944356f",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_45/doc_03.pdf",
+      "pdf": "dane/przyklad_45/potwierdzenie_przelewu.pdf",
+      "sha256": "d8e64fd6ae45f28121a5e56d1d9cca530c08969f9c33adc629010715a1bc814f",
+      "reference": "dane/przyklad_45/przelew.json",
+      "reference_sha256": "9388740e6acde372cd0a8ac16467e3979c55703324d6cfde1896e0a672c52c08",
+      "class": "przelew"
+    },
+    {
+      "input": "case_46/doc_01.pdf",
+      "pdf": "dane/przyklad_46/pelnomocnictwo.pdf",
+      "sha256": "0d576d7f6676549743a3b22a38db57771ef63fbe30e4e20df1ee154cd3efcd04",
+      "reference": "dane/przyklad_46/pelnomocnictwo.json",
+      "reference_sha256": "26d18a18ba6b7fe802bbe6c87e9fad6faa73292fe590a83ef6c0bf2ae514d2ad",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_46/doc_02.pdf",
+      "pdf": "dane/przyklad_46/odwolanie.pdf",
+      "sha256": "afd64e7a7ac94cec505d2c644044c448f8b48110adcbc88e76910c8eebed8f9e",
+      "reference": "dane/przyklad_46/odwolanie.json",
+      "reference_sha256": "a00db9965e28dc9e1cf6ba2a519574581602acb231c6be7f7fe372eb9e8b214e",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_46/doc_03.pdf",
+      "pdf": "dane/przyklad_46/potwierdzenie_przelewu.pdf",
+      "sha256": "bb2ab60b26fa5be02fc7481c6c20bb6b5ad2447685f6cb8ac5a7d5d96585debf",
+      "reference": "dane/przyklad_46/przelew.json",
+      "reference_sha256": "7e436638c45aeef63c47a86bf411987994936f8a22dd85a9e57e252a0fe33ccb",
+      "class": "przelew"
+    },
+    {
+      "input": "case_48/doc_01.pdf",
+      "pdf": "dane/przyklad_48/odwolanie.pdf",
+      "sha256": "170abdb362bd85457add387faa0442aa432f0ea8ecf6482ad370a19c92a5cdb9",
+      "reference": "dane/przyklad_48/odwolanie.json",
+      "reference_sha256": "46665991a6fa257b4ac83f3d92344f50534183898ebf523386bb490a03e4eadc",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_48/doc_02.pdf",
+      "pdf": "dane/przyklad_48/pelnomocnictwo.pdf",
+      "sha256": "6c123036164fe6456a85d76fda19a8f8d2489219b6197f6efaf03bc8a5399034",
+      "reference": "dane/przyklad_48/pelnomocnictwo.json",
+      "reference_sha256": "0407044a6759b48f86ae37631eaf9162d01c0156ef67dbc9ddca7f502ffde59d",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_48/doc_03.pdf",
+      "pdf": "dane/przyklad_48/potwierdzenie_przelewu.pdf",
+      "sha256": "95ce6ce22ddb7feab3a4cafdacd46d6fe02b2ef2dbf4b6f24a676d708d1518e0",
+      "reference": "dane/przyklad_48/przelew.json",
+      "reference_sha256": "414f8d76b4c7de4e68d187b3a55f399951cee78a66fb4a374b24fb92ab59b94d",
+      "class": "przelew"
+    },
+    {
+      "input": "case_49/doc_01.pdf",
+      "pdf": "dane/przyklad_49/potwierdzenie_przelewu.pdf",
+      "sha256": "165e21d395358d81b783890ea67f4a0feabcba079a8fffe3d6b139140b3abb67",
+      "reference": "dane/przyklad_49/przelew.json",
+      "reference_sha256": "8292c4d2066f3896f78a9deb28ce03a27a4f1c969d91fa743315f9fd5102fa09",
+      "class": "przelew"
+    },
+    {
+      "input": "case_49/doc_02.pdf",
+      "pdf": "dane/przyklad_49/pelnomocnictwo.pdf",
+      "sha256": "781edcb05aa93ec2701fa2068544e0117d26f166d41faeb0377524e2458799f4",
+      "reference": "dane/przyklad_49/pelnomocnictwo.json",
+      "reference_sha256": "553b600a1d56d5dd67130fa6d2ef03c8336347978cc9bf7e41ce1067162fc1d7",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_49/doc_03.pdf",
+      "pdf": "dane/przyklad_49/odwolanie.pdf",
+      "sha256": "c2a1f7f0c8e9dd2d9fa2234e4ae797179f3cb1ba2306fc81d45d05ca4e68f9f3",
+      "reference": "dane/przyklad_49/odwolanie.json",
+      "reference_sha256": "0344ce3dbcc5f4d4b7a428704d16c065e83f61a11c7a7e3a80de3ce5de45edf9",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_52/doc_01.pdf",
+      "pdf": "dane/przyklad_52/pelnomocnictwo.pdf",
+      "sha256": "2f6861469bb23d5e17b5cad29886ade230bd733cd4284089271f91d5c4559a12",
+      "reference": "dane/przyklad_52/pelnomocnictwo.json",
+      "reference_sha256": "098843abf7babe467524d2d5efc87f293b0217c689ec217ea54652233cd11918",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_52/doc_02.pdf",
+      "pdf": "dane/przyklad_52/odwolanie.pdf",
+      "sha256": "aabffabee223ce4c76d8ebcdc499c6eda6be9b8babefd7ad9c96baf472270ced",
+      "reference": "dane/przyklad_52/odwolanie.json",
+      "reference_sha256": "73b8b55ae39509986dc6e554dc8ac0e558151535e57b95cae7e351069abffb76",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_52/doc_03.pdf",
+      "pdf": "dane/przyklad_52/potwierdzenie_przelewu.pdf",
+      "sha256": "b717f67671b76bb101a789ae435c7dbbfd405dbde3387dbcb201a802c226fc91",
+      "reference": "dane/przyklad_52/przelew.json",
+      "reference_sha256": "c5e8b7c3b29f59b265ca2284935fc797287ed8d2b1ded36487d8bca13439db9e",
+      "class": "przelew"
+    },
+    {
+      "input": "case_53/doc_01.pdf",
+      "pdf": "dane/przyklad_53/potwierdzenie_przelewu.pdf",
+      "sha256": "31c4516bf3da815c3c92990435a7bb7dd9e134820230a8a21227ea549c598d15",
+      "reference": "dane/przyklad_53/przelew.json",
+      "reference_sha256": "70a124aa39912d817e9476a967e669a801b752a5a72f71ac090fe7697d4ca880",
+      "class": "przelew"
+    },
+    {
+      "input": "case_53/doc_02.pdf",
+      "pdf": "dane/przyklad_53/pelnomocnictwo.pdf",
+      "sha256": "65eed92fed3543d1d1fb3e01b464cb522e1baf443dd1b10a97925edf0c9457fe",
+      "reference": "dane/przyklad_53/pelnomocnictwo.json",
+      "reference_sha256": "3f438ff0a429ba674447ee700c98b2050a0f2fd88bd77e4c3a943a47a8bfd7d0",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_53/doc_03.pdf",
+      "pdf": "dane/przyklad_53/odwolanie.pdf",
+      "sha256": "c75d6308159819fb8cb4b9bc955e331278a017d34d8b70e7691cda32c9821a23",
+      "reference": "dane/przyklad_53/odwolanie.json",
+      "reference_sha256": "f8aa7c2bf2b5166df2c1a6da11f04b985d4f5c09f037c3f5f84dd31051225de6",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_54/doc_01.pdf",
+      "pdf": "dane/przyklad_54/potwierdzenie_przelewu.pdf",
+      "sha256": "3afdf63926bae4617a8d1845ca180e403abc1a32dddae75aa9458cbc5f4d5505",
+      "reference": "dane/przyklad_54/przelew.json",
+      "reference_sha256": "65b6a449b98ce5a32efb94749245b8645170b57987316c53e7631ede9ca9d78d",
+      "class": "przelew"
+    },
+    {
+      "input": "case_54/doc_02.pdf",
+      "pdf": "dane/przyklad_54/pelnomocnictwo.pdf",
+      "sha256": "54ede4fd9bcf0593ecf13678084dea0415184da811de72c332f687431e57924e",
+      "reference": "dane/przyklad_54/pelnomocnictwo.json",
+      "reference_sha256": "beb5006f40b0b988a839a80b4a8fd7eb3ba617fb7e56756a8342cb96b77b3606",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_54/doc_03.pdf",
+      "pdf": "dane/przyklad_54/odwolanie.pdf",
+      "sha256": "d5c5e1b1d022566d6e781d5f2c565dd9d55bffd1b516c71a441775d517a356f2",
+      "reference": "dane/przyklad_54/odwolanie.json",
+      "reference_sha256": "622adf71adef3de52e306c9cc2c91999b6fef4dd5b12e1e440dd61cc568ed313",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_55/doc_01.pdf",
+      "pdf": "dane/przyklad_55/pelnomocnictwo.pdf",
+      "sha256": "5fa00befe998d537b1404bf8926013600fbd544d5eceea8da4ea737dcf9c2eb7",
+      "reference": "dane/przyklad_55/pelnomocnictwo.json",
+      "reference_sha256": "63760ba071412dc2a09a86bd566a1cc12f0103b0c996cb8210915eac7fdcbbdf",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_55/doc_02.pdf",
+      "pdf": "dane/przyklad_55/odwolanie.pdf",
+      "sha256": "6c1c32fabe2c1344e77beb5366c525a807aac5d967d643e7929e2fdae27e2d85",
+      "reference": "dane/przyklad_55/odwolanie.json",
+      "reference_sha256": "f73a34e91fe74bda9a4485db28cbe06f574bc1a44016be273501f48969a5f82e",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_55/doc_03.pdf",
+      "pdf": "dane/przyklad_55/potwierdzenie_przelewu.pdf",
+      "sha256": "b9c04a4dc845c9ec59f53a5a04c17798a7225494e4e22c6ba5a8d6c82faf92cd",
+      "reference": "dane/przyklad_55/przelew.json",
+      "reference_sha256": "c18fc68423c2ef4bd1f66ec91beed6d86c0dd3066570046bbc4f301e7a3a4413",
+      "class": "przelew"
+    },
+    {
+      "input": "case_57/doc_01.pdf",
+      "pdf": "dane/przyklad_57/odwolanie.pdf",
+      "sha256": "23aef4c108ad4580c641aa0c639104432ba4f39444a7e5c392b9f31b0fa7700d",
+      "reference": "dane/przyklad_57/odwolanie.json",
+      "reference_sha256": "debd4bdb444b8934557839c5a5dcf9f5763c21fa53ebfdad431c2aa58b2cd7df",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_57/doc_02.pdf",
+      "pdf": "dane/przyklad_57/potwierdzenie_przelewu.pdf",
+      "sha256": "23d49f129a6dd26e57aa93643eb1349fd774cf446160fb13fdcfb95aaea9c371",
+      "reference": "dane/przyklad_57/przelew.json",
+      "reference_sha256": "e04d71788554663941a0f1d74f6fe86a537fad567d27df65b385cda3cc9211f8",
+      "class": "przelew"
+    },
+    {
+      "input": "case_57/doc_03.pdf",
+      "pdf": "dane/przyklad_57/pelnomocnictwo.pdf",
+      "sha256": "66cdf4f8b693cf770420254bb2cb3ed6e92efd27261fc8186ec9316fd8e85c57",
+      "reference": "dane/przyklad_57/pelnomocnictwo.json",
+      "reference_sha256": "d950631744646c8d3bbb8f5d154de8b24fea60e15a833f511cf854e0a7dcb8a8",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_58/doc_01.pdf",
+      "pdf": "dane/przyklad_58/pelnomocnictwo.pdf",
+      "sha256": "1a696037abb56a8459e78c9012c904a1862107e1dc0c291516cbc0b9759612ee",
+      "reference": "dane/przyklad_58/pelnomocnictwo.json",
+      "reference_sha256": "13a570f3df80e0d52eaf318f94927c4dcc47a90db363fe5446b09fcda8e5b80a",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_58/doc_02.pdf",
+      "pdf": "dane/przyklad_58/potwierdzenie_przelewu.pdf",
+      "sha256": "35ad7c266374a0c564c5e47879d283456321bcd10cf99a7d06df797e301c40f9",
+      "reference": "dane/przyklad_58/przelew.json",
+      "reference_sha256": "3e136bb021b03dad95818aa1aef5d1bf1ea79a4f350283e318e1fb5d8778b16d",
+      "class": "przelew"
+    },
+    {
+      "input": "case_58/doc_03.pdf",
+      "pdf": "dane/przyklad_58/odwolanie.pdf",
+      "sha256": "adfa4b73a3bf2d7cb1829513a795e4ff0d603ac6993f7aa3d4cbb818a2e82609",
+      "reference": "dane/przyklad_58/odwolanie.json",
+      "reference_sha256": "4c674fe5a9871e4d8805314b9855d309f0dec8fa4742a43afdadb9d1504622b9",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_59/doc_01.pdf",
+      "pdf": "dane/przyklad_59/potwierdzenie_przelewu.pdf",
+      "sha256": "7dffd83b9ea3c035597b217e109757b85a7634460b1c6755e2b8bb64f13b865e",
+      "reference": "dane/przyklad_59/przelew.json",
+      "reference_sha256": "5fb29b335d09c841f2abfef1f5c4f53db6dcde86bc6e5e0fda5d787f98f37c04",
+      "class": "przelew"
+    },
+    {
+      "input": "case_59/doc_02.pdf",
+      "pdf": "dane/przyklad_59/pelnomocnictwo.pdf",
+      "sha256": "c4d809f963fefbbc982139394b21b99addb3cdd3941a1c18fd790cd08e5ccfa2",
+      "reference": "dane/przyklad_59/pelnomocnictwo.json",
+      "reference_sha256": "867c67370dd2c1254a0142a8f0c7f29d160f205cb59e9248c48d5606a14aa594",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_59/doc_03.pdf",
+      "pdf": "dane/przyklad_59/odwolanie.pdf",
+      "sha256": "e597ef173746ddc2992629d489c4c66fb0c54ffacbb073761bcc5bf36c02b29d",
+      "reference": "dane/przyklad_59/odwolanie.json",
+      "reference_sha256": "a6a4ef560fd9bfadbe2c13869d0a7e1c8d731aa7e6c745a09c59ca1792dbce1c",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_60/doc_01.pdf",
+      "pdf": "dane/przyklad_60/potwierdzenie_przelewu.pdf",
+      "sha256": "1557974d2f55aaf29c8dcdbda57802c84c154455e29428af4b9f0cf3ec6ac9c7",
+      "reference": "dane/przyklad_60/przelew.json",
+      "reference_sha256": "6bd2a74bc6f30a29ee566ea5f67577cac93192ffb5361f5419ed7a13781d6a41",
+      "class": "przelew"
+    },
+    {
+      "input": "case_60/doc_02.pdf",
+      "pdf": "dane/przyklad_60/pelnomocnictwo.pdf",
+      "sha256": "b43217df3c0931fa29498594eee3f27aaf9f38bc4df218cf70b87f10b79260d4",
+      "reference": "dane/przyklad_60/pelnomocnictwo.json",
+      "reference_sha256": "fd4356cafabbd0466d9eec47eaa411a48b092ea24339af971cec4bce03428dd1",
+      "class": "pelnomocnictwo"
+    },
+    {
+      "input": "case_60/doc_03.pdf",
+      "pdf": "dane/przyklad_60/odwolanie.pdf",
+      "sha256": "b6f26335c90cd670876adb1e7b195176e14492c9e845e2cdca9190e2100290ba",
+      "reference": "dane/przyklad_60/odwolanie.json",
+      "reference_sha256": "4723a198807c630c8238cfaf1d7866eb909ad6cab3fcd7ddb0e1ada2bf744947",
+      "class": "odwolanie"
+    },
+    {
+      "input": "case_61/doc_01.pdf",
+      "pdf": "dane/negatywne/Broszura_JPK_FA(2).pdf",
+      "sha256": "086447c9a45d5b493a5d6b2ed53e2465448fc13e2a87ec07b57e013b1f48e618",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    },
+    {
+      "input": "case_62/doc_01.pdf",
+      "pdf": "dane/negatywne/1648041143_1647951357decyzja-ministrasportu-pzn.pdf",
+      "sha256": "648cb112f22ddad663ca6e882c0341c7d987e98878ec477954ac819594df69d7",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    },
+    {
+      "input": "case_63/doc_01.pdf",
+      "pdf": "dane/negatywne/Minister-Sprawiedliwosci-pismo-RDSSP-z-11.03.2024-r..pdf",
+      "sha256": "8b1a16777fed9377dc1dc12c5eada52bb22ba7f2ad833eca099326038c0f0968",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    },
+    {
+      "input": "case_64/doc_01.pdf",
+      "pdf": "dane/negatywne/2025_S 188-641009.pdf",
+      "sha256": "9a92a0197874faa60526bd7b3604b336fcd2123adfb7b7af1b89f86e995a6739",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    },
+    {
+      "input": "case_65/doc_01.pdf",
+      "pdf": "dane/negatywne/16_komisja_ds._regulacji_wynagrodzeń.pdf",
+      "sha256": "a0bd9f6392ed01def9749c560120e1019aed5f1a7512c67c5218419dfa863903",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    },
+    {
+      "input": "case_66/doc_01.pdf",
+      "pdf": "dane/negatywne/KIO_KIO 2617-21.pdf",
+      "sha256": "cd129ef691812129eb8e45ee403f77b8bf6b19a6d82bf3d33038648aa69ac0f3",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    },
+    {
+      "input": "case_67/doc_01.pdf",
+      "pdf": "dane/negatywne/Decyzja-Ministra-Sportu-i-Turystyki1.pdf",
+      "sha256": "f5a12de5efe7356ce9927138a9966556aa387d213bf6ec00e68694a4824ec088",
+      "reference": null,
+      "reference_sha256": null,
+      "class": "negative"
+    }
+  ]
+}

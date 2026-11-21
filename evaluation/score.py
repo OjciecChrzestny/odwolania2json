@@ -1,4 +1,4 @@
-"""Local strict field-level micro-F1 for the frozen UZP validation split."""
+"""Local strict field-level micro-F1 for a frozen UZP split."""
 import argparse
 import hashlib
 import json
@@ -26,22 +26,35 @@ def fields(value, path=()):
         yield path, kind, value
 
 
-def checked_file(root, name, digest):
+def checked_file(root, name, digest, *, reference=False):
     path = root / name
-    if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
-        raise ValueError(f"Hash mismatch: {path}")
-    return path
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() == digest:
+        return path
+    if reference:
+        # The original validation manifest hashes a CRLF checkout. New manifests use Git's LF.
+        lf = data.replace(b"\r\n", b"\n")
+        for representation in (lf, lf.replace(b"\n", b"\r\n")):
+            if hashlib.sha256(representation).hexdigest() == digest:
+                return path
+    raise ValueError(f"Hash mismatch: {path}")
 
 
-def score(dataset, output):
-    manifest = load_object(Path(__file__).with_name("validation-10.json"))
+DEFAULT_MANIFEST = Path(__file__).with_name("validation-10.json")
+
+
+def score(dataset, output, manifest_path=DEFAULT_MANIFEST):
+    manifest = load_object(manifest_path)
     total = Counter(tp=0, fp=0, fn=0)
     docs, errors, expected_files = [], [], set()
     correct_ids = negative_hits = 0
     for entry in manifest["documents"]:
         checked_file(dataset, entry["pdf"], entry["sha256"])
         negative = entry["reference"] is None
-        gold = {} if negative else load_object(checked_file(dataset, entry["reference"], entry["reference_sha256"]))
+        gold = {}
+        if not negative:
+            label = checked_file(dataset, entry["reference"], entry["reference_sha256"], reference=True)
+            gold = load_object(label)
         relative = Path(entry["input"]).with_suffix(".json")
         expected_files.add(relative.as_posix())
         target = output / relative
@@ -72,7 +85,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", type=Path, help="Root of the pinned UZP checkout")
     parser.add_argument("output", type=Path, help="Run output using neutral paths from the manifest")
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST,
+                        help="Split manifest (default: validation-10.json)")
     args = parser.parse_args()
-    result = score(args.dataset, args.output)
+    result = score(args.dataset, args.output, args.manifest)
     print(json.dumps(result, indent=2))
     raise SystemExit(0 if result["valid_run"] else 1)
