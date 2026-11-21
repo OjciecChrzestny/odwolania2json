@@ -1,0 +1,85 @@
+{
+  "parent": "270a44f5dde3b68b07b8e0f62e6b0b07e1a6be7d",
+  "frozen_utc": "2026-11-21T21:19:37.023727+00:00",
+  "a3_product": "59fcf1a7ef1e506dc3c2e9c5a5c8947b6047aad9",
+  "manifests": {
+    "synthetic": "d810431932215bf35a130f162b7f3106d909d3eebf58e332c9b410f62aa6061e",
+    "public": "df61a8707942292c66044a92389b9e9da29197c69dbece3a055659b64715522a",
+    "all": "298769a669189ac4fdb76bb7515f1dc46f34f967854e75c567591cf05c893622"
+  },
+  "inventory_sha256": "5fdd01a2b5d4eff40e1cce73cee4123841e0fd54241321b57c94ca8431191253",
+  "prior_pdf_counts": {
+    "development-40": 128,
+    "validation-10": 32,
+    "final-10": 31,
+    "holdout-10-84cc976": 30,
+    "external-v1": 70,
+    "KARR-1": 4,
+    "KARR-2": 59,
+    "prior-public-source-files": 14
+  },
+  "intersections": {
+    "development-40": 0,
+    "validation-10": 0,
+    "final-10": 0,
+    "holdout-10-84cc976": 0,
+    "external-v1": 0,
+    "KARR-1": 0,
+    "KARR-2": 0,
+    "prior-public-source-files": 0
+  },
+  "same_external_first_page_fingerprint": 0,
+  "compared_historical_external_first_pages": 129,
+  "within_batch": "Alior: two layouts from one bank. Muzeum: one transfer and one KRS from one original publication with disjoint pages. MPGK is a public specimen. Three authored controls are separate. No separate votes for native/rendered forms.",
+  "policy": "One lower-quality raster per independent document (96 dpi, Gaussian 0.55 px, JPEG quality 55). Six fields, strict local micro-F1, negatives 0 B, report public and synthetic separately. A3 alone vs only replacement of missing amount vs replacement of missing amount and date. Reuse identical amount response. No reference or filenames in inference. Public AI sees selected number/month subcrops and allowlisted generic tags only. No holdout feedback into tuning.",
+  "seal_sha256": "d616d59c1d2905b04210c5a8c1e40abb30f3f9cae3087596f51947bda09d0335",
+  "counts": {
+    "public_transfers": 3,
+    "public_negatives": 2,
+    "synthetic_transfers": 3
+  },
+  "sources": {
+    "mpgk": {
+      "url": "https://www.mpgk.com.pl/download/przykladowe-potwierdzenie-przelewu,39.pdf/view",
+      "pages": [
+        1
+      ],
+      "source_sha256": "4bea5e2463061856945e78dced0188a15b7695922dbbe0ceba74014e8edddc93"
+    },
+    "muzn": {
+      "url": "https://muzn.pl/wp-content/uploads/2024/12/9a5a1ed0-odwolanie-wraz-z-zalacznikami.pdf",
+      "pages": [
+        11
+      ],
+      "source_sha256": "1f14fe776ca3659c201aa5a7a6c80129d38deab7b52678250c2681ae41464fe7"
+    },
+    "bip": {
+      "url": "https://bip.konstancinjeziorna.pl/attachments/download/15848",
+      "pages": [
+        1
+      ],
+      "source_sha256": "f2745bc0e4b39193d8829129fc99bf14d65b878c27e1b9933b99a7ff62dc02ba"
+    },
+    "blank": {
+      "url": "https://pomocafryce.org/wp-content/uploads/2020/08/przekaz-pfda.pdf",
+      "pages": [
+        1,
+        2
+      ],
+      "source_sha256": "ffd96f6b2087184313524c66954fd763744410c503998fa3039cd92a3d23d1db"
+    },
+    "krs": {
+      "url": "https://muzn.pl/wp-content/uploads/2024/12/9a5a1ed0-odwolanie-wraz-z-zalacznikami.pdf",
+      "pages": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "source_sha256": "1f14fe776ca3659c201aa5a7a6c80129d38deab7b52678250c2681ae41464fe7"
+    }
+  }
+}
