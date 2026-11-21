@@ -5,7 +5,7 @@ import logging
 import os
 import sqlite3
 import sys
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -14,6 +14,9 @@ from pypdf.errors import PyPdfError
 from .extract import extract, read_pdf
 from .model import DEFAULT_CONFIG, load_classes
 from .ocr import prepare_ocr
+from .review import (REPORT_VERSION, config_digest, digest, extractor_revision, journal_path,
+                     pdf_digest, review_details, run_review)
+
 
 def state_directory(output_dir):
     return output_dir.with_name(f".{output_dir.name}.odwolania2json")
@@ -41,6 +44,20 @@ def target(root, name):
     return path
 
 
+@contextmanager
+def output_lock(output_dir):
+    state = state_directory(output_dir)
+    if state.is_symlink():
+        raise ValueError(f"Ewidencja wyników jest dowiązaniem symbolicznym: {state}")
+    state.mkdir(exist_ok=True)
+    journal, lock_file = state / "owned", state / "lock"
+    if journal.is_symlink() or lock_file.is_symlink():
+        raise ValueError(f"Plik ewidencji wyników jest dowiązaniem symbolicznym: {state}")
+    with closing(sqlite3.connect(lock_file, timeout=30)) as lock:
+        lock.execute("BEGIN IMMEDIATE")
+        yield journal
+
+
 def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
             read_document=read_pdf, extract_document=extract):
     input_dir.mkdir(parents=True, exist_ok=True)
@@ -51,15 +68,10 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
         raise ValueError("Kilka wejściowych PDF-ów wskazuje ten sam wynik")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    state = state_directory(output_dir)
-    if state.is_symlink():
-        raise ValueError(f"Ewidencja wyników jest dowiązaniem symbolicznym: {state}")
-    state.mkdir(exist_ok=True)
-    journal, lock_file = state / "owned", state / "lock"
-    if journal.is_symlink() or lock_file.is_symlink():
-        raise ValueError(f"Plik ewidencji wyników jest dowiązaniem symbolicznym: {state}")
-    with closing(sqlite3.connect(lock_file)) as lock:
-        lock.execute("BEGIN IMMEDIATE")
+    config_sha256 = config_digest(classes)
+    ocr_enabled = ocr is not None
+    revision = extractor_revision(config_sha256, ocr_enabled)
+    with output_lock(output_dir) as journal:
         owned = set(json.loads(journal.read_text(encoding="utf-8"))) if journal.exists() else set()
         for name in owned | sources.keys():
             path = target(output_dir, name)
@@ -69,17 +81,42 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
         write_file(journal, json_bytes(sorted(owned | sources.keys())))
         current, records = set(), []
         for name, pdf in sorted(sources.items()):
+            pdf_sha256 = None
+            document, value, read_error_quality = None, None, None
             try:
+                pdf_sha256 = pdf_digest(pdf)
                 document, ocr_pages = read_document(pdf, ocr, classes=classes)
             except (OSError, ValueError, PyPdfError, KeyError, TypeError, RuntimeError, IndexError, OverflowError) as exc:
-                logging.error("%s — błąd odczytu (%s)", name, type(exc).__name__)
-                records.append({"output": name, "class": "read_error", "status": "read_error",
-                                "error": str(exc), "fields": {}})
-                continue
-            value, record = extract_document(document, classes)
-            write_file(target(output_dir, name), b"" if value is None else json_bytes(value))
-            current.add(name)
-            records.append({"output": name, **record, "ocr_pages": ocr_pages})
+                logging.error("%r — błąd odczytu (%s)", name, type(exc).__name__)
+                read_error_quality = getattr(exc, "scan_quality", None)
+                record = {"class": "read_error", "status": "read_error",
+                          "error": str(exc), "fields": {}}
+            else:
+                value, record = extract_document(document, classes)
+                record = {**record, "ocr_pages": ocr_pages}
+
+            output_sha256 = None
+            if record["status"] != "read_error":
+                try:
+                    if pdf_digest(pdf) != pdf_sha256:
+                        raise ValueError("PDF zmienił się podczas ekstrakcji.")
+                except (OSError, ValueError) as exc:
+                    logging.error("%r — wejście zmienione podczas ekstrakcji", name)
+                    document, value = None, None
+                    record = {"class": "read_error", "status": "read_error",
+                              "error": str(exc), "fields": {}}
+                else:
+                    content = b"" if value is None else json_bytes(value)
+                    write_file(target(output_dir, name), content)
+                    output_sha256 = digest(content)
+                    current.add(name)
+            details = review_details(document, record, value, ocr_enabled,
+                                     read_error_quality=read_error_quality)
+            records.append({"output": name, **record, **details,
+                            "report_version": REPORT_VERSION,
+                            "input": pdf.relative_to(input_dir).as_posix(), "pdf_sha256": pdf_sha256,
+                            "output_sha256": output_sha256, "extractor_revision": revision,
+                            "config_sha256": config_sha256})
         for name in (owned | sources.keys()) - current:
             target(output_dir, name).unlink(missing_ok=True)
         write_file(journal, json_bytes(sorted(current)))
@@ -101,6 +138,20 @@ def main():
     parser.add_argument("--diagnostics", type=Path, default=Path("diagnostics/last-run.json"),
                         help="plik diagnostyki poza wejściem i wyjściem")
     parser.add_argument("--ocr-data", type=Path, help="katalog pol.traineddata dla opcjonalnego OCR")
+    commands = parser.add_subparsers(dest="command")
+    review = commands.add_parser("review", help="kolejka operatora i lokalny dziennik decyzji")
+    actions = review.add_subparsers(dest="action", required=True)
+    actions.add_parser("list", help="wyświetl dokumenty oczekujące na kontrolę")
+    show = actions.add_parser("show", help="wyświetl wynik, strony, dowody i decyzję")
+    accept = actions.add_parser("accept", help="zaakceptuj pokazaną wersję wyniku")
+    correct = actions.add_parser("correct", help="zapisz korektę pola pokazanego w wyniku")
+    for action in (show, accept, correct):
+        action.add_argument("pdf", help="względna ścieżka PDF-u z review list")
+    for action in (accept, correct):
+        action.add_argument("--expect", required=True, metavar="REVIEW_ID",
+                            help="identyfikator wersji wyniku z review show")
+    correct.add_argument("--field", required=True, help="ścieżka pola, np. przelew_bankowy.kwota")
+    correct.add_argument("--value", required=True, help="nowa wartość w składni JSON")
     args = parser.parse_args()
     input_dir, output_dir, diagnostic = (path.resolve() for path in (args.input, args.output, args.diagnostics))
     if (overlaps(input_dir, output_dir) or overlaps(diagnostic, input_dir)
@@ -109,7 +160,17 @@ def main():
     state = state_directory(output_dir)
     if overlaps(diagnostic, state) or overlaps(input_dir, state):
         parser.error("Ścieżka ewidencji wyników koliduje z wejściem lub diagnostyką")
+    if args.command == "review":
+        journal = journal_path(diagnostic)
+        if any(overlaps(journal, root) for root in (input_dir, output_dir, state)):
+            parser.error("Ścieżka dziennika decyzji koliduje z wejściem, wyjściem lub ewidencją")
     try:
+        if args.command == "review":
+            with output_lock(output_dir):
+                try:
+                    return run_review(args, input_dir, output_dir, diagnostic)
+                except (KeyError, TypeError, AttributeError) as exc:
+                    raise ValueError("Nieprawidłowa struktura diagnostyki lub konfiguracji.") from exc
         ocr = prepare_ocr(args.ocr_data) if args.ocr_data else None
         return process(input_dir, output_dir, load_classes(args.config), diagnostic, ocr)
     except (OSError, sqlite3.Error, ValueError) as exc:
