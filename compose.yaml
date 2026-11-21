@@ -1,0 +1,31 @@
+services:
+  cli:
+    build: .
+    network_mode: none
+    read_only: true
+    user: "${ODW_UID:-1000}:${ODW_GID:-1000}"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - type: bind
+        source: "${ODW_INPUT_DIR:-./input}"
+        target: /work/input
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${ODW_OUTPUT_PARENT:-.}/${ODW_OUTPUT_NAME:-output}"
+        target: /work/output
+        bind:
+          create_host_path: false
+      - type: bind
+        # CLI locates the journal beside /work/output. Derive its host path from the output.
+        source: "${ODW_OUTPUT_PARENT:-.}/.${ODW_OUTPUT_NAME:-output}.odwolania2json"
+        target: /work/.output.odwolania2json
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${ODW_DIAGNOSTICS_DIR:-./diagnostics}"
+        target: /work/diagnostics
+        bind:
+          create_host_path: false
