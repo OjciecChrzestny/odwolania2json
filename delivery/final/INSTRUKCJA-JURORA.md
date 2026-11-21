@@ -83,6 +83,20 @@ python demo/rozszerzalnosc/pokaz.py zrodlo "$IN/sprawa/pismo.pdf" \
   "$DIAG/last-run.json" --output sprawa/pismo.json
 ```
 
+### Kontrola przez operatora
+
+W tym samym środowisku co ekstrakcja zdefiniuj polecenie wskazujące jej wejście, wyjście i diagnostykę. Wybierz PDF z listy. Polecenie `show` pokazuje wynik, ocenę stron, powody kontroli oraz identyfikator bieżącej wersji.
+
+```sh
+kontrola() {
+  python -m odwolania2json --input "$IN" --output "$OUT" --diagnostics "$DIAG/last-run.json" review "$@"
+}
+kontrola list
+kontrola show sprawa/pismo.pdf
+```
+
+Po porównaniu ze źródłem skopiuj `review_id` do zmiennej `ID`. Dla poprawnego wyniku użyj `kontrola accept sprawa/pismo.pdf --expect "$ID"`. Jeśli źródło potwierdza np. inną kwotę, użyj `kontrola correct sprawa/pismo.pdf --expect "$ID" --field przelew_bankowy.kwota --value 125.50`. Powtórne `show` wyświetla decyzję zapisaną w dzienniku SQLite obok diagnostyki. Oddany JSON zawiera surową ekstrakcję. Przy braku niezależnie zweryfikowanych profili wszystkie dokumenty trafiają do kontroli człowieka.
+
 ## Skąd bierze się wynik
 
 1. `extract.py` odczytuje przez pypdf maksymalnie sześć pierwszych stron. Jeśli włączono OCR, `ocr.py` renderuje wybrane strony przez PDFium i rozpoznaje polski tekst przez Tesseract.

@@ -10,7 +10,7 @@ Otwórz slajd 1 i syntetyczny plik `input/doc_01.pdf`. Uruchom etap `przelew`. P
 
 ## 0:35–1:20 · Źródło, ręczna kontrola i jakość
 
-Na slajdzie 2 lub w terminalu wskaż wiersz „Kwota: 123,45 PLN”, stronę 1 i regułę `kwota_operacji`. Na slajdzie 3 pokaż `doc_05.pdf` i `numer_transakcji: null`. Otwórz pełną stronę PDF-u i potwierdź, że numeru brakuje. W próbie kontrolę inicjuje prezenter i pozostawia pole puste. Kolejka, akceptacja i zapis decyzji operatora czekają na wspólny odbiór z modułami 02–05.
+Na slajdzie 2 lub w terminalu wskaż wiersz „Kwota: 123,45 PLN”, stronę 1 i regułę `kwota_operacji`. Na slajdzie 3 pokaż `doc_05.pdf` i `numer_transakcji: null`. Otwórz pełną stronę PDF-u i potwierdź, że numeru brakuje. W próbie kontrolę inicjuje prezenter i pozostawia pole puste. Pokaż decyzję programu i wskazane strony poleceniem `review show doc_05.pdf` według instrukcji jurora. Po obejrzeniu strony prezenter może zatwierdzić brak numeru poleceniem `review accept doc_05.pdf --expect "$ID"`. Przebieg automatyczny pozostawia decyzję prezenterowi.
 
 > Diagnostyka wskazuje stronę i regułę kwoty. W drugim przelewie brakuje numeru. Sprawdzam PDF i zostawiam puste pole. Slajd jakości podaje wynik wyłącznie dla rewizji pokazanej w stopce. [Odczytaj wynik, liczebność zbioru i status pomiaru ze slajdu 4. Przy braku wyniku powiedz, że ta rewizja czeka na pomiar.]
 
