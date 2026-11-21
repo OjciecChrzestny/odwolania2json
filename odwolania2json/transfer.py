@@ -2,6 +2,7 @@
 import re
 
 from .operations import DATE, apply_fields, normalize
+from .transfer_title import TITLE, apply_transfer_title
 
 ROLES = {
     "z_rachunku": r"rachunek (?:winien|obciążany|nadawcy|zleceniodawcy|płatnika)|z rachunku|nadawc[ay]|płatnik|zleceniodawca|sender|payer|debtor",
@@ -126,10 +127,13 @@ def reference_number(result, lines):
 
 
 def transfer(result, config):
-    # Keep paragraph breaks in titles found on the first pass. OCR sometimes
-    # inserts extra blank lines between a label and its otherwise missing value.
+    # OCR sometimes inserts extra blank lines before missing values.
     missing = {path: rules for path, rules in config["fields"].items()
                if result.data["przelew_bankowy"][path.rsplit(".", 1)[1]] is None}
+    title_rules = config["fields"].get(TITLE, ())
+    if any(rule.get("title_layout") for rule in title_rules):
+        missing.pop(TITLE, None)
+        apply_transfer_title(result, title_rules)
     for key in ROLES:
         path = "przelew_bankowy." + key
         if path in missing:
