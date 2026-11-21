@@ -68,6 +68,9 @@ def possible_transfer_scan(document, config):
     first = document.text.split("\f", 1)[0]
     if excluded_heading(first, config) or (config.get("exclude_page") and re.search(config["exclude_page"], first, FLAGS)):
         return False
+    if any(signal.get("retry_ocr") and re.search(signal["pattern"], first[:600], FLAGS)
+           for signal in config["signals"]):
+        return True
     return (re.search(r"\bprzelew\w*", first[:600], FLAGS) is not None
             and re.search(r"\b(?:polecenie|rachun\w*|nadawc\w*|bank)\b", first[:1400], FLAGS) is not None)
 

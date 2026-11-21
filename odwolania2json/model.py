@@ -42,6 +42,8 @@ def load_classes(root=DEFAULT_CONFIG):
             raise ValueError(f"{path}: niedozwolona lub powtórzona klasa {name}")
         for signal in config["signals"]:
             re.compile(signal["pattern"], FLAGS)
+            for pattern in signal.get("requires", {}).values():
+                re.compile(pattern, FLAGS)
         for rules in config.get("fields", {}).values():
             for rule in rules:
                 re.compile(rule["pattern"], FLAGS)
@@ -63,16 +65,35 @@ def cover_limit(first_page, config):
     return 0
 
 
+def signal_offset(signal, text):
+    required = signal.get("requires")
+    if not required:
+        match = re.search(signal["pattern"], text, FLAGS)
+        return match.start() if match else None
+
+    # A title and its supporting fields must belong to one physical page.
+    start = 0
+    for page in text.split("\f"):
+        match = re.search(signal["pattern"], page, FLAGS)
+        if match and all(re.search(pattern, page, FLAGS) for pattern in required.values()):
+            return start + match.start()
+        start += len(page) + 1
+    return None
+
+
 def class_candidate(document, name, config, text, offset=0, required=()):
     if excluded_heading(text, config) or (config.get("exclude_page") and re.search(config["exclude_page"], text, FLAGS)):
         return None
     score = 0
     evidence = []
     for signal in config["signals"]:
-        match = re.search(signal["pattern"], text, FLAGS)
-        if match:
+        position = signal_offset(signal, text)
+        if position is not None:
             score += signal["weight"]
-            evidence.append({"rule": signal["name"], "page": document.page(offset + match.start())})
+            entry = {"rule": signal["name"], "page": document.page(offset + position)}
+            if "requires" in signal:
+                entry["criteria"] = list(signal["requires"])
+            evidence.append(entry)
     if score >= config["threshold"] and set(required).issubset(item["rule"] for item in evidence):
         return score, name, evidence
     return None
