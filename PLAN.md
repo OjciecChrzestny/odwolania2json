@@ -147,7 +147,9 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 
 **Przelewy przez Scaleway API.** Mistral Small 3.2 24B na czterech zamrożonych wycinkach z 44 rozwojowych PDF-ów odzyskał 3/3 brakujących kwot. Wpisał datę wygenerowania w miejsce daty operacji. Mikro-F1 wszystkich pól wyniosło 76,82% wobec 76,19% dla A3. Czas wzrósł z 51,92 s do 86,93 s. [Pomiar, przyczyna błędu i polecenie weryfikacji](experiments/transfer_api/RAPORT.md)
 
-**Następny krok eksperymentu.** Zamrozić niezależne przelewy z datą operacji zapisaną słownie i możliwą do pomylenia datą wydruku. Taka partia umożliwi ocenę osobno wariantu kwotowego i wyboru daty z wiarygodną etykietą.
+**Niezależna rezerwa przelewów.** Osiem dokumentów zamrożono przed zmianą selektora daty. Na trzech publicznych potwierdzeniach i dwóch negatywach każdy wariant uzyskał diagnostycznie 27,27%. Jedno rzeczywiste potwierdzenie dostało plik 0 B, więc miernik oznaczył przebieg jako nieważny. Na trzech syntetycznych próbach poprawiona data podniosła F1 z 96,97% do 100%. Na 44 znanych słabych skanach A3 uzyskał 76,19%, wariant kwotowy 76,99%, a oba pola 77,25%. Regresja 128/128 pozostała bajtowo zgodna. API pozostaje eksperymentalne. [Odtworzenie, źródła i błędy](experiments/transfer_api/RAPORT_REZERWA.md)
+
+**Następny krok eksperymentu.** Na oddzielnych skanach rozwojowych poprawić klasyfikację wykonanego przelewu na podstawie treści. Warunek odbioru obejmuje JSON dla każdego rzeczywistego przelewu w tej próbie, 0 B dla podobnych druków do wypełnienia oraz regresję 128/128. Do oceny po zmianie zamrozić kolejny zbiór przed strojeniem.
 
 **Warunek gotowości CLI do wydania.** Odtworzyć i usunąć `SIGSEGV` na osobnych skanach rozwojowych. Odbiór wymaga zakończenia całego folderu przez CLI bez kontenera i przez Compose oraz bajtowej zgodności ich wyników. Rezerwa KARR v2 po pomiarze służy do regresji. W kolejce produktowej pozostają pierwszy zarzut na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
 
