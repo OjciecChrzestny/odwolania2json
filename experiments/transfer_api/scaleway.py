@@ -54,13 +54,18 @@ def load_token():
 
 
 def make_payload(field, png, rows):
+    system = SYSTEM if field == "kwota" else (
+        "Obraz zawiera numer wiersza, etykietę rodzaju daty i wycinek jej wartości. "
+        "Polski miesiąc może być zapisany słownie. Odczytaj wyłącznie widoczną datę, bez zgadywania. "
+        "Przy nieczytelnym dniu, miesiącu lub roku zwróć null w obu polach. Odpowiedz tylko obiektem JSON."
+    )
     labels = "\n".join(f"{r['row']}: {', '.join(r['labels']) or 'brak etykiety'}" for r in rows)
     task = FIELD_INSTRUCTIONS[field] + "\nEtykiety kolejnych wierszy:\n" + labels
     image_url = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
     return {
         "model": PROVIDER.model, "temperature": 0, "max_tokens": 96, "stream": False,
         "messages": [
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": system},
             {"role": "user", "content": [{"type": "text", "text": task},
                                          {"type": "image_url", "image_url": {"url": image_url}}]},
         ],

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from experiments.abc.adapters import sha256
 from .crops import LABELS
+from .dates import DATE_LABELS, PRIMARY, BOOKING
 from .scaleway import FIELD_INSTRUCTIONS, PROVIDER, load_token, read_field
 
 
@@ -41,7 +42,11 @@ def verify_queue(baseline, queue_root, expected_calls):
         row_ids = [r["row"] for r in entry["rows"]]
         if not 1 <= len(row_ids) <= 12 or row_ids != list(range(1, len(row_ids) + 1)):
             raise ValueError("Invalid evidence rows")
-        if any(set(r["labels"]) - labels for r in entry["rows"]):
+        allowed = DATE_LABELS if field == "data_operacji" else labels
+        if field == "data_operacji" and any("data" not in r["labels"] or not (set(r["labels"]) & (PRIMARY | BOOKING))
+                                           for r in entry["rows"]):
+            raise ValueError("Date without transaction label")
+        if any(set(r["labels"]) - allowed for r in entry["rows"]):
             raise ValueError("Unrecognized OCR label")
         digest = entry["panel_sha256"]
         if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
@@ -55,7 +60,7 @@ def verify_queue(baseline, queue_root, expected_calls):
 def run(baseline, queue_root, destination, max_calls):
     started = time.monotonic()
     queue = verify_queue(baseline, queue_root, max_calls)
-    token = load_token()
+    token = load_token() if any(entry["rows"] for entry in queue["candidates"]) else None
     destination.mkdir(parents=True, mode=0o700, exist_ok=False)
     shutil.copytree(baseline / "output", destination / "output")
     diagnostics = json.loads((baseline / "diagnostics/last-run.json").read_bytes())
@@ -89,6 +94,7 @@ def run(baseline, queue_root, destination, max_calls):
                     "page": row["page"], "rule": "scaleway_numeric_crop", "box": row["box"],
                     "render_scale": row["render_scale"], "panel_sha256": entry["panel_sha256"],
                     "row": row["row"], "model": PROVIDER.model,
+                    **({"anchor_box": row["anchor_box"]} if "anchor_box" in row else {}),
                 }
             records.append(record)
             print(f"{field} HTTP={record.get('http')} {record['outcome']}", flush=True)

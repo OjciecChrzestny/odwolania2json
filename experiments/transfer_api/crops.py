@@ -1,4 +1,4 @@
-"""Build a page of numbered numeric crops. Only these pixels may leave the VPS."""
+"""Build a masked amount or date panel using a fixed vocabulary for labels."""
 import io
 import re
 import unicodedata
@@ -8,10 +8,11 @@ import pypdfium2 as pdfium
 from PIL import Image, ImageDraw
 from tesserocr import PyTessBaseAPI
 
+from .dates import PRIMARY, date_cells
+
 # Keep punctuation so account numbers, references and prose cannot qualify as a cell.
 DIGIT = r"[0-9OoIl]"
 AMOUNT = re.compile(rf"[-+−]?(?:{DIGIT}{{1,8}}|{DIGIT}{{1,3}}(?:[.']{DIGIT}{{3}})+)[,.]{DIGIT}{{2}}")
-DATE = re.compile(rf"(?:{DIGIT}{{4}}[-./]{DIGIT}{{1,2}}[-./]{DIGIT}{{1,2}}|{DIGIT}{{1,2}}[-./]{DIGIT}{{1,2}}[-./]{DIGIT}{{4}})")
 LABELS = {
     "kwota": "kwota", "wartosc": "wartosc", "amount": "amount",
     "data": "data", "date": "date", "operacji": "operacji", "transakcji": "transakcji",
@@ -38,9 +39,8 @@ def ocr_rows(tsv):
     return [sorted(words) for words in rows.values()]
 
 
-def cells(tsv, field):
+def amount_cells(tsv):
     result = []
-    pattern = AMOUNT if field == "kwota" else DATE
     for words in ocr_rows(tsv):
         labels = sorted({value for word in words if (value := label(word[-1]))})
         # A long run of separate number groups usually represents an account.
@@ -48,10 +48,10 @@ def cells(tsv, field):
             continue
         for i, (x, y, width, height, token) in enumerate(words):
             token = token.strip("()[]|:;")
-            if not pattern.fullmatch(token) or len(re.findall(r"[0-9]", token)) < 2:
+            if not AMOUNT.fullmatch(token) or len(re.findall(r"[0-9]", token)) < 2:
                 continue
             left = x
-            if field == "kwota" and i:
+            if i:
                 px, py, pw, ph, prefix = words[i - 1]
                 if re.fullmatch(r"[0-9]{1,3}", prefix) and 0 <= x - px - pw < .7 * height:
                     left = px
@@ -65,7 +65,15 @@ def same_cell(a, b):
     return overlap >= .7 * area
 
 
+def fit(cut):
+    factor = min(63 / cut.height, 480 / cut.width)
+    return cut.resize((max(1, round(cut.width * factor)), max(1, round(cut.height * factor))),
+                      Image.Resampling.BICUBIC)
+
+
 def numeric_panel(path, field, tessdata):
+    if field not in {"kwota", "data_operacji"}:
+        raise ValueError("Unsupported transfer field")
     with closing(pdfium.PdfDocument(path)) as pdf, closing(pdf[0]) as page:
         scale = min(3.0, 2300 / max(page.get_size()))
         with closing(page.render(scale=scale, grayscale=True)) as bitmap:
@@ -77,26 +85,47 @@ def numeric_panel(path, field, tessdata):
                 for mode in (6, 11):
                     api.SetPageSegMode(mode)
                     api.SetImageBytes(data, bitmap.width, bitmap.height, bitmap.n_channels, bitmap.stride)
-                    for box, labels in cells(api.GetTSVText(0), field):
+                    tsv = api.GetTSVText(0)
+                    if field == "data_operacji":
+                        groups.extend(date_cells(ocr_rows(tsv)))
+                        continue
+                    for box, labels in amount_cells(tsv):
                         match = next((g for g in groups if same_cell(g[0], box)), None)
                         if match is None:
                             groups.append((box, set(labels)))
                         else:
                             match[1].update(labels)
-    groups.sort(key=lambda g: (g[0][1], g[0][0]))
-    if not groups or len(groups) > 12:
-        return None, []
-    panel = Image.new("L", (560, 78 * len(groups)), 255)
-    draw = ImageDraw.Draw(panel)
-    evidence = []
-    for i, (box, labels) in enumerate(groups, 1):
-        cut = image.crop(box)
-        factor = min(63 / cut.height, 480 / cut.width)
-        cut = cut.resize((max(1, round(cut.width * factor)), max(1, round(cut.height * factor))), Image.Resampling.BICUBIC)
-        top = (i - 1) * 78
-        draw.text((8, top + 23), str(i), fill=0, font_size=22)
-        panel.paste(cut, (55, top + (78 - cut.height) // 2))
-        evidence.append({"row": i, "labels": sorted(labels), "page": 1, "box": box, "render_scale": scale})
+    if field == "data_operacji":
+        if any(role in PRIMARY for _, role, _, _ in groups):
+            groups = [g for g in groups if g[1] in PRIMARY]
+        if not groups or any(not same_cell(g[0], groups[0][0]) for g in groups[1:]):
+            return None, []
+        # Both OCR modes describe the same date. Use the tight word rectangles from the first.
+        box, role, anchor, rects = groups[0]
+        left, top = min(r[0] for r in rects), min(r[1] for r in rects)
+        right, bottom = max(r[2] for r in rects), max(r[3] for r in rects)
+        cut = Image.new("L", (right - left, bottom - top), 255)
+        for rect in rects:
+            cut.paste(image.crop(rect), (rect[0] - left, rect[1] - top))
+        panel = Image.new("L", (560, 112), 255)
+        draw = ImageDraw.Draw(panel)
+        draw.text((8, 4), "1. Data " + role, fill=0, font_size=22)
+        panel.paste(fit(cut), (45, 37))
+        evidence = [{"row": 1, "labels": ["data", role], "page": 1, "box": box,
+                     "anchor_box": anchor, "word_boxes": rects, "render_scale": scale}]
+    else:
+        groups.sort(key=lambda g: (g[0][1], g[0][0]))
+        if not groups or len(groups) > 12:
+            return None, []
+        panel = Image.new("L", (560, 78 * len(groups)), 255)
+        draw = ImageDraw.Draw(panel)
+        evidence = []
+        for i, (box, labels) in enumerate(groups, 1):
+            cut = fit(image.crop(box))
+            top = (i - 1) * 78
+            draw.text((8, top + 23), str(i), fill=0, font_size=22)
+            panel.paste(cut, (55, top + (78 - cut.height) // 2))
+            evidence.append({"row": i, "labels": sorted(labels), "page": 1, "box": box, "render_scale": scale})
     stream = io.BytesIO()
     panel.save(stream, format="PNG")
     return stream.getvalue(), evidence

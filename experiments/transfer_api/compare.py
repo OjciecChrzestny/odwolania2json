@@ -27,7 +27,7 @@ def metrics(dataset, manifest, variant):
             negatives += out.is_file() and out.stat().st_size == 0
             continue
         gold = load_object(dataset / entry["reference"])["przelew_bankowy"]
-        found = load_object(out)["przelew_bankowy"] if out.is_file() and out.stat().st_size else {}
+        found = load_object(out).get("przelew_bankowy", {}) if out.is_file() and out.stat().st_size else {}
         complete += found == gold
         for field, expected in gold.items():
             current = counts.setdefault(field, Counter(tp=0, fp=0, fn=0))
@@ -52,7 +52,8 @@ def compare(dataset, manifest, folder):
     field_results = []
     for r in calls:
         key, field = r["output"], r["field"]
-        expected = load_object(dataset / entries[key]["reference"])["przelew_bankowy"][field]
+        ref = entries[key]["reference"]
+        expected = load_object(dataset / ref)["przelew_bankowy"].get(field) if ref else None
         saved = load_object(folder / "C/output" / key)["przelew_bankowy"][field]
         if r["outcome"] == "accepted":
             accepted[key][field] = r["value"]
