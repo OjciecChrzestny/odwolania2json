@@ -95,3 +95,5 @@ Odbiór przelewu porównuje wszystkie pola z rozwojową referencją dopiero po u
 Wybór przed testem końcowym to A2 z lokalnym OCR. Dwa syntetyczne potwierdzenia przelewu z nagłówkiem rozbitym na dwa wiersze dostały poprawne wyniki. Na zbiorze rozwojowym 128 JSON-ów A2 ma te same bajty co A. [Porównanie A2](RAPORT_A2.md)
 
 Historyczna walidacja 0,9878 z `valid_run=false` dotyczy oryginalnego A. Eksperyment modeli B/C jest utrzymywany osobno na `codex/uzp-modele-bc`. [Raport A](RAPORT_A.md) · [Plan i zamrożony podział](PLAN.md)
+
+[Raport odbioru z czystego klonu](RAPORT_RC1.md)
