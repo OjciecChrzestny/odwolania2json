@@ -24,6 +24,9 @@ DEBIT = re.compile(r"\b(?:wychodz[ae]c[ay]|obciazenie|outgoing transfer)\b|^\s*k
 CREDIT = re.compile(r"\b(?:przychodz[ae]c[ay]|uznanie|incoming transfer)\b")
 RUN = re.compile(r"(?<![\w*])(?:PL[ \t]*)?([0-9]+(?:[ \t]+[0-9]+)*)(?![\w*])", re.I)
 
+WRAP_START = re.compile(r"PL ?([0-9]{2}(?: [0-9]{4}){1,5})", re.I)
+WRAP_END = re.compile(r"[0-9]{4}(?: [0-9]{4}){0,4}")
+
 
 def fold(text):
     return text.lower().translate(FOLD)
@@ -77,37 +80,74 @@ def column_at(words, offset):
     return None
 
 
-def account_observations(rows, positions=None):
-    """Return all role-supported numbers. Different candidates signal ambiguity."""
+def account_layout(rows, positions):
+    """Yield role sections and their column boundary when both sides are supported."""
     folded = [fold(row) for row in rows]
     page = "\n".join(folded)
     debit, credit = bool(DEBIT.search(page)), bool(CREDIT.search(page))
     owner = (PAYER if debit else PAYEE) if debit != credit else None
-    observed = defaultdict(set)
     active, divider, expiry = [], None, -1
-    for i, (row, line) in enumerate(zip(rows, folded)):
+    for i, line in enumerate(folded):
         if STOP.search(line.strip(" \t|")) or i > expiry:
             active, divider = [], None
         marks = headings(line)
         if marks:
             active = [direct_role(label, owner) for label, _, _ in marks]
             expiry = i + 5
-            divider = column_at(positions[i], marks[1][1]) if positions and len(marks) == 2 else None
-            if len(marks) == 2:
-                # A line can have explicit labels and values in both cells.
-                for which, (role, (_, _, end)) in enumerate(zip(active, marks)):
-                    stop = marks[which + 1][1] if which + 1 < len(marks) else len(row)
-                    if role:
-                        observed[role].update(numbers(row[end:stop]))
-                continue
+            divider = None
+            if positions and len(active) == 2 and set(active) == {PAYER, PAYEE}:
+                divider = column_at(positions[i], marks[1][1])
+        yield i, marks, active, divider
+
+
+def column_words(words, divider):
+    return tuple(w for w in words if w.x < divider), tuple(w for w in words if w.x >= divider)
+
+
+def wrapped_nrb(upper, lower):
+    """Read an explicitly marked Polish IBAN wrapped into two aligned lines."""
+    if not upper or not lower:
+        return None
+    first, second = upper[0], lower[0]
+    if (abs(first.x - second.x) > min(first.height, second.height) / 2
+            or second.middle - first.middle > first.height + second.height):
+        return None
+    start = WRAP_START.fullmatch(" ".join(w.text for w in upper))
+    finish = WRAP_END.fullmatch(" ".join(w.text for w in lower))
+    if start and finish:
+        value = (start[1] + finish[0]).replace(" ", "")
+        if valid_nrb(value):
+            return value
+
+
+def account_observations(rows, positions=None):
+    """Return all role-supported numbers. Different candidates signal ambiguity."""
+    observed = defaultdict(set)
+    for i, marks, active, divider in account_layout(rows, positions):
+        row = rows[i]
+        if len(marks) == 2:
+            # A line can have explicit labels and values in both cells.
+            for which, (role, (_, _, end)) in enumerate(zip(active, marks)):
+                stop = marks[which + 1][1] if which + 1 < len(marks) else len(row)
+                if role:
+                    observed[role].update(numbers(row[end:stop]))
+                label_start = marks[which][1]
+                if divider is None or i + 2 >= len(rows) or "rachun" not in fold(row[label_start:end]):
+                    continue
+                following = positions[i + 1:i + 3]
+                if any(word.x < divider < word.x + word.width for words in following for word in words):
+                    continue
+                upper, lower = (column_words(words, divider)[which] for words in following)
+                value = wrapped_nrb(upper, lower)
+                if value:
+                    observed[role].add(value)
+            continue
         if len(active) == 1 and active[0]:
             observed[active[0]].update(numbers(row))
         elif len(active) == 2 and all(active) and active[0] != active[1]:
             if divider is not None:
-                left = " ".join(w.text for w in positions[i] if w.x < divider)
-                right = " ".join(w.text for w in positions[i] if w.x >= divider)
-                for role, cell in zip(active, (left, right)):
-                    observed[role].update(numbers(cell))
+                for role, cell in zip(active, column_words(positions[i], divider)):
+                    observed[role].update(numbers(" ".join(w.text for w in cell)))
             else:
                 pair = numbers(row)
                 if len(pair) == 2:
