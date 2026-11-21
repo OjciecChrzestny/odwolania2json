@@ -1,8 +1,10 @@
 """Opcjonalny OCR uruchamiany lokalnie dla stron bez warstwy tekstowej."""
 import logging
 import re
+from collections.abc import Callable
 from contextlib import closing
 from difflib import SequenceMatcher
+from functools import partial
 from itertools import islice
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -19,7 +21,10 @@ def prepare_ocr(data):
         raise ValueError("OCR wymaga instalacji requirements-ocr.txt") from exc
     if not (data / "pol.traineddata").is_file():
         raise ValueError(f"Brak pol.traineddata w {data}")
-    return LocalOCR(PdfDocument, PyTessBaseAPI, data)
+    # tesserocr defaults to /dev/null. Tesseract 5.5.4 can dereference a null
+    # stream if the sandbox denies opening it for writing. Use the open stderr.
+    api_type = partial(PyTessBaseAPI, variables={"debug_file": ""})
+    return LocalOCR(PdfDocument, api_type, data)
 
 
 _REFERENCE_LINE = re.compile(
@@ -142,7 +147,7 @@ def confirm_numeric_boxes(boxes, bitmap, api_type, data):
 @dataclass(frozen=True)
 class LocalOCR:
     document_type: type
-    api_type: type
+    api_type: Callable
     data: Path
 
     def __call__(self, path, limit, *, start=0):
