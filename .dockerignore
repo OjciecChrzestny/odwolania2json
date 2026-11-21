@@ -1,0 +1,9 @@
+**
+!requirements.txt
+!requirements-ocr.txt
+!odwolania2json/
+odwolania2json/**
+!odwolania2json/*.py
+!odwolania2json/classes/
+odwolania2json/classes/**
+!odwolania2json/classes/*.json
