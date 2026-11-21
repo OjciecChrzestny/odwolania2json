@@ -1,0 +1,29 @@
+name: Synchronizacja VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Pobierz main na VPS
+        env:
+          SYNC_KEY: ${{ secrets.VPS_SYNC_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          dir=$(mktemp -d)
+          trap 'rm -f "$dir/key" "$dir/known_hosts"; rmdir "$dir"' EXIT
+          printf '%s\n' "$SYNC_KEY" > "$dir/key"
+          unset SYNC_KEY
+          printf '%s\n' '83.168.122.15 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKaLH7f5SIVKjXuyjORcm9TZdU7lzTGfFc5qGOm49htO' > "$dir/known_hosts"
+          ssh -T -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" \
+            -i "$dir/key" dev-viralpay@83.168.122.15 sync
