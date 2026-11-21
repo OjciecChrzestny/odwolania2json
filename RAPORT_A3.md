@@ -56,4 +56,16 @@ PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 "$tools_dir/venv/bin/python" -B evaluatio
 
 Oryginalne dowody są w `~/uzp-parallel/a3-proof/release-e98988f8f0d7/`. Plik `development/summary.json` ma SHA-256 `6dfed7b279ece2acdf9c13a4221e1c0b9e828df062f190de50b85d80441f8d37`. W tym samym katalogu są `synthetics/summary.json`, `real_ocr.py`, `real-ocr.log` i `extension.log`.
 
+## Odbiór po połączeniu prac
+
+W czystej kopii rewizji `5fa11680eac824896839ef4b7f281e1f54b3ed68` połączono A3, opcjonalne adaptery B/C, Compose i demonstrację. Na VPS powtórzono odbiór rozwojowy powyższymi poleceniami z katalogu tej rewizji. Otrzymano TP 1355, FP 5, FN 5 oraz `valid_run=true`. Wszystkie 128 JSON-ów i zbiorcza diagnostyka były identyczne bajt w bajt z A3 sprzed połączenia. Po każdej z dwóch zmian nazw dokumentów 128/128 wyników i rekordów diagnostyki zgadzało się po uwzględnieniu nowej ścieżki.
+
+| Sprawdzenie | Wynik na VPS |
+| --- | --- |
+| `LANDLOCK=1 PYTHON="$tools_dir/venv/bin/python" sh experiments/abc/test-offline.sh` | 16 testów bazowych oraz 10 testów adapterów i integracji. Oba adaptery dostały identyczny fragment w 10/10 parach. Symulowane awarie zachowały wynik A3. Wywołań rzeczywistych modeli było zero. |
+| Natywne CLI i Docker Compose | 6/6 zgodnych wyjść i rekordów diagnostyki, w tym skan odczytany przez polski OCR i pusty plik negatywu. [Procedura odbioru Compose](delivery/compose/README.md) |
+| Klasa dodana konfiguracją | W profilu z dodatkową klasą zachowano 11/11 plików regresji rozwojowej, w tym 8/8 pustych negatywów. [Pokaz z PDF-em i źródłem pola](delivery/final/RAPORT-PROBY.md) |
+
+Na VPS pełne dowody są w `~/uzp-parallel/main-proof/5fa11680eac8/`. Plik `development/summary.json` zawiera wynik ekstraktora, a `offline.log` wynik prób na atrapach dostawców. Odbiór integracji wykorzystywał dane rozwojowe i syntetyczne. Paczka dziesięciu nowych spraw pozostała zapieczętowana.
+
 **Następny krok** to wybór wersji do pojedynczego, odrębnego pomiaru na zapieczętowanych dziesięciu sprawach. Wszystkie powyższe sprawdzenia wykonano lokalnie na VPS bez wywołań LLM.

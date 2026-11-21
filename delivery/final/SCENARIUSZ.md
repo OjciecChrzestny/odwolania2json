@@ -22,12 +22,14 @@ Otwórz `prezentacja.pdf`, terminal i dwa syntetyczne PDF-y z przygotowanej pró
 
 ## Próba na żywo
 
-Użyj osobnej czystej kopii zatwierdzonego kodu `KOD` i nowego katalogu `WORK`. Zainstaluj narzędzia pokazu w osobnym środowisku przez `python -m pip install -r requirements-pokaz.txt`. Do powtórzenia bez sieci po instalacji użyj wcześniej zbudowanego obrazu z etykietą rewizji. Budowę oraz użyte ścieżki podaje `RAPORT-PROBY.md`.
+Użyj osobnej czystej kopii zatwierdzonego kodu `KOD` i nowego katalogu `WORK`. Zainstaluj narzędzia pokazu w osobnym środowisku przez `python -m pip install -r requirements-pokaz.txt`. Do powtórzenia bez sieci po instalacji użyj wcześniej zbudowanego obrazu z etykietą rewizji. Budowa obrazu wymaga połączenia z siecią przy pierwszym pobraniu zależności. Polecenia wykonaj na VPS, korzystając z pełnego klonu z historią. Zmienna `KOD` wskazuje jego katalog, a `WORK` nową, jeszcze nieistniejącą ścieżkę w istniejącym katalogu.
 
 ```sh
 # KOD to katalog czystego klonu sprawdzanej rewizji.
 POKAZ="$KOD/delivery/final"
 RC_SHA=$(git -C "$KOD" rev-parse HEAD)
+IMAGE="uzp-pokaz:$RC_SHA"
+docker build --label "org.opencontainers.image.revision=$RC_SHA" --tag "$IMAGE" "$KOD"
 python "$POKAZ/proba.py" "$KOD" "$WORK" przygotuj --sha "$RC_SHA" --image "$IMAGE"
 python "$POKAZ/proba.py" "$KOD" "$WORK" przelew --sha "$RC_SHA" --image "$IMAGE"
 git -C "$KOD" diff --name-only c01401cd7abdf82655b18188f68cb46652dc239e 72337e2164f871fa3b1d6c63edde0381b7ed8b31

@@ -1,5 +1,22 @@
 # Odbiór prezentacji na VPS
 
+## Próba A3 po połączeniu prac
+
+Z czystego klonu rewizji `5fa11680eac824896839ef4b7f281e1f54b3ed68` na VPS uruchomiono publiczne CLI w kontenerze Docker z wyłączoną siecią. PDF-y pokazu i ekranów rezerwowych pochodzą z tego przebiegu.
+
+| Próba | Wynik |
+| --- | --- |
+| Własny katalog z syntetycznymi PDF-ami | Sześć pól przelewu, w tym kwota 123,45 zł ze strony 1. Wezwanie do zapłaty dało plik 0 B. |
+| Rozszerzenie jednym plikiem konfiguracji | Dwa zawiadomienia z poprawnymi sygnaturami i terminami. Pierwszy termin pochodzi ze strony 2. Pismo obce dało 0 B. Cztery pierwotne wyniki zachowały identyczne SHA-256. |
+| Czas na rozgrzanym obrazie | Przygotowanie dokumentów 0,216 s, przelew z weryfikacją 1,283 s, dodanie klasy z regresją 2,464 s. Łącznie 3,963 s dla tych trzech etapów. Próba z głosem prezentera i projektorem czeka na pomiar. |
+| Materiały | `prezentacja.pdf` ma 5 stron, a `ekrany-rezerwowe.pdf` ma 3 strony. Odczytano tekst i sprawdzono render wszystkich ośmiu stron. |
+
+Na slajdzie jakości 0,9963 dotyczy A3 na 128 rozwojowych PDF-ach. Wynik 0,9822 pochodzi z wcześniejszego testu końcowego A2 na 31 PDF-ach. A2 pominął pełnomocnictwo, więc miernik oznaczył ten przebieg jako nieważny. Dziesięć spraw odłożonych dla A3 czeka na odrębny test. [Odbiór A3](../../RAPORT_A3.md)
+
+Wyniki próby i czasy są na VPS w `~/uzp-parallel/main-proof/5fa11680eac8/judge/`. [Instrukcja powtórzenia z czystej kopii](SCENARIUSZ.md#próba-na-żywo)
+
+## Archiwalna próba A2
+
 **RC_SHA** `1937848079584ec72aa1307f1305637e93607e1c`
 **Raport integratora** `747800f5a536967614686fb6f6210de48e6ce7c3:RAPORT_RC1.md`
 
