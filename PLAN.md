@@ -123,7 +123,7 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 
 **Do potwierdzenia u mentora.** Jak jury traktuje brak pliku, `null`, typy liczb, permutacje list i normalizację? Czy negatyw ma dokładnie 0 bajtów? Jak postępować przy nieczytelnym skanie, braku podstawy do ID i niezgodności opisu z kanonicznym słownikiem? Jak są oceniane A bez modelu, limity API, kanał przekazania klucza, dostęp do repozytorium i czas pokazu?
 
-**Następny krok.** Uruchomić pierwszy przebieg A dla rozwojowego `case_01/doc_02.pdf`, odczytać wszystkie sześć pól przelewu i porównać cały JSON z etykietą przez osobny proces oceny.
+**Następny krok.** Uruchomić wariant B i porównać go z zamrożonym pomiarem A. [Raport A oraz ścieżki wyników](RAPORT_A.md).
 
 Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 
