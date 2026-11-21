@@ -1,0 +1,37 @@
+{
+  "class": "zawiadomienie",
+  "classification_pages": 2,
+  "threshold": 6,
+  "signals": [
+    {
+      "name": "naglowek_zawiadomienia",
+      "weight": 4,
+      "pattern": "^[ \\t]*ZAWIADOMIENIE[ \\t]*$"
+    },
+    {
+      "name": "etykieta_sygnatury",
+      "weight": 2,
+      "pattern": "^[ \\t]*Sygnatura(?:[ \\t]+akt)?[ \\t]*:[ \\t]*\\S"
+    }
+  ],
+  "schema": {
+    "sygnatura": "text?",
+    "termin": "date?"
+  },
+  "fields": {
+    "sygnatura": [
+      {
+        "name": "wiersz_sygnatury",
+        "pattern": "^[ \\t]*Sygnatura(?:[ \\t]+akt)?[ \\t]*:[ \\t]*([\\w/-]+(?:[ \\t]+[\\w/-]+)*)[ \\t]*$",
+        "operation": "text"
+      }
+    ],
+    "termin": [
+      {
+        "name": "wiersz_terminu",
+        "pattern": "^[ \\t]*Termin(?:[ \\t]+posiedzenia)?[ \\t]*:[ \\t]*(<DATE>)(?:[ \\t]+r\\.?)?[ \\t]*\\.?[ \\t]*$",
+        "operation": "date"
+      }
+    ]
+  }
+}
