@@ -97,3 +97,9 @@ Wybór przed testem końcowym to A2 z lokalnym OCR. Dwa syntetyczne potwierdzeni
 Historyczna walidacja 0,9878 z `valid_run=false` dotyczy oryginalnego A. Eksperyment modeli B/C jest utrzymywany osobno na `codex/uzp-modele-bc`. [Raport A](RAPORT_A.md) · [Plan i zamrożony podział](PLAN.md)
 
 [Raport odbioru z czystego klonu](RAPORT_RC1.md)
+
+## Materiały przekazania
+
+[Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md) · [Prezentacja PDF](delivery/final/prezentacja.pdf) · [Ekrany rezerwowe](delivery/final/ekrany-rezerwowe.pdf) · [Scenariusz 40/30/50 s](delivery/final/SCENARIUSZ.md) · [Raport próby](delivery/final/RAPORT-PROBY.md)
+
+Jeden wewnętrzny pomiar końcowy objął 31 PDF-ów na zamrożonym A2 z lokalnym OCR. Miernik zwrócił 0,9821958457 mikro-F1 oraz `valid_run=false` po sklasyfikowaniu jednego pełnomocnictwa jako dokumentu obcego. [Raport końcowy](RAPORT_KONCOWY.md)

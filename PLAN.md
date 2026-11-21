@@ -123,7 +123,9 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 
 **Do potwierdzenia u mentora.** Jak jury traktuje brak pliku, `null`, typy liczb, permutacje list i normalizację? Czy negatyw ma dokładnie 0 bajtów? Jak postępować przy nieczytelnym skanie, braku podstawy do ID i niezgodności opisu z kanonicznym słownikiem? Jak są oceniane A bez modelu, limity API, kanał przekazania klucza, dostęp do repozytorium i czas pokazu?
 
-**Następny krok.** Przekazać pełny SHA zaakceptowanego A2 z lokalnym OCR do jednego pomiaru końcowego. Artefakty przekazania można uzupełnić dokumentacyjnie, zachowując identyczne drzewo pakietu, zależności, Dockerfile i Compose.
+**Stan odbioru.** Zamrożono `1937848079584ec72aa1307f1305637e93607e1c` po zaliczeniu odbioru CLI, OCR, Compose, rozszerzenia i development na VPS. Pomiar końcowy tej rewizji i materiały pokazu są w paczce przekazania. [Raport odbioru RC](RAPORT_RC1.md) · [Raport końcowy](RAPORT_KONCOWY.md) · [Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md)
+
+**Następny krok.** Właściciel przeprowadza próbę dostępu i uruchomienia na sprzęcie jurora przed zgłoszeniem.
 
 Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 
