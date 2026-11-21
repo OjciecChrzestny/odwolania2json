@@ -59,19 +59,49 @@ def principal_blocks(document, config):
 
     labeled = opening.find(patterns["principal_block"])
     if labeled:
-        return [opening.group(labeled, "entity")]
+        return [opening.group(labeled, "entity").before(patterns["principal_representation"])]
 
     introduction = opening.after(patterns["header"]).stripped()
-    return [introduction.after(patterns["representing"]).stripped()]
+    label = introduction.find(patterns["principal_label"])
+    if label and label.start() == 0:
+        return [introduction.slice(label.end()).before(patterns["principal_representation"])]
+    entity = introduction.after(patterns["representing"]).before(patterns["principal_representation"])
+    return [entity.stripped()]
 
 
 def signatures(document, patterns):
     signing = document.before(patterns["acceptance"])
-    headings = list(re.finditer(patterns["signed_heading"], signing.text, FLAGS))
-    owners = [(match.start(), normalize(match["entity"], "text").casefold()) for match in headings]
-    for match in re.finditer(patterns["signature"], signing.text, FLAGS):
-        owner = next((name for start, name in reversed(owners) if start < match.start()), None)
-        yield owner, signing.group(match, 1)
+    owners = list(re.finditer(patterns["signed_heading"], signing.text, FLAGS))
+    labels = list(re.finditer(patterns["signature_label"], signing.text, FLAGS))
+    signers = {signing.offset + match.start(1): signing.group(match, 1)
+               for match in re.finditer(patterns["signature"], signing.text, FLAGS)}
+    headings = sorted([*owners, *labels], key=lambda match: match.start())
+    for index, heading in enumerate(headings):
+        stop = headings[index + 1].start() if index + 1 < len(headings) else None
+        block = signing.slice(heading.end(), stop).stripped()
+        for line in block.text.split("\n"):
+            if "\f" in line:
+                break
+            if not line.strip() or re.fullmatch(patterns["signature_office"], line, FLAGS):
+                block = block.slice(len(line) + 1)
+                continue
+            match = re.fullmatch(patterns["signature_entry"], line, FLAGS)
+            if not match:
+                break
+            signer = block.group(match, "name")
+            signers[signer.offset] = signer
+            block = block.slice(len(line) + 1)
+
+    for offset, signer in sorted(signers.items()):
+        owner = next((match["entity"] for match in reversed(owners)
+                      if signing.offset + match.end() <= offset), None)
+        yield normalize(owner, "text") if owner else None, signer
+
+
+def principal_name(text, patterns):
+    value = normalize(text.strip(" ,;:"), "text")
+    # Zachowaj litery i interpunkcję skrótu, gdy odczyt skleił jego człony.
+    return re.sub(patterns["company_suffix"], r"\1 \2 \3", value, flags=FLAGS)
 
 
 def add_principal(result, config, block, signers, separate):
@@ -80,7 +110,7 @@ def add_principal(result, config, block, signers, separate):
     firm = block.find(patterns["sole_trader"])
     name_block = block.slice(firm.end()) if firm else block
     name = name_block.before(patterns["name_end"]).stripped()
-    value = normalize(name.text.strip(" ,;:"), "text")
+    value = principal_name(name.text, patterns)
     if not value:
         return
     path = append_item(result, config, "mocodawca")
@@ -98,11 +128,42 @@ def add_principal(result, config, block, signers, separate):
 
     items = result.data[path[0]][path[1]]["podpisujacy"]
     for owner, signer in signers:
-        if separate and (not owner or owner.rstrip(".") != value.casefold().rstrip(".")):
+        if owner:
+            if principal_name(owner, patterns).casefold().rstrip(".") != value.casefold().rstrip("."):
+                continue
+        elif separate:
             continue
         items.append({})
         result.put((*path, "podpisujacy", len(items) - 1, "imie_nazwisko"),
                    normalize(signer.text, "text"), signer.offset, "podpis_w_sekcji_mocodawcy")
+
+
+def counsel_entries(scope, patterns):
+    """Rozpoznaje ciąg nazwisk we fragmencie wskazującym umocowanych."""
+    remaining = scope
+    entries = []
+    needs_role_marker = False
+    while match := remaining.find(patterns["counsel_entry"]):
+        has_role_marker = bool(match["title"] or match["point"] or match["details"])
+        if needs_role_marker and not has_role_marker:
+            break
+        entries.append((remaining.group(match, "name"), remaining.group(match, "details")))
+        remaining = remaining.slice(match.end())
+        separator = remaining.find(patterns["counsel_separator"])
+        if not separator:
+            break
+        # Po opisanej pozycji sam nowy wiersz nie dowodzi, że kolejny tekst to pełnomocnik.
+        needs_role_marker = has_role_marker and separator[0].endswith("\n")
+        remaining = remaining.slice(separator.end())
+    if entries:
+        return entries
+
+    # Starsze układy zawierają wprowadzenie przed wymienieniem radców lub adwokatów.
+    matches = list(re.finditer(patterns["counsel"], scope.text, FLAGS))
+    return [
+        (scope.group(match, 1), scope.slice(match.end(), next_match.start() if next_match else None))
+        for match, next_match in zip(matches, [*matches[1:], None])
+    ]
 
 
 def power_of_attorney(result, config):
@@ -114,22 +175,25 @@ def power_of_attorney(result, config):
     for block in blocks:
         add_principal(result, config, block, signers, len(blocks) > 1)
 
-    grant = document.find(patterns["grant"])
-    label = document.find(patterns["counsel_label"])
-    opening = [document.slice(match.end()) for match in (label, grant) if match]
-    acceptance = document.find(patterns["acceptance"])
-    if acceptance:
-        opening.append(document.slice(acceptance.end()))
-    for proposal in opening:
-        scope = proposal.stripped().before(patterns["counsel_end"])
-        matches = list(re.finditer(patterns["counsel"], scope.text, FLAGS))
-        if not matches:
+    appointment = document.before(patterns["acceptance"])
+    grant = appointment.find(patterns["grant"])
+    if grant:
+        # Nie otwieraj sekcji pełnomocników ponownie w stopce podpisowej.
+        body = appointment.slice(grant.end()).before(patterns["signature_label"]).before(patterns["signed_heading"])
+        appointment = appointment.slice(0, grant.end() + len(body.text))
+    for key in ("counsel_label", "grant"):
+        marker = appointment.find(patterns[key])
+        if not marker:
             continue
-        for index, match in enumerate(matches):
+        scope = appointment.slice(marker.end()).stripped().before(patterns["counsel_end"]).stripped()
+        entries = counsel_entries(scope, patterns)
+        if not entries:
+            continue
+        for name, details in entries:
             path = append_item(result, config, "pelnomocnicy")
-            put_match(result, (*path, "imie_nazwisko"), scope, match, 1, "imię_w_sekcji_umocowania")
-            end = matches[index + 1].start() if index + 1 < len(matches) else None
-            fields(result, config["counsel_fields"], scope.slice(match.end(), end), path)
+            result.put((*path, "imie_nazwisko"), normalize(name.text, "text"), name.offset,
+                       "imię_w_sekcji_umocowania")
+            fields(result, config["counsel_fields"], details, path)
         break
     return {}
 
