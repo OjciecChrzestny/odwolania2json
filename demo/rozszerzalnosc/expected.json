@@ -1,0 +1,39 @@
+{
+  "doc_01.json": {
+    "result": {
+      "sygnatura": "KIO-DEMO/17/26",
+      "termin": "2026-12-03"
+    },
+    "signals": [
+      {"rule": "naglowek_zawiadomienia", "page": 1},
+      {"rule": "etykieta_sygnatury", "page": 1}
+    ],
+    "fields": {
+      "sygnatura": {"page": 1, "rule": "wiersz_sygnatury"},
+      "termin": {"page": 2, "rule": "wiersz_terminu"}
+    },
+    "source_lines": {
+      "sygnatura": "Sygnatura: KIO-DEMO/17/26",
+      "termin": "Termin: 3 grudnia 2026"
+    }
+  },
+  "doc_02.json": {
+    "result": {
+      "sygnatura": "KIO-DEMO/42/27",
+      "termin": "2027-01-18"
+    },
+    "signals": [
+      {"rule": "naglowek_zawiadomienia", "page": 1},
+      {"rule": "etykieta_sygnatury", "page": 1}
+    ],
+    "fields": {
+      "sygnatura": {"page": 1, "rule": "wiersz_sygnatury"},
+      "termin": {"page": 1, "rule": "wiersz_terminu"}
+    },
+    "source_lines": {
+      "sygnatura": "Sygnatura akt: KIO-DEMO/42/27",
+      "termin": "Termin posiedzenia: 18.01.2027"
+    }
+  },
+  "doc_03.json": null
+}
