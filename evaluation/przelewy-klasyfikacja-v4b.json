@@ -1,0 +1,147 @@
+{
+  "frozen_utc": "2026-11-21T21:49:38.201551+00:00",
+  "parent": "ca0c719ab7750d7eb69918d1c090b25eebb60bcb",
+  "inventory_sha256": "a35311364f42dccc718de27cc45541f52d42fe1d704582dbf3b4706317a0ae89",
+  "manifests": {
+    "hold": "a6e2b0fc18b0644673b7dcc0cb3e65b0de161ad1d48dd719582f78903a1e5901",
+    "dev": "56f765a2ff97d094c8a1ef975c06c19a1838a5804372648658718da9264af0d3"
+  },
+  "counts": {
+    "dev": {
+      "transfers": 2,
+      "negatives": 1
+    },
+    "hold": {
+      "transfers": 3,
+      "negatives": 2
+    }
+  },
+  "prior_hash_counts": {
+    "development-40": 128,
+    "validation-10": 32,
+    "final-10": 31,
+    "holdout-10-84cc976": 30,
+    "external-v1": 70,
+    "KARR-1": 4,
+    "KARR-2": 59,
+    "przelewy-v3": 16,
+    "classification-v4": 20,
+    "previous-source-files": 30
+  },
+  "prior_hash_intersections": {
+    "dev": {
+      "development-40": 0,
+      "validation-10": 0,
+      "final-10": 0,
+      "holdout-10-84cc976": 0,
+      "external-v1": 0,
+      "KARR-1": 0,
+      "KARR-2": 0,
+      "przelewy-v3": 0,
+      "classification-v4": 0,
+      "previous-source-files": 0
+    },
+    "hold": {
+      "development-40": 0,
+      "validation-10": 0,
+      "final-10": 0,
+      "holdout-10-84cc976": 0,
+      "external-v1": 0,
+      "KARR-1": 0,
+      "KARR-2": 0,
+      "przelewy-v3": 0,
+      "classification-v4": 0,
+      "previous-source-files": 0
+    }
+  },
+  "dev_hold_intersections": {
+    "sha256": 0,
+    "raster_first_page": 0,
+    "sources": 0,
+    "layout_families": 0,
+    "banks_or_form_families": 0
+  },
+  "historical_external_first_page_fingerprints_compared": 165,
+  "historical_first_page_matches": 0,
+  "layouts": {
+    "dev": [
+      "Blankiet pocztowo-bankowy WP",
+      "Citi – potwierdzenie realizacji dyspozycji",
+      "PekaoBIZNES24 – potwierdzenie handlowe"
+    ],
+    "hold": [
+      "Bank Zachodni WBK – operacja krajowa",
+      "Deutsche Bank db powerNET",
+      "Getin – reklamacja transakcji kartą",
+      "KDBS – formularz reklamacji",
+      "Raiffeisen R-Online Biznes"
+    ]
+  },
+  "notes": "Second fixed comparison. Dev-only Citi scanned confirmation is truncated on its right edge; the development additions carry class labels only. The held forms are both complaints but from different banks. Two held payers are the same organization in different years/banks; all three held beneficiaries are UZP. Dev family PekaoBIZNES24 repeats in prior development, the tested three settlement systems are new to both dev splits. Original negative WP form repeats a prior dev family. There is no holdout feedback into the classification code.",
+  "protocol": "Single 96 dpi rendition per document. New training examples are assessed solely for classification. On the second holdout compare original A3, the first sealed candidate, and the final candidate on class and all six fields, including validity. No rescoring-driven tuning on this set. First reserve stays reported as its original experiment, then old-reserve regression only. Reconfirm 128 original PDF outputs and check renamed second holdout separately. No LLM.",
+  "seal_sha256": "eee4997f0d97f43f33fa6247834bdaf425bdf9d2ea5a35819b5aeff93165de7e",
+  "sources": [
+    {
+      "group": "dev",
+      "layout": "Citi – potwierdzenie realizacji dyspozycji",
+      "source": "https://przetargi.policja.pl/download/5/300316/OdwolanieMotorola20181207zalaczniki.pdf",
+      "source_page": 20,
+      "source_sha256": "a41e4b87402f70d6cf0846d9812bcfc094d75ec7eaad2d68ea184ada7dbf6928"
+    },
+    {
+      "group": "dev",
+      "layout": "PekaoBIZNES24 – potwierdzenie handlowe",
+      "source": "https://mika-home.pl/upload/5cf3a42a377914.53537754.pdf",
+      "source_page": 1,
+      "source_sha256": "95d2b9fd6848a9946178feb323abe83be16478ed48e39f2527d7f086c21814a4"
+    },
+    {
+      "group": "dev",
+      "layout": "Blankiet pocztowo-bankowy WP",
+      "source": "https://www.deoceanoaoceano.org/images/inne/przekaz_klub.pdf",
+      "source_page": 1,
+      "source_sha256": "765c546d8492dca429c120789dde31e2aa9c2f525d36023393bb00c825029ccb"
+    },
+    {
+      "group": "hold",
+      "layout": "Raiffeisen R-Online Biznes",
+      "source": "https://www.cez.gov.pl/fileadmin/user_upload/odwolanie_wniesione_przez_asseco_poland_s_a_596efd369ad0e.pdf",
+      "source_page": 38,
+      "source_sha256": "c1eda232f2fba0d1ac73f449c83f6b6bee10793cd47b8585fb1b2166fe00511e"
+    },
+    {
+      "group": "hold",
+      "layout": "Bank Zachodni WBK – operacja krajowa",
+      "source": "https://www.szpital.sosnowiec.pl/wp-content/uploads/archive/251/odwolanie%20toschiba.pdf",
+      "source_page": 5,
+      "source_sha256": "10cd6674742ae4a8b474f5ef890caeb399b0b0303b988d05e9ebdcd1340796f7"
+    },
+    {
+      "group": "hold",
+      "layout": "Deutsche Bank db powerNET",
+      "source": "https://bip.uck.katowice.pl/docs/4HFhQKHmuRxltO2G.pdf",
+      "source_page": 15,
+      "source_sha256": "a712dd1de105a80ba19f5f1733e29b34f9314cb525b68f669ae9f5ddb49f899c"
+    },
+    {
+      "group": "hold",
+      "layout": "Getin – reklamacja transakcji kartą",
+      "source": "https://www.velobank.pl/storage/file/core_files/2018/3/13/13715a0fc6a2fd6c5e82094bbefbcf48/formularz_reklamacji%20transakcji%20kart%C4%85.pdf",
+      "source_page": [
+        1,
+        2
+      ],
+      "source_sha256": "86c5591563ee29e63efaba87de4758af2f7271ced4948ea2f560f33470036b68"
+    },
+    {
+      "group": "hold",
+      "layout": "KDBS – formularz reklamacji",
+      "source": "https://kdbs.com.pl/wp-content/uploads/2025/01/1.zalacznik-nr-1-wzor-formularza-dla-klienta-indywidualnego.pdf",
+      "source_page": [
+        1,
+        2
+      ],
+      "source_sha256": "aadc59a1d7bd016d9730feed054e833c875a05e8ef385b3fd4ebbbcdd4c69079"
+    }
+  ]
+}
