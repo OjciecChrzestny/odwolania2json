@@ -33,7 +33,8 @@ def write_pdf(path, pages):
             f"BT /F1 10 Tf 64 60 Td (Strona {number} z {len(pages)}) Tj ET"
         ).encode("ascii"))
         page.replace_contents(content)
-    pdf.write(path)
+    with path.open("xb") as stream:
+        pdf.write(stream)
 
 
 def prepare(work):
@@ -52,6 +53,16 @@ def prepare(work):
     write_pdf(input_dir / "doc_03.pdf", [
         ("KOMUNIKAT ORGANIZACYJNY", "Zawiadomienie zostanie wyslane osobno.",
          "Termin: 9 grudnia 2026", "Sygnatura: ORG-DEMO/4/26"),
+    ])
+
+
+def write_new_notice(path):
+    """Przykład z pismem przewodnim i terminem na trzeciej stronie."""
+    write_pdf(path, [
+        ("KARTA OBIEGU", "Przekazano pismo do sekretariatu."),
+        ("Zawiadomienie", "Sygnatura akt: KIO-DEMO/806/27", "Termin podano na kolejnej stronie."),
+        ("INFORMACJA DLA STRON", "Termin posiedzenia: 9 lutego 2027 r.",
+         "Sala zostanie podana w odrebnym pismie."),
     ])
 
 
@@ -79,6 +90,8 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     generate = commands.add_parser("przygotuj")
     generate.add_argument("work", type=Path)
+    new_notice = commands.add_parser("nowy", help="zapisz osobny, trzystronicowy PDF")
+    new_notice.add_argument("pdf", type=Path)
     source = commands.add_parser("zrodlo")
     source.add_argument("pdf", type=Path)
     source.add_argument("diagnostics", type=Path)
@@ -86,6 +99,8 @@ def main():
     args = parser.parse_args()
     if args.command == "przygotuj":
         prepare(args.work)
+    elif args.command == "nowy":
+        write_new_notice(args.pdf)
     else:
         show_source(args.pdf, args.diagnostics, args.output or args.pdf.with_suffix(".json").name)
 

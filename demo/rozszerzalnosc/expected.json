@@ -35,5 +35,23 @@
       "termin": "Termin posiedzenia: 18.01.2027"
     }
   },
-  "doc_03.json": null
+  "doc_03.json": null,
+  "wejscie-04.json": {
+    "result": {
+      "sygnatura": "KIO-DEMO/806/27",
+      "termin": "2027-02-09"
+    },
+    "signals": [
+      {"rule": "naglowek_zawiadomienia", "page": 2},
+      {"rule": "etykieta_sygnatury", "page": 2}
+    ],
+    "fields": {
+      "sygnatura": {"page": 2, "rule": "wiersz_sygnatury"},
+      "termin": {"page": 3, "rule": "wiersz_terminu"}
+    },
+    "source_lines": {
+      "sygnatura": "Sygnatura akt: KIO-DEMO/806/27",
+      "termin": "Termin posiedzenia: 9 lutego 2027 r."
+    }
+  }
 }
