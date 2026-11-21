@@ -72,6 +72,43 @@
         "księgowanie_wyciąg_lub_referencja_bankowa": "^[ \\t]*Data (?:ksi(?:[ęe]|[ \\t]+)gowania|wyci[ąa]gu)[ \\t]*[:|]?[ \\t]*(?:\\n[ \\t]*){0,2}(?:[12][0-9]{3}[-./][0-9]{1,2}[-./][0-9]{1,2}|[0-9]{1,2}[-./][0-9]{1,2}[-./][12][0-9]{3})(?![0-9])|^[ \\t]*(?:Referencje banku|(?:Nr|Numer) referencyjny)[ \\t]*[:|]?[ \\t]*(?:\\n[ \\t]*){0,2}(?=[\\w/#-]{0,24}\\d)[\\w/#-]{4,}|^[^\\n\\f]{0,80}\\bData (?:wyci[ąa]gu|ksi(?:[ęe]|[ \\t]+)gowania)\\b[^\\n\\f]{0,75}\\n[^\\n\\f]{0,135}?(?<![0-9])(?:[12][0-9]{3}[-./][0-9]{1,2}[-./][0-9]{1,2}|[0-9]{1,2}[-./][0-9]{1,2}[-./][12][0-9]{3})(?![0-9])"
       },
       "retry_ocr": true
+    },
+    {
+      "name": "zaksięgowany_przelew_w_szczegółach_operacji",
+      "weight": 9,
+      "pattern": "^[ \\t]*(?:(?:Szczeg[oó][lł]y|Dane) (?:operacji|transakcji)|(?:Rodzaj|Typ) (?:operacji|transakcji))\\b(?=[^\\f]{0,450}\\bData ksi[ęe]gowania\\b)",
+      "requires": {
+        "typ_przelewu": "^[ \\t]*(?:Rodzaj|Typ) (?:operacji|transakcji)[ \\t]*[:|]?[ \\t]*(?:\\n[ \\t]*)?(?:polecenie[ \\t]+)?przelew(?:[ \\t]+(?:wychodz[ąa]cy|przychodz[ąa]cy|krajowy|wewn[ęe]trzny|zagraniczny|natychmiastowy|SEPA)){0,3}[ \\t]*$",
+        "data_księgowania": "^[ \\t]*Data ksi[ęe]gowania[ \\t]*[:|]?[ \\t]*(?:\\n[ \\t]*)?(?:[12][0-9]{3}[-./](?:0?[1-9]|1[0-2])[-./](?:0?[1-9]|[12][0-9]|3[01])|(?:0?[1-9]|[12][0-9]|3[01])[-./](?:0?[1-9]|1[0-2])[-./][12][0-9]{3})(?![0-9])[ \\t]*$",
+        "kwota_operacji": "^[ \\t]*(?:Kwota|Warto[śs][ćc])(?: (?:operacji|transakcji|przelewu))?[ \\t]*[:|]?[ \\t]*(?:\\n[ \\t]*)?[+−-]?(?:[0-9]{1,3}(?:[ .][0-9]{3})+|[0-9]+)[,.][ \\t]*[0-9]{2}(?:[ \\t]*(?:[A-Z]{3}|z[łl]))?[ \\t]*$",
+        "strona_obciążana": "^[ \\t]*(?:Nadawca|Zleceniodawca|P[łl]atnik|Rachunek (?:nadawcy|obci[ąa][żz]any))[ \\t]*(?:[:|][ \\t]*|[ \\t]+)[^\\W_]{2}",
+        "strona_uznawana": "^[ \\t]*(?:Odbiorca|Beneficjent|Rachunek (?:odbiorcy|uznawany))[ \\t]*(?:[:|][ \\t]*|[ \\t]+)[^\\W_]{2}"
+      },
+      "retry_ocr": true
+    },
+    {
+      "name": "zaksięgowany_przelew_w_wierszu_operacji",
+      "weight": 9,
+      "pattern": "^[ \\t]*(?:Rodzaj|Typ) (?:operacji|transakcji)(?:[ \\t]*\\|[ \\t]*|[ \\t]+)Data ksi[ęe]gowania(?:[ \\t]*\\|[ \\t]*|[ \\t]+)(?:Kwota|Warto[śs][ćc])(?: (?:operacji|transakcji|przelewu))?[ \\t]*$",
+      "requires": {
+        "typ_data_i_kwota_w_sąsiednim_wierszu": "^[ \\t]*(?:Rodzaj|Typ) (?:operacji|transakcji)(?:[ \\t]*\\|[ \\t]*|[ \\t]+)Data ksi[ęe]gowania(?:[ \\t]*\\|[ \\t]*|[ \\t]+)(?:Kwota|Warto[śs][ćc])(?: (?:operacji|transakcji|przelewu))?[ \\t]*\\n[ \\t]*(?:polecenie[ \\t]+)?przelew(?:[ \\t]+(?:wychodz[ąa]cy|przychodz[ąa]cy|krajowy|wewn[ęe]trzny|zagraniczny|natychmiastowy|SEPA)){0,3}(?:[ \\t]*\\|[ \\t]*|[ \\t]+)(?:[12][0-9]{3}[-./](?:0?[1-9]|1[0-2])[-./](?:0?[1-9]|[12][0-9]|3[01])|(?:0?[1-9]|[12][0-9]|3[01])[-./](?:0?[1-9]|1[0-2])[-./][12][0-9]{3})(?![0-9])(?:[ \\t]*\\|[ \\t]*|[ \\t]+)[+−-]?(?:[0-9]{1,3}(?:[ .][0-9]{3})+|[0-9]+)[,.][ \\t]*[0-9]{2}(?:[ \\t]*(?:[A-Z]{3}|z[łl]))?[ \\t]*$",
+        "strona_obciążana": "^[ \\t]*(?:Nadawca|Zleceniodawca|P[łl]atnik|Rachunek (?:nadawcy|obci[ąa][żz]any))[ \\t]*(?:[:|][ \\t]*|[ \\t]+)[^\\W_]{2}",
+        "strona_uznawana": "^[ \\t]*(?:Odbiorca|Beneficjent|Rachunek (?:odbiorcy|uznawany))[ \\t]*(?:[:|][ \\t]*|[ \\t]+)[^\\W_]{2}"
+      },
+      "retry_ocr": true
+    },
+    {
+      "name": "zaksięgowany_przelew_posiadacza_i_kontrahenta",
+      "weight": 9,
+      "pattern": "^[ \\t]*Szczeg[oó][lł]y (?:operacji|transakcji)[ \\t]*:?[ \\t]*$(?=[^\\f]{0,450}\\bData ksi[ęe]gowania\\b)",
+      "requires": {
+        "typ_i_kierunek_przelewu": "^[ \\t]*Opis kodu (?:operacji|transakcji)[ \\t]*(?:[:|][ \\t]*|[ \\t]+|\\n[ \\t]*)(?:(?:krajow[ay]|zagraniczn[ay])[ \\t]+)?(?:p[łl]atno[śs][ćc][ \\t]+(?:wychodz[ąa]ca|przychodz[ąa]ca)|(?:przekaz|przelew)[ \\t]+(?:wychodz[ąa]cy|przychodz[ąa]cy))[ \\t]*$",
+        "data_księgowania": "^[ \\t]*Data ksi[ęe]gowania[ \\t]*[:|]?[ \\t]*(?:\\n[ \\t]*)?(?:[12][0-9]{3}[-./](?:0?[1-9]|1[0-2])[-./](?:0?[1-9]|[12][0-9]|3[01])|(?:0?[1-9]|[12][0-9]|3[01])[-./](?:0?[1-9]|1[0-2])[-./][12][0-9]{3})(?![0-9])[ \\t]*$",
+        "kwota_operacji": "^[ \\t]*(?:Kwota|Warto[śs][ćc])(?: (?:operacji|transakcji|przelewu))?[ \\t]*[:|]?[ \\t]*(?:\\n[ \\t]*)?[+−-]?(?:[0-9]{1,3}(?:[ .][0-9]{3})+|[0-9]+)[,.][ \\t]*[0-9]{2}(?:[ \\t]*(?:[A-Z]{3}|z[łl]))?[ \\t]*$",
+        "dane_posiadacza_rachunku": "^[ \\t]*Dane (?:w[łl]a[śs]ciciela|posiadacza) rachunku[ \\t]*:?[ \\t]*$",
+        "dane_drugiej_strony": "^[ \\t]*Dane (?:beneficjenta|kontrahenta|odbiorcy|zleceniodawcy)(?:[ \\t]*/[ \\t]*[^\\W\\d_]{3,24})?[ \\t]*:?[ \\t]*$",
+        "referencja_bankowa": "^[ \\t]*Referencje banku[ \\t]*(?:[:|][ \\t]*|[ \\t]+)(?=[\\w/-]{0,32}[0-9])[\\w/-]{5,}[ \\t]*$"
+      }
     }
   ],
   "schema": {
@@ -174,6 +211,6 @@
   },
   "classification_pages": 1,
   "exclude_heading": "^[ \\t]*(?:do faktury (?:nr|numer)\\b|FAKTURA(?: VAT| nr| numer|[ \\t]*$)|WEZWANIE DO ZAP[ŁL]ATY\\b|(?:INSTRUKCJA|PODRĘCZNIK|PRZEWODNIK) (?:UŻYTKOWNIKA|DLA|OBSŁUGI)\\b|Dane sprzedawcy[ \\t]+Dane nabywcy)",
-  "exclude_page": "^[ \\t]*(?:(?:(?:Status(?: (?:operacji|transakcji|przelewu))?|Transaction status)(?:[ \\t]*:[ \\t]*|[ \\t]+))(?:do (?:realizacji|autoryzacji|podpisu)|oczekuj[ąa]c[aye]|anulowan[aye]|odrzucon[aye]|niezrealizowan[aye]|niewykonan[aye]|zaplanowan[aye]|szkic|pending|cancelled|rejected)|(?:ZLECENIE DO (?:AUTORYZACJI|PODPISU)|POTWIERDZENIE ZŁOŻENIA DYSPOZYCJI))[ \\t]*[.!]?[ \\t]*$|^[ \\t]*(?:Typ (?:produktu|operacji|transakcji)|Rodzaj (?:operacji|transakcji))[ \\t]*:?[ \\t]*(?:\\n[ \\t]*)?(?:p[łl]atno[śs][ćc] kart[ąa]|transakcja kartowa|wyp[łl]ata (?:got[óo]wki|z bankomatu))\\b",
+  "exclude_page": "^[ \\t]*(?:(?:(?:(?:Stan|Status)(?: (?:operacji|transakcji|przelewu))?|Transaction status)(?:[ \\t]*:[ \\t]*|[ \\t]+|(?=\\n))(?:\\n[ \\t]*)?)(?:do (?:realizacji|autoryzacji|podpisu)|oczekuj[ąa]c[aye]|oczekuje na (?:realizacj[ęe]|autoryzacj[ęe]|podpis)|anulowan[aye]|odrzucon[aye]|niezrealizowan[aye]|niewykonan[aye]|zaplanowan[aye]|szkic|pending|cancelled|rejected)|(?:ZLECENIE DO (?:AUTORYZACJI|PODPISU)|POTWIERDZENIE ZŁOŻENIA DYSPOZYCJI))[ \\t]*[.!]?[ \\t]*$|^[ \\t]*(?:Typ (?:produktu|operacji|transakcji)|Rodzaj (?:operacji|transakcji))[ \\t]*:?[ \\t]*(?:\\n[ \\t]*)?(?:p[łl]atno[śs][ćc] kart[ąa]|transakcja kartowa|wyp[łl]ata (?:got[óo]wki|z bankomatu))\\b",
   "builder": "transfer"
 }
