@@ -116,18 +116,22 @@
     ],
     "przelew_bankowy.tytul": [
       {
-        "name": "tytuł_angielski",
-        "pattern": "^[ \\t]*(?:Title|Payment title|Payment details|Payment purpose|Remittance information)[ \\t]*:?[ \\t]+([^\\n\\f]+)$",
-        "operation": "title"
+        "name": "tytuł_z_etykiety",
+        "pattern": "^[ \\t]*(?:Tytułem|Tytu[lł](?: (?:przelewu|operacji|transakcji|płatności))?|Title|Payment title|Payment purpose)(?=[ \\t:|]|$)[ \\t]*(?:(?::|\\|)[ \\t]*)?([^\\n\\f]*)$",
+        "operation": "title",
+        "title_layout": "title"
       },
       {
-        "name": "tytuł_w_cudzysłowie",
-        "pattern": "^[ \\t]*(?:Tytułem|Tytuł(?: przelewu| operacji)?|Opis(?: operacji)?)[ \\t]*:?[ \\t]*(?:\\n[ \\t]*)?([„“\"][^”\"\\f]+[”\"]\\.?)",
-        "operation": "title"
+        "name": "tytuł_ze_szczegółów_płatności",
+        "pattern": "^[ \\t]*(?:Szczegóły płatności|Payment details|Remittance information)(?=[ \\t:|]|$)[ \\t]*(?:(?::|\\|)[ \\t]*)?([^\\n\\f]*)$",
+        "operation": "title",
+        "title_layout": "payment"
       },
       {
-        "name": "tytuł_przelewu",
-        "pattern": "^[ \\t]*(?:Tytułem|Tytuł(?: przelewu| operacji)?|Opis(?: operacji)?)(?:[ \\t]*:[ \\t]*|[ \\t]+|\\n[ \\t]*)(?:\\n[ \\t]*)?([^\\n\\f]+(?:\\n[ \\t]*(?!(?:Nr|Numer|Identyfikator|ID|Status|ZREALIZOWANO|Potwierdzenie|Dodatkowa treść|Rodzaj|Strona|Data|Kwota|Wartość|Rachunek|Typ|Kanał|Waluta|Opłata|Bank)\\b|[-=_]{3})[^\\n\\f]+)*)"
+        "name": "tytuł_z_opisu",
+        "pattern": "^[ \\t]*Opis(?: (?:operacji|transakcji))?(?![ \\t]+kodu\\b)(?=[ \\t:|]|$)[ \\t]*(?:(?::|\\|)[ \\t]*)?([^\\n\\f]*)$",
+        "operation": "title",
+        "title_layout": "description"
       }
     ],
     "przelew_bankowy.numer_transakcji": [

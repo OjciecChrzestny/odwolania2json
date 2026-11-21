@@ -1,0 +1,185 @@
+"""Read a transfer title within the field and page that contain it."""
+import re
+
+from .model import FLAGS
+from .operations import normalize
+
+
+TITLE = "przelew_bankowy.tytul"
+
+_FIELD = (
+    r"(?:Data (?:operacji|transakcji|realizacji|wykonania|księgowania|waluty|wydruku|wystawienia|nadania)|"
+    r"Kwota(?: (?:operacji|przelewu|transakcji))?|Wartość(?: operacji)?|Waluta|"
+    r"(?:Nr\.?|Numer|Identyfikator|ID) (?:operacji|transakcji|przelewu|referencyjny|referencji)|"
+    r"Nr ref\.?|Referencje (?:banku|klienta|klientów)|"
+    r"(?:Typ|Rodzaj|Kod|Status|Stan)(?: (?:i podtyp|operacji|produktu|przelewu|transakcji|zlecenia))?|"
+    r"Opis (?:kodu )?(?:operacji|transakcji)|Dodatkowa treść|Kanał(?: zlecenia)?|"
+    r"(?:Z|Na) rachun(?:ku|ek)|Rachunek (?:nadawcy|odbiorcy|beneficjenta|obciążany|uznawany)|"
+    r"(?:Dane )?(?:Nadawca|Odbiorca|Płatnik|Beneficjent|Zleceniodawca)|"
+    r"(?:Transaction|Transfer|Execution|Booking) (?:date|status|reference|ID)|"
+    r"(?:Transfer )?Amount|Currency|Reference number|Account number|Payer|Beneficiary)"
+)
+_COLUMN = re.compile(_FIELD + r"\s*:?", re.I)
+_LABELLED_FIELD = re.compile(_FIELD + r"[ \t]*:", re.I)
+_NEXT_FIELD = re.compile(
+    _FIELD + r"(?=[ \t:|]|$)|"
+    r"(?:Opłata|Prowizja)(?=[ \t]*[:|]|[ \t]+[+-]?\d|$)|"
+    r"(?:Strona|Page)(?=[ \t]+[+\d]|[ \t]*[:|]|$)|"
+    r"(?:Szczegóły operacji|Zrealizowano|Potwierdzenie (?:wykonania |realizacji )?przelewu|"
+    r"(?:Dokument|Potwierdzenie|Wydruk)\b[^\n]{0,100}\b(?:sporządzon\w*|wygenerowan\w*|"
+    r"wydrukowan\w*|nie wymaga|podpisu|opieczętowani\w*)|"
+    r"Bank\b[^\n]{0,80}\b(?:potwierdza|informuje|nie ponosi|siedzibą|S\.?A\.?)|"
+    r"(?:Ten dokument|This document|Wydruk z systemu)\b|[-=_]{3,})(?=\W|$)",
+    re.I,
+)
+_INLINE_FIELD = re.compile(r"(?:[ \t]*\|[ \t]*|[ \t]+)(?=" + _FIELD + r"[ \t]*:)", re.I)
+_OPERATION_DESCRIPTION = re.compile(
+    r"(?:polecenie przelewu|przelew (?:krajowy|przychodzący|wychodzący|wewnętrzny)|"
+    r"(?:krajowa )?płatność (?:wychodząca|przychodząca|kartą)|(?:incoming|outgoing) (?:bank )?transfer)"
+    r"[ \t.]*",
+    re.I,
+)
+_QUOTED = re.compile(r'^[„“"]([^”"]*)[”"]\.?')
+_PLACEHOLDER = re.compile(r"(?:[-–—._]+|brak|n/?a)", re.I)
+_CONNECTOR = re.compile(r"^(?:a|i|oraz|dla|do|na|od|po|w|we|z|za|ze)[ \t]+")
+_REFERENCE_TOKEN = re.compile(r"(?=[A-Z0-9./_-]*[A-Z])(?=[A-Z0-9./_-]*[0-9])[A-Z0-9][A-Z0-9./_-]*")
+
+
+def present(value):
+    return bool(value) and not _PLACEHOLDER.fullmatch(value)
+
+
+def row_value(text, patterns, *, inline=False):
+    text = text.strip()
+    if text.startswith(("„", "“", '"')):
+        return text, False
+    if inline:
+        boundary = _LABELLED_FIELD.match(text) or _COLUMN.fullmatch(text)
+    else:
+        boundary = _NEXT_FIELD.match(text)
+    if boundary or any(pattern.fullmatch(text) for pattern in patterns):
+        return "", True
+    next_field = _INLINE_FIELD.search(text)
+    if next_field:
+        return text[:next_field.start()].rstrip(), True
+    return text, False
+
+
+def detached_continuation(lines, patterns):
+    # OCR can put an empty line inside a field. A separated fragment must
+    # continue the title and end at a recognizable field boundary.
+    block = []
+    closed = False
+    for raw in lines:
+        if not raw.strip():
+            if block:
+                terminator = next((line for line in lines if line.strip()), "")
+                value, closed = row_value(terminator, patterns)
+                closed = closed and not value
+                break
+            continue
+        value, closed = row_value(raw, patterns)
+        if present(value):
+            block.append(value)
+        if closed or not present(value):
+            break
+    if closed and block and (_CONNECTOR.match(block[0]) or all(
+        _REFERENCE_TOKEN.fullmatch(token) for row in block for token in row.split()
+    )):
+        return block
+    return []
+
+
+def wrapped_value(lines, index, initial, patterns):
+    following = iter(lines[index + 1:])
+    inline = bool(initial.strip())
+    first = initial if inline else next((line for line in following if line.strip()), "")
+    first, closed = row_value(first, patterns, inline=inline)
+    if not present(first):
+        return None
+    parts = [first]
+    quoted = first.startswith(("„", "“", '"'))
+    for raw in following:
+        if closed or quoted and _QUOTED.match(" ".join(parts)):
+            break
+        if not raw.strip():
+            parts.extend(detached_continuation(following, patterns))
+            break
+        value, closed = row_value(raw, patterns)
+        if not present(value):
+            break
+        parts.append(value)
+    value = " ".join(parts)
+    enclosed = _QUOTED.match(value)
+    value = normalize(enclosed[1] if enclosed else value, "text")
+    return value if present(value) else None
+
+
+def column_title(lines, index, patterns):
+    labels = [cell.strip() for cell in lines[index].split("|")]
+    if len(labels) < 2:
+        return None
+    matches = [i for i, label in enumerate(labels)
+               if any((match := pattern.fullmatch(label)) and not match[1] for pattern in patterns)]
+    if len(matches) != 1:
+        return None
+    title_index, = matches
+    if not all(_COLUMN.fullmatch(label) for i, label in enumerate(labels) if i != title_index):
+        return None
+    parts = []
+    for row in lines[index + 1:]:
+        cells = [cell.strip() for cell in row.split("|")]
+        if len(cells) != len(labels) or any(_COLUMN.fullmatch(cell) for cell in cells):
+            break
+        if parts and any(cell for i, cell in enumerate(cells) if i != title_index):
+            break
+        title, closed = row_value(cells[title_index], patterns, inline=True)
+        if not present(title):
+            break
+        parts.append(title)
+        if closed:
+            break
+    return labels[title_index], normalize(" ".join(parts), "title")
+
+
+def page_title(layout, pattern, patterns, page, start):
+    lines = page.split("\n")
+    offset = start
+    empty = None
+    for index, line in enumerate(lines):
+        columns = column_title(lines, index, patterns)
+        if columns:
+            label, value = columns
+            candidate = pattern.fullmatch(label)
+        else:
+            candidate = pattern.fullmatch(line)
+            if candidate:
+                value = wrapped_value(lines, index, candidate[1], patterns)
+        if candidate:
+            if value and not (layout == "description" and _OPERATION_DESCRIPTION.fullmatch(value)):
+                return value, offset
+            if layout == "title" and empty is None:
+                empty = (None, offset)
+        offset += len(line) + 1
+    return empty
+
+
+def apply_transfer_title(result, rules):
+    layout_rules = [(rule, re.compile(rule["pattern"], FLAGS)) for rule in rules if rule.get("title_layout")]
+    if not layout_rules:
+        return
+    existing = result.evidence.get(TITLE)
+    if existing and existing["rule"] not in {rule["name"] for rule, _ in layout_rules}:
+        return
+    result.data["przelew_bankowy"]["tytul"] = None
+    result.evidence.pop(TITLE, None)
+    patterns = [pattern for _, pattern in layout_rules]
+    for rule, pattern in layout_rules:
+        start = 0
+        for page in result.document.text.split("\f"):
+            found = page_title(rule["title_layout"], pattern, patterns, page, start)
+            if found is not None:
+                value, offset = found
+                result.put(("przelew_bankowy", "tytul"), value, offset, rule["name"])
+                return
+            start += len(page) + 1
