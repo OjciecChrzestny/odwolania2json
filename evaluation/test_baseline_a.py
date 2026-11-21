@@ -105,7 +105,9 @@ class ExtensionTest(unittest.TestCase):
             document = Document.from_pages(["ZAWIADOMIENIE\nSygnatura: TEST/1\nTermin: 5 marca 2026"])
             data, evidence = extract(document, load_classes(folder))
             self.assertEqual(data, {"sygnatura": "TEST/1", "termin": "2026-03-05"})
-            self.assertEqual(evidence["fields"]["termin"], {"page": 1, "rule": "data_terminu"})
+            self.assertEqual(evidence["fields"]["termin"], {
+                "page": 1, "rule": "data_terminu", "source": None, "precision": "page",
+            })
             self.assertIsNone(extract(document, load_classes())[0])
 
 
