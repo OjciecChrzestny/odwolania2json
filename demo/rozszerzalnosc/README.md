@@ -4,7 +4,7 @@ Próba używa publicznego CLI i osobnego profilu. Do kopii trzech klas konkursow
 
 ## Próba jurora
 
-Uruchom z katalogu głównego czystej kopii projektu. Potrzebujesz Pythona 3.13+ i zależności z `requirements.txt`.
+Uruchom z katalogu głównego czystej kopii projektu. Potrzebujesz Pythona 3.13+ i zależności z `requirements.txt`. Przed uruchomieniem zapisz stan kodu według sekcji „Kontrola kodu podczas próby”.
 
 ```sh
 python -m pip install -r requirements.txt
@@ -93,7 +93,44 @@ OMP_THREAD_LIMIT=1 flock "$OCR_LOCK" /usr/bin/time -f 'real=%e s maxrss=%M KiB' 
 
 Test używa tej samej kopii kodu we wszystkich trzech przebiegach. Sprawdza dokładne wyniki, sygnały, strony i wiersze źródłowe trzech zawiadomień oraz negatyw. Na podzbiorze DEV sprawdza odwołanie, pełnomocnictwo, przelew i osiem negatywów po 0 B. Porównuje ścieżki i SHA-256 11 wyników w trzech przebiegach. Miernik korzysta z etykiet DEV po zakończeniu ekstrakcji. Oczekuje 35 trafionych pól, 0 FP i 0 FN.
 
-Katalog `--work` zawiera wejściowe PDF-y, wszystkie wyniki i diagnostykę, `roznica-konfiguracji.diff`, `development-sha256.json` i `development-score.json`. Sprawdzenie, że kod produktu jest identyczny z bazą rundy, wykonasz przez `git diff --exit-code ae0bae4b5bf4907e5fb0e5ebc0aa6b1a3c8387a3 HEAD -- odwolania2json`.
+Katalog `--work` zawiera wejściowe PDF-y, wszystkie wyniki i diagnostykę, `roznica-konfiguracji.diff`, `development-sha256.json` i `development-score.json`.
+
+## Kontrola kodu podczas próby
+
+**Kopia Git.** W katalogu głównym projektu zapisz pełny SHA aktualnie wybranej rewizji i sprawdź stan katalogu produktu przed uruchomieniem pokazu.
+
+```sh
+REV="$(git rev-parse --verify HEAD)"
+printf 'Rewizja próby: %s\n' "$REV"
+sprawdz_kod() {
+  test "$(git rev-parse --verify HEAD)" = "$REV" &&
+    stan="$(git status --porcelain=v1 --untracked-files=all -- odwolania2json)" &&
+    test -z "$stan"
+}
+sprawdz_kod
+```
+
+Po pokazie uruchom ponownie `sprawdz_kod` w tej samej sesji. Kod 0 oznacza, że nadal pracujesz na zapisanym SHA i Git nie wykrywa zmian ani nowych plików w katalogu produktu. W razie błędu porównaj `git rev-parse --verify HEAD` z `$REV` i sprawdź pliki przez `git status --short --untracked-files=all -- odwolania2json`.
+
+**Rozpakowane archiwum.** Jeżeli wydanie podaje sumę SHA-256 archiwum dla wybranej rewizji, sprawdź ją przed rozpakowaniem. Następnie w katalogu głównym rozpakowanego projektu zapisz listę plików produktu wraz z ich sumami SHA-256. Uruchom w Bashu z narzędziami GNU.
+
+```bash
+export PYTHONDONTWRITEBYTECODE=1
+STAN_KODU="$(mktemp -d)"
+sumy_kodu() (
+  set -o pipefail
+  find odwolania2json \( -type f -o -type l \) -print0 |
+    LC_ALL=C sort -z | xargs -0 -r sha256sum
+)
+sumy_kodu > "$STAN_KODU/przed.sha256"
+```
+
+Po pokazie, w tej samej sesji, porównaj listę i sumy. Kod 0 potwierdza zgodność rozpakowanego katalogu produktu ze stanem zapisanym przed próbą.
+
+```bash
+sumy_kodu > "$STAN_KODU/po.sha256" &&
+  diff -u "$STAN_KODU/przed.sha256" "$STAN_KODU/po.sha256"
+```
 
 ## Ostatnie 50 sekund prezentacji
 
