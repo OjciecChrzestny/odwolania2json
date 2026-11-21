@@ -14,10 +14,10 @@ def prepare_ocr(data):
     return partial(recognize, PdfDocument, PyTessBaseAPI, data)
 
 
-def recognize(document_type, api_type, data, path, limit):
+def recognize(document_type, api_type, data, path, limit, *, start=0):
     with closing(document_type(path)) as pdf, api_type(path=str(data), lang="pol") as api:
         api.SetVariable("user_defined_dpi", "180")
-        for index in range(limit):
+        for index in range(start, limit):
             with closing(pdf[index]) as page:
                 scale = min(2.5, 2200 / max(page.get_size()))
                 best = ""

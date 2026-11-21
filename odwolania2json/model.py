@@ -49,20 +49,53 @@ def load_classes(root=DEFAULT_CONFIG):
     return classes
 
 
+def excluded_heading(text, config):
+    pattern = config.get("exclude_heading")
+    return pattern and re.search(pattern, text[:400], FLAGS)
+
+
+def cover_limit(first_page, config):
+    policy = config.get("cover_continuation")
+    if policy and not excluded_heading(first_page, config) and re.search(policy["cover"], first_page, FLAGS):
+        return policy["through_page"]
+    return 0
+
+
+def class_candidate(document, name, config, text, offset=0, required=()):
+    if excluded_heading(text, config):
+        return None
+    score = 0
+    evidence = []
+    for signal in config["signals"]:
+        match = re.search(signal["pattern"], text, FLAGS)
+        if match:
+            score += signal["weight"]
+            evidence.append({"rule": signal["name"], "page": document.page(offset + match.start())})
+    if score >= config["threshold"] and set(required).issubset(item["rule"] for item in evidence):
+        return score, name, evidence
+    return None
+
+
 def classify(document, classes):
+    pages = document.text.split("\f")
     candidates = []
     for name, config in classes.items():
-        text = "\f".join(document.text.split("\f")[:config.get("classification_pages", 2)])
-        matches = []
-        for signal in config["signals"]:
-            match = re.search(signal["pattern"], text, FLAGS)
-            if match:
-                matches.append((signal, match))
-        score = sum(signal["weight"] for signal, _ in matches)
-        if score >= config["threshold"]:
-            evidence = [{"rule": signal["name"], "page": document.page(match.start())}
-                        for signal, match in matches]
-            candidates.append((score, name, evidence))
+        opening = "\f".join(pages[:config.get("classification_pages", 2)])
+        candidate = class_candidate(document, name, config, opening)
+        if candidate:
+            candidates.append(candidate)
+
+    # Pismo przewodnie wymaga niezależnych sygnałów na tej samej dalszej stronie.
+    if not candidates:
+        for name, config in classes.items():
+            limit = cover_limit(pages[0], config)
+            for start, number in document.starts[1:limit]:
+                end = document.starts[number][0] if number < len(document.starts) else len(document.text)
+                candidate = class_candidate(document, name, config, document.text[start:end], start,
+                                            config["cover_continuation"]["required_signals"])
+                if candidate:
+                    candidates.append(candidate)
+                    break
     candidates.sort(key=lambda entry: (-entry[0], entry[1]))
     if not candidates or len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
         return "negative", []
@@ -123,8 +156,9 @@ def schema_errors(value, schema, field="$"):
 
 
 class Extraction:
-    def __init__(self, document, schema):
+    def __init__(self, document, schema, signals=()):
         self.document = document
+        self.signals = signals
         self.data = empty(schema)
         self.evidence = {}
 

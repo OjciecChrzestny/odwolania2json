@@ -107,7 +107,8 @@ def add_principal(result, config, block, signers, separate):
 
 def power_of_attorney(result, config):
     patterns = config["patterns"]
-    document = Fragment(result.document.text)
+    first_page = min((item["page"] for item in result.signals), default=1)
+    document = Fragment(result.document.text).slice(result.document.starts[first_page - 1][0])
     blocks = principal_blocks(document, config)
     signers = list(signatures(document, patterns))
     for block in blocks:
@@ -163,7 +164,7 @@ def add_party(result, config, key, role, block, multiple):
             fields(result, config["counsel_fields"], mandate, path)
 
 
-def classify_reason(fragment, config):
+def match_reason(fragment, config):
     matches = []
     for priority, rule in enumerate(config["reasons"]["rules"]):
         match = fragment.find(rule["pattern"])
@@ -175,35 +176,65 @@ def classify_reason(fragment, config):
     return reason_id, location
 
 
+def reason_evidence(fragment, config):
+    """Rozpoznaje przedmiot zaskarżenia z pominięciem wyraźnie wyłączonych czynności."""
+    patterns = config["patterns"]
+    verb = patterns.get("challenge_verb")
+    markers = list(re.finditer(verb, fragment.text, FLAGS)) if verb else []
+    if not markers:
+        return match_reason(fragment, config), None
+    remaining = list(fragment.text)
+    for index, marker in enumerate(markers):
+        stop = markers[index + 1].start() if index + 1 < len(markers) else None
+        clause = fragment.slice(marker.end(), stop).before(patterns["challenge_clause_end"])
+        if marker["disclaimed"]:
+            end = marker.end() + len(clause.text)
+            remaining[marker.start():end] = " " * (end - marker.start())
+        else:
+            chosen = match_reason(clause, config)
+            if chosen:
+                return chosen, clause
+    available = Fragment("".join(remaining), fragment.offset)
+    return match_reason(available, config), available
+
+
+def classify_reason(fragment, config):
+    return reason_evidence(fragment, config)[0]
+
+
 def first_allegation(body, patterns):
+    body = body.before(patterns["formal_next"])
+    formal = body.find(patterns["formal_first"])
     intro = body.find(patterns["allegation_list_intro"])
-    if intro:
+    if intro and (not formal or intro.start() < formal.start()):
         scope = body.slice(intro.end()).before(patterns["section_end"])
         bullets = list(re.finditer(patterns["enumeration"], scope.text, FLAGS))
         prelude = scope.text[:bullets[0].start()] if bullets else ""
         prelude = re.sub(r"(?im)^[ \t]*Strona \d+(?: z \d+)?[ \t]*$", "", prelude)
-        if bullets and not prelude.strip():
+        first = bullets[0] if bullets and not prelude.strip() else None
+        if first and re.fullmatch(r"\s*\(?(?:1|I)[.)]\s*", first.group(), FLAGS):
             end = bullets[1].start() if len(bullets) > 1 else None
             return scope.slice(bullets[0].end(), end), "pierwsza_czynność_z_listy"
-    formal = body.find(patterns["formal_first"])
     if formal:
-        scope = body.slice(formal.end()).before(patterns["formal_next"]).before(patterns["section_end"])
+        scope = body.slice(formal.end()).before(patterns["section_end"])
         return scope, "pierwszy_numerowany_zarzut"
     return None, None
 
 
 def challenged_action(result, config, body):
     patterns = config["patterns"]
-    hint = body.find(patterns["action_line"])
+    hint = body.slice(0, 8500).before(patterns["formal_next"]).find(patterns["action_line"])
     allegation, selector = first_allegation(body, patterns)
     # Dla zarzutu z nagłówkiem kolejny wiersz zwykle opisuje podstawę prawną i skutki.
     # Typ czynności jest ustalany z nagłówka, bez przenoszenia motywów z uzasadnienia.
     decision = allegation
-    if allegation and selector == "pierwszy_numerowany_zarzut":
+    verb = patterns.get("challenge_verb")
+    explicit = allegation.find(verb) if allegation and verb else None
+    if allegation and selector == "pierwszy_numerowany_zarzut" and not explicit:
         decision = allegation.slice(0, min(len(allegation.text), 240)).before(
             r"(?m):[ \t]*$|,[ \t\n]*tj\.")
-    chosen = classify_reason(decision, config) if decision else None
-    if hint and not chosen:
+    chosen, date_scope = reason_evidence(decision, config) if decision else (None, None)
+    if hint and not chosen and not explicit:
         # W starszej redakcji fakt poprzedzający zarzut opisuje kwestionowaną czynność.
         hint_scope = body.group(hint)
         chosen = classify_reason(hint_scope, config)
@@ -214,11 +245,12 @@ def challenged_action(result, config, body):
     if chosen:
         reason_id, location = chosen
         record = {"page": result.document.page(location), "rule": selector, "fallback": False}
-        action_date = allegation.find(patterns["action_date"])
+        dated = date_scope if date_scope is not None else allegation
+        action_date = dated.find(patterns["action_date"])
         if action_date:
-            put_match(result, (*prefix, "czynnosc_dzien"), allegation, action_date, "date",
+            put_match(result, (*prefix, "czynnosc_dzien"), dated, action_date, "date",
                       "data_pierwszej_zaskarżonej_czynności", "date")
-        elif hint and (classify_reason(body.group(hint), config) or (None,))[0] == reason_id:
+        elif hint and not explicit and (classify_reason(body.group(hint), config) or (None,))[0] == reason_id:
             put_match(result, (*prefix, "czynnosc_dzien"), body, hint, "date",
                       "data_z_jednoznacznego_opisu_tej_czynności", "date")
     else:
@@ -255,7 +287,7 @@ def appeal(result, config):
         add_party(result, config, key, role, block, buyers > 1)
     fields(result, config["header_fields"], cover)
     body = document.after(patterns["header"])
-    return challenged_action(result, config, body.slice(0, 8500))
+    return challenged_action(result, config, body)
 
 
 BUILDERS = {"power_of_attorney": power_of_attorney, "appeal": appeal}

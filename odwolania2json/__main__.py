@@ -69,7 +69,7 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None):
         current, records = set(), []
         for name, pdf in sorted(sources.items()):
             try:
-                document, ocr_pages = read_pdf(pdf, ocr)
+                document, ocr_pages = read_pdf(pdf, ocr, classes=classes)
             except (OSError, ValueError, PyPdfError, KeyError, TypeError, RuntimeError, IndexError, OverflowError) as exc:
                 logging.error("%s — błąd odczytu (%s)", name, type(exc).__name__)
                 records.append({"output": name, "class": "read_error", "status": "read_error",
