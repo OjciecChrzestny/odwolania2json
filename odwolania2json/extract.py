@@ -32,34 +32,82 @@ def readable(text):
 
 
 def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
-    with path.open("rb") as stream:
-        reader = PdfReader(stream)
-        if reader.is_encrypted and not reader.decrypt(""):
-            raise ReadError("PDF jest zaszyfrowany")
-        pages = [clean_page(page.extract_text() or "") for page in reader.pages[:max_pages]]
-    ocr_pages, orientations = [], []
-    scanner = ocr.oriented_pages if isinstance(ocr, LocalOCR) else ocr
-    def read_scan(results):
-        for index, text, *angle in results:
-            if readable(text):
-                pages[index] = clean_page(text)
-                ocr_pages.append(index + 1)
-                if angle:
-                    orientations.append((index, angle[0]))
+    """Read the extraction text and attach scan quality to the document or raised error."""
+    from .scan_quality import (native_observation, observation, ocr_observation,
+                               quality_report, without_ocr_result)
 
-    attempted = 0
-    if ocr and pages and not readable(pages[0]):
-        attempted = 1 if any(map(readable, pages)) else min(2, len(pages))
-        read_scan(scanner(path, attempted))
-    if ocr and classes and pages:
-        limit = max((cover_limit(pages[0], config) for config in classes.values()), default=0)
-        missing = [i for i in range(max(1, attempted), min(limit, len(pages))) if not readable(pages[i])]
-        if missing and classify(Document.from_pages(pages), classes)[0] == "negative":
-            for i in missing:
-                read_scan(scanner(path, i + 1, start=i))
-    if not any(map(readable, pages)):
-        raise ReadError("brak czytelnej treści")
-    document = Document.from_pages(pages)
+    observations = None
+    read_error = "pdf_open_failed"
+    try:
+        with path.open("rb") as stream:
+            reader = PdfReader(stream)
+            if reader.is_encrypted and not reader.decrypt(""):
+                read_error = "pdf_encrypted"
+                raise ReadError("PDF jest zaszyfrowany")
+            read_error = "pdf_page_tree_failed"
+            selected = reader.pages[:max_pages]
+            count = len(reader.pages)
+            limit = len(selected)
+            observations = [observation(number, "unassessed",
+                                        "native_read_aborted" if number <= limit else "page_limit")
+                            for number in range(1, count + 1)]
+            pages = []
+            skipped = "ocr_not_selected" if ocr else "ocr_not_configured"
+            read_error = "native_read_failed"
+            for index in range(limit):
+                try:
+                    text = clean_page(selected[index].extract_text() or "")
+                except Exception:
+                    observations[index] = observation(index + 1, "unassessed", "native_read_failed")
+                    raise
+                pages.append(text)
+                observations[index] = native_observation(index + 1, text, readable(text), skipped)
+
+        ocr_pages, orientations = [], []
+        scanner = ocr.oriented_pages if isinstance(ocr, LocalOCR) else ocr
+
+        def read_scan(stop, *, start=None):
+            first = 0 if start is None else start
+            pending = set(range(first, stop))
+            missing_reason = "ocr_no_page_result"
+            try:
+                results = scanner(path, stop) if start is None else scanner(path, stop, start=start)
+                for index, text, *angle in results:
+                    pending.discard(index)
+                    usable = readable(text)
+                    if 0 <= index < len(pages):
+                        observations[index] = ocr_observation(observations[index], text, usable)
+                    if usable:
+                        pages[index] = clean_page(text)
+                        ocr_pages.append(index + 1)
+                        if angle:
+                            orientations.append((index, angle[0]))
+            except Exception:
+                missing_reason = "ocr_interrupted"
+                raise
+            finally:
+                for index in pending:
+                    observations[index] = without_ocr_result(observations[index], missing_reason)
+
+        read_error = "ocr_failed"
+        attempted = 0
+        if ocr and pages and not readable(pages[0]):
+            attempted = 1 if any(map(readable, pages)) else min(2, len(pages))
+            read_scan(attempted)
+        if ocr and classes and pages:
+            limit = max((cover_limit(pages[0], config) for config in classes.values()), default=0)
+            missing = [i for i in range(max(1, attempted), min(limit, len(pages))) if not readable(pages[i])]
+            if missing and classify(Document.from_pages(pages), classes)[0] == "negative":
+                for i in missing:
+                    read_scan(i + 1, start=i)
+        if not any(map(readable, pages)):
+            read_error = "no_readable_content"
+            raise ReadError("brak czytelnej treści")
+    except Exception as exc:
+        exc.scan_quality = quality_report(observations, read_error)
+        raise
+
+    document = replace(Document.from_pages(pages), scan_quality=quality_report(observations))
     if orientations:
         document = replace(document, bank_scan=partial(ocr.transfer_views, path, tuple(orientations)))
     return document, ocr_pages

@@ -17,6 +17,7 @@ class Document:
     text: str
     starts: tuple
     bank_scan: Callable | None = field(default=None, repr=False, compare=False)
+    scan_quality: dict | None = field(default=None, repr=False, compare=False)
 
     @classmethod
     def from_pages(cls, pages):
