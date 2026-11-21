@@ -1,12 +1,22 @@
 # Odwołania2JSON — plan implementacji
 
-Juror wkłada własne PDF-y do `input/` i jednym poleceniem na laptopie i7 z 16 GB RAM odczytuje odpowiadające im pliki w `output/`. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Wspólna gałąź łączy A3, lokalny OCR, dystrybucję Compose i osobny pokaz konfiguracji. B i C są eksperymentem dotyczącym pojedynczej decyzji o pierwszym zarzucie.
+Juror wkłada własne PDF-y do `input/` i jednym poleceniem uzyskuje odpowiadające im pliki w `output/`. Laptop i7 z 16 GB RAM pozostaje wewnętrznym celem sprzętowym projektu. UZP zapowiedziało zmianę sposobu testowania. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Wspólna gałąź łączy A3, lokalny OCR, dystrybucję Compose i osobny pokaz konfiguracji. B i C są eksperymentem dotyczącym pojedynczej decyzji o pierwszym zarzucie.
 
 **Historyczny wybór do pierwszego testu końcowego.** Wybrano A2 z lokalnym OCR ze względu na dwa odzyskane syntetyczne przelewy i zgodność 128 JSON-ów rozwojowych z A. Wynik walidacji 0,9878 przy `valid_run=false` pozostaje historycznym wynikiem A. Konfiguracja wbudowana zawiera trzy klasy konkursowe. Pokaz rozszerzenia i Compose mają własne instrukcje odbioru. Opcjonalny eksperyment B/C korzysta teraz z selektora A3 w tej samej wersji repozytorium. [Odbiór bez API](experiments/abc/README.md) [Raport A](RAPORT_A.md) · [Raport A2](RAPORT_A2.md)
 
-## Kandydat A3
+## Stan prac nad A3
 
-Na VPS przed zmianami A3 zamrożono 10 nowych pełnych spraw z publicznych skanów organizatora. A3 przeszło odbiór rozwojowy 128/128 oraz 256 prób niezależności klasy i JSON od ścieżki wejściowej. Ścisłe mikro-F1 wynosi 0,9963235294. Na ośmiu fikcyjnych dokumentach dobranych do poprawianych błędów A2 spełnił trzy oczekiwania, a A3 wszystkie osiem. Nowy zbiór oczekuje na oddzielny pomiar po wyborze kandydata. [Metryka zamrożenia, commit i polecenia odbioru A3](RAPORT_A3.md)
+Stan na 21.11.2026, 19:46 czasu polskiego. Rozwijamy A3. Mierzona wersja `5de75693429d9699368b958cd54eda4dd76e4900` jest na `main`. Kolejne poprawki A3 będą miały własne SHA, co pozwoli przypisać wynik do konkretnej wersji kodu.
+
+| Etap planu | Stan i dowód |
+| --- | --- |
+| H0–12, dane i podstawowy produkt | Sprawdzono rozłączność zbiorów, CLI dla trzech klas i dokumentów obcych oraz niezależność treści JSON od nazwy PDF-u w 256 próbach. Pytania o szczegóły miernika jury pozostają otwarte. |
+| H12–15, jakość ekstrakcji | Na 128 rozwojowych PDF-ach A3 osiągnął 99,63% mikro-F1. Wśród 120 dokumentów trzech klas diagnostyka nie odnotowała użycia OCR. W ośmiu fikcyjnych przypadkach dobranych do poprawek A3 spełnił osiem oczekiwań, a A2 trzy. Jednorazowy test 10 pełnych spraw zamrożonych przed pracami nad A3 obejmował 30 PDF-ów z OCR i dał 55,67%, `valid_run=false` oraz `valid_contract=true`. Osiem przelewów otrzymało pliki 0 B. Wracamy do tego etapu. [Raport pojedynczego pomiaru A3](RAPORT_KONCOWY_A3.md) |
+| H15–17, porównanie B/C | Adaptery przeszły próby na atrapach. Wpływ rzeczywistych modeli na F1 pozostaje niezmierzony. Decyzja o zastosowaniu LLM jest otwarta. |
+| H17–20, odbiór techniczny i próba końcowa | CLI natywne i Compose dały zgodne wyniki na 6/6 PDF-ach. Dodanie klasy konfiguracją zachowało 11/11 plików regresji, w tym 8/8 pustych negatywów. Pokaz przeszedł na czystej kopii na VPS. Pomiar skanów został już wykorzystany. Do następnego niezależnego pomiaru odłożyć świeże pełne sprawy przed strojeniem. [Odbiór techniczny A3](RAPORT_A3.md) |
+| H20–24, zgłoszenie | Są instrukcja, slajdy i ekrany rezerwowe. Przed wysyłką trzeba uaktualnić wyniki, potwierdzić dostęp do prywatnego repozytorium z konta jurora, zmierzyć próbę z prezentującym oraz zachować potwierdzenie zgłoszenia. |
+
+**Aktualizacja UZP.** Organizator zapowiedział nowe wytyczne oceny LLM i zmianę sposobu testowania. Punktacja modeli 1B i 4B pozostaje otwarta. Opublikowany limit przetwarzania to 45 minut na 150 PDF-ów. Wersję do zgłoszenia trzeba zmierzyć na partii tej wielkości. Dotychczasowy pomiar 58,35 s dotyczy 30 PDF-ów. [README UZP z 21 listopada](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/blob/0b360a9da4b482a6a280696df6714404e0953505/README.md#sposób-punktacji-llm)
 
 ## Kontrakt UZP i robocze decyzje
 
@@ -106,7 +116,7 @@ Godziny od startu w sobotę 21 listopada o 11:00 czasu polskiego. Szkic projektu
 | Zamiana rachunków, pominięta kwota i pole w negatywie | 328 TP, 3 FP, 3 FN, F1 0,9909. |
 | Poprawne ID z opisami wyprowadzonymi ze słownika | 10/10 ID, 330 TP, 1 FP, 1 FN, F1 0,9970. Przypięta etykieta w sprawie 44 zapisuje spójnik „i” w miejscu ukośnika. |
 
-Mikro-F1 może zawyżać wynik przy wymaganych kluczach lub silniejszej karze za błędną klasę. Może go zaniżać, jeżeli jury akceptuje alternatywną kolejność list i normalizuje tekst. Powyższe liczby opisują próby kontrolne miernika. Pierwszy wynik jakości ekstraktora powstanie po uruchomieniu A.
+Mikro-F1 może zawyżać wynik przy wymaganych kluczach lub silniejszej karze za błędną klasę. Może go zaniżać, jeżeli jury akceptuje alternatywną kolejność list i normalizuje tekst. Powyższe liczby opisują próby kontrolne miernika. Wyniki ekstraktora są w raportach A, A2 i A3.
 
 Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-walidacja`. Opcja `--manifest` wybiera inną próbę. Dopiero po zamrożeniu wydania wykonać `python evaluation/score.py ../hacknation-2026 wyniki-koncowe --manifest evaluation/final-10.json`. [Miernik](evaluation/score.py) · [Kontrola podziału](evaluation/check_splits.py)
 
@@ -116,20 +126,22 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 |---|---|
 | Zgłoszenie | Tytuł i link GitHub do działającego prototypu. Własne wyniki i dokumentacja techniczna są dodatkami do zgłoszenia. W przypadku prywatnego repozytorium sprawdzić klonowanie i start z uprawnionego konta odbiorcy. |
 | Preselekcja | Wyłącznie F1 na co najmniej 10 nieujawnionych sprawach. Do finału UZP przechodzą maksymalnie trzy zespoły. Lokalny wynik ma podaną rewizję danych, SHA programu i zasady miernika. |
-| Finał | Według § 2 regulaminu zadania 50% za F1 i 50% za łatwość rozbudowy. Jury ocenia kod, opis architektury i treść prezentacji. README rozwija drugą połowę na maksymalnie 20 pkt za rozmiar modelu, 20 za dodawanie klas i 10 za funkcje dodatkowe. Szczegółowy PDF podaje 50/30/20, a ogólny przewodnik wydarzenia wymienia pięciu finalistów. W tym zadaniu stosujemy regulamin UZP. |
+| Finał | Według § 2 regulaminu zadania 50% za F1 i 50% za łatwość rozbudowy. Jury ocenia kod, opis architektury i treść prezentacji. README wymienia wielkość modelu, dodawanie klas i funkcje dodatkowe. UZP pracuje nad szczegółową punktacją LLM. Szczegółowy PDF podaje 50/30/20, a ogólny przewodnik wydarzenia wymienia pięciu finalistów. W tym zadaniu stosujemy regulamin UZP. |
 | Przekazanie przez zwycięzcę | § 3 ust. 5 wiąże wypłatę z umową przeniesienia praw i przekazaniem kodu, instrukcji uruchomienia, konfiguracji Docker Compose oraz dokumentacji architektury, konfiguracji istniejącej klasy i dodania nowej. Compose sprawdzamy wcześniej na tym samym wydaniu. Rozwiązania zewnętrzne wskazujemy w prezentacji zgodnie z § 4. |
 
 **Dowód rozszerzalności.** Profil demonstracyjny dodaje `zawiadomienie.json` z sygnałami, schematem i regułami dwóch pól. Pokaz ujawnia wartości `sygnatura` i `termin` oraz stronę i regułę terminu. Profil konkursowy daje 0 bajtów dla syntetycznych zawiadomień. Odbiór sprawdza 11/11 ścieżek i sum SHA-256 oraz 8/8 pustych negatywów rozwojowych. [Instrukcja pokazu](demo/rozszerzalnosc/README.md)
 
-**Odbiór kandydata.** Czysta kopia ma przejść testy CLI, pokaz rozszerzenia, porównanie bajtów i diagnostyki natywnego A2 z Compose oraz ocenę na 128 PDF-ach rozwojowych. Pokaz dwuminutowy obejmuje własny PDF, źródło pola oraz dodanie klasy. [Odbiór Compose](delivery/compose/README.md)
+**Odbiór kolejnej poprawki A3.** Czysta kopia ma przejść testy CLI, pokaz rozszerzenia, porównanie bajtów i diagnostyki natywnego A3 z Compose oraz ocenę na 128 PDF-ach rozwojowych i odrębnych skanach. Pokaz dwuminutowy obejmuje własny PDF, źródło pola oraz dodanie klasy. [Odbiór Compose](delivery/compose/README.md)
 
 [Regulamin zadania, § 2–4](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aa36e74b-f96c-46cf-9970-5937ed203222.pdf) · [Szczegółowy opis PDF](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aeabc57d-7420-4069-946e-2c4de71d87ed.pdf) · [FAQ HackNation](https://hacknation.pl/faq)
 
 **Do potwierdzenia u mentora.** Jak jury traktuje brak pliku, `null`, typy liczb, permutacje list i normalizację? Czy negatyw ma dokładnie 0 bajtów? Jak postępować przy nieczytelnym skanie, braku podstawy do ID i niezgodności opisu z kanonicznym słownikiem? Jak są oceniane A bez modelu, limity API, kanał przekazania klucza, dostęp do repozytorium i czas pokazu?
 
-**Stan odbioru.** Zamrożono `1937848079584ec72aa1307f1305637e93607e1c` po zaliczeniu odbioru CLI, OCR, Compose, rozszerzenia i development na VPS. Pomiar końcowy tej rewizji i materiały pokazu są w paczce przekazania. [Raport odbioru RC](RAPORT_RC1.md) · [Raport końcowy](RAPORT_KONCOWY.md) · [Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md)
+**Historyczny odbiór RC1 z A2.** Zamrożono `1937848079584ec72aa1307f1305637e93607e1c` po zaliczeniu odbioru CLI, OCR, Compose, rozszerzenia i development na VPS. Pomiar końcowy tej rewizji i materiały pokazu są w paczce przekazania. [Raport odbioru RC](RAPORT_RC1.md) · [Raport końcowy](RAPORT_KONCOWY.md) · [Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md)
 
-**Następny krok.** Właściciel przeprowadza próbę dostępu i uruchomienia na sprzęcie jurora przed zgłoszeniem.
+**Najbliższy termin organizacyjny.** Szkic w HackTribe musi istnieć i wskazywać zadanie UZP przed 20:00 w sobotę 21 listopada. Na godzinę tego zapisu w materiałach projektu brakuje potwierdzenia. Termin finalnego zgłoszenia to 11:00 w niedzielę 22 listopada. [Przewodnik HackNation](https://hacknation.pl/przewodnik-uczestnika)
+
+**Następny krok techniczny.** Na osobnych skanach rozwojowych potwierdzeń i podobnych pism obcych odtworzyć błąd przelewu, a następnie poprawić klasyfikację i odczyt kwoty, daty oraz ról rachunków w A3. Odbiór wymaga zgodności tych pól z referencjami na przykładach kontrolnych, plików 0 B dla negatywów i sprawdzenia regresji na dotychczasowych 128 PDF-ach. Kolejne poprawki obejmą odczyt pierwszego zarzutu na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
 
 Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 
