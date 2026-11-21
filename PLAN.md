@@ -143,7 +143,9 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 
 **Przelewy A3.** Wersja `1503772` przeszła odbiór na VPS. Mikro-F1 na 40 skanach rozwojowych wzrosło z 81,63% do 90,17%, a 128 dotychczasowych plików wynikowych pozostało identycznych bajtowo. Odłożony generator KontoBank dał 98,11% na jednym układzie. Na polskiej ilustracji Pekao24 poprawnie rozpoznano klasę, lecz pominięto oba widoczne pola. [Raport i polecenia weryfikacji](RAPORT_PRZELEWY_A3.md)
 
-**Następny krok techniczny.** Przed kolejną zmianą rozbudować nietkniętą rezerwę KARR o dwa niezależne polskie układy z różnymi rachunkami stron. Na osobnych skanach rozwojowych poprawić odczyt kwoty i daty z obrazu o niskiej rozdzielczości. Odbiór wymaga zgodności obu pól na nowych układach, 0 B dla faktury i zgodności bajtowej 128 wyników rozwojowych. Po tym odbiorze kolejka obejmuje pierwszy zarzut na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
+**Rezerwa KARR.** Dwa nowe układy, BNP Paribas i Millenet, zamrożono przed strojeniem A3. Wersja `59fcf1a` uzyskała na słabych skanach 41,67% mikro-F1. Odczytała 3/3 kwot i 1/3 dat. Obie faktury dały po 0 B, a 128/128 wyników rozwojowych pozostało identycznych bajtowo. Warunek poprawnego odczytu kwoty i daty na obu nowych układach spełnił tylko Millenet. Ważny wynik pochodzi z Docker Compose na VPS. Pierwsze uruchomienie bez kontenera przerwał `SIGSEGV`. [Raport, rozbicie na pola i pliki odbioru](RAPORT_KARR_A3.md)
+
+**Następny krok techniczny.** Odtworzyć i usunąć `SIGSEGV` na osobnych skanach rozwojowych. Odbiór wymaga zakończenia całego folderu przez CLI bez kontenera i przez Compose oraz bajtowej zgodności ich wyników. Rezerwa KARR v2 po pomiarze służy do regresji. W kolejce produktowej pozostają pierwszy zarzut na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
 
 Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 

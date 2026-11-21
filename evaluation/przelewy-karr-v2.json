@@ -1,0 +1,448 @@
+{
+  "candidate": "59fcf1a7ef1e506dc3c2e9c5a5c8947b6047aad9",
+  "baseline": "1503772cbffe5369a4c9bc8548221a445fed7e8e",
+  "sealed_utc": "2026-11-21T19:32:12.491364+00:00",
+  "frozen_at_commit": "2241d7e76da99978c6842a3db6a25ae9b0fc8d00",
+  "seal_sha256": "7e18c2361a8d22b03a99c691330a9fc9a657665a6e72c56901c58a55ad7687ee",
+  "package_sha256": "75d5f0f7926ed3e6cc8e30e56e05dc2c370b5dfe65e0c351fc102415036e9e65",
+  "primary": "reserve_weak",
+  "counts": {
+    "reserve_native": 5,
+    "reserve_scan": 5,
+    "reserve_weak": 5,
+    "dev_weak": 44
+  },
+  "manifest_sha256": {
+    "reserve_native": "e71dc6c65613c26da98200c7a2c18bf7a50f0d0571fdd68752ee77d021d6e441",
+    "reserve_scan": "f82859a03261de7a08f9836fec60d995b34b96bd57e5eca4d9ba6e26f82bdbb9",
+    "reserve_weak": "e7986442796a65fa62d0f107a22ad75c9acd6bf87863979df1be4337add096d3",
+    "dev_weak": "1497dbc5166ee4f8e65558f2e09c79d3995183859f0b1e25b8daabe6a8862c1d"
+  },
+  "development_reserve_hash_overlap": 0,
+  "overlap_with_prior_manifests": {
+    "development-40.json": 0,
+    "validation-10.json": 0,
+    "final-10.json": 0,
+    "manifest.json": 0,
+    "external-v1": 0,
+    "reserved-KARR-v1": 4
+  },
+  "sources": {
+    "BNP": {
+      "url": "https://imas.pl/wp-content/uploads/2020/06/potwierdzenie_przelewu_Siepomaga_Covid_19.pdf",
+      "page": 1,
+      "sha256": "8956cd71183403d3488c122e99c6970f04c51f58e693fabab63b9138136634a6"
+    },
+    "Millennium": {
+      "url": "https://mam-serce.org/wp-content/uploads/2020/05/RESPIRATOR2_proformaprzelew.pdf",
+      "transfer_page": 2,
+      "negative_page": 1,
+      "sha256": "b8b738962d54c946d09202ea4f3405e171bf7358b7138873837478e604a8a008"
+    }
+  },
+  "environment": "rootless Docker Compose on VPS, frozen sources, network disabled",
+  "groups": {
+    "reserve_weak": {
+      "baseline": {
+        "pdfs": 5,
+        "tp": 2,
+        "fp": 0,
+        "fn": 16,
+        "micro_f1": 0.2,
+        "valid_run": false,
+        "contract": true,
+        "correct_class": 4,
+        "zero_byte_negatives": 2,
+        "complete_positive": 0,
+        "fields": {
+          "data_operacji": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 2
+          },
+          "kwota": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          },
+          "tytul": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          },
+          "numer_transakcji": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          },
+          "z_rachunku": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 2
+          },
+          "na_rachunek": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          }
+        }
+      },
+      "candidate": {
+        "pdfs": 5,
+        "tp": 5,
+        "fp": 1,
+        "fn": 13,
+        "micro_f1": 0.4166666666666667,
+        "valid_run": true,
+        "contract": true,
+        "correct_class": 5,
+        "zero_byte_negatives": 2,
+        "complete_positive": 0,
+        "fields": {
+          "data_operacji": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 2
+          },
+          "kwota": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "tytul": {
+            "tp": 0,
+            "fp": 1,
+            "fn": 3
+          },
+          "numer_transakcji": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          },
+          "z_rachunku": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 2
+          },
+          "na_rachunek": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          }
+        }
+      }
+    },
+    "reserve_native": {
+      "baseline": {
+        "pdfs": 5,
+        "tp": 12,
+        "fp": 3,
+        "fn": 6,
+        "micro_f1": 0.7272727272727273,
+        "valid_run": true,
+        "contract": true,
+        "correct_class": 5,
+        "zero_byte_negatives": 2,
+        "complete_positive": 0,
+        "fields": {
+          "data_operacji": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "kwota": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "tytul": {
+            "tp": 2,
+            "fp": 1,
+            "fn": 1
+          },
+          "numer_transakcji": {
+            "tp": 0,
+            "fp": 2,
+            "fn": 3
+          },
+          "z_rachunku": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 1
+          },
+          "na_rachunek": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 1
+          }
+        }
+      },
+      "candidate": {
+        "pdfs": 5,
+        "tp": 12,
+        "fp": 3,
+        "fn": 6,
+        "micro_f1": 0.7272727272727273,
+        "valid_run": true,
+        "contract": true,
+        "correct_class": 5,
+        "zero_byte_negatives": 2,
+        "complete_positive": 0,
+        "fields": {
+          "data_operacji": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "kwota": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "tytul": {
+            "tp": 2,
+            "fp": 1,
+            "fn": 1
+          },
+          "numer_transakcji": {
+            "tp": 0,
+            "fp": 2,
+            "fn": 3
+          },
+          "z_rachunku": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 1
+          },
+          "na_rachunek": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 1
+          }
+        }
+      }
+    },
+    "reserve_scan": {
+      "baseline": {
+        "pdfs": 5,
+        "tp": 5,
+        "fp": 3,
+        "fn": 13,
+        "micro_f1": 0.38461538461538464,
+        "valid_run": true,
+        "contract": true,
+        "correct_class": 5,
+        "zero_byte_negatives": 2,
+        "complete_positive": 0,
+        "fields": {
+          "data_operacji": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 1
+          },
+          "kwota": {
+            "tp": 1,
+            "fp": 1,
+            "fn": 2
+          },
+          "tytul": {
+            "tp": 2,
+            "fp": 1,
+            "fn": 1
+          },
+          "numer_transakcji": {
+            "tp": 0,
+            "fp": 1,
+            "fn": 3
+          },
+          "z_rachunku": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          },
+          "na_rachunek": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          }
+        }
+      },
+      "candidate": {
+        "pdfs": 5,
+        "tp": 7,
+        "fp": 3,
+        "fn": 11,
+        "micro_f1": 0.5,
+        "valid_run": true,
+        "contract": true,
+        "correct_class": 5,
+        "zero_byte_negatives": 2,
+        "complete_positive": 0,
+        "fields": {
+          "data_operacji": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "kwota": {
+            "tp": 2,
+            "fp": 1,
+            "fn": 1
+          },
+          "tytul": {
+            "tp": 2,
+            "fp": 1,
+            "fn": 1
+          },
+          "numer_transakcji": {
+            "tp": 0,
+            "fp": 1,
+            "fn": 3
+          },
+          "z_rachunku": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          },
+          "na_rachunek": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3
+          }
+        }
+      }
+    },
+    "dev_weak": {
+      "baseline": {
+        "pdfs": 44,
+        "tp": 152,
+        "fp": 33,
+        "fn": 100,
+        "micro_f1": 0.6956521739130435,
+        "valid_run": false,
+        "contract": true,
+        "correct_class": 40,
+        "zero_byte_negatives": 2,
+        "complete_positive": 3,
+        "fields": {
+          "data_operacji": {
+            "tp": 30,
+            "fp": 0,
+            "fn": 12
+          },
+          "kwota": {
+            "tp": 32,
+            "fp": 0,
+            "fn": 10
+          },
+          "na_rachunek": {
+            "tp": 32,
+            "fp": 2,
+            "fn": 10
+          },
+          "numer_transakcji": {
+            "tp": 20,
+            "fp": 11,
+            "fn": 22
+          },
+          "tytul": {
+            "tp": 9,
+            "fp": 20,
+            "fn": 33
+          },
+          "z_rachunku": {
+            "tp": 29,
+            "fp": 0,
+            "fn": 13
+          }
+        }
+      },
+      "candidate": {
+        "pdfs": 44,
+        "tp": 176,
+        "fp": 34,
+        "fn": 76,
+        "micro_f1": 0.7619047619047619,
+        "valid_run": true,
+        "contract": true,
+        "correct_class": 44,
+        "zero_byte_negatives": 2,
+        "complete_positive": 3,
+        "fields": {
+          "data_operacji": {
+            "tp": 41,
+            "fp": 0,
+            "fn": 1
+          },
+          "kwota": {
+            "tp": 39,
+            "fp": 0,
+            "fn": 3
+          },
+          "na_rachunek": {
+            "tp": 33,
+            "fp": 2,
+            "fn": 9
+          },
+          "numer_transakcji": {
+            "tp": 22,
+            "fp": 11,
+            "fn": 20
+          },
+          "tytul": {
+            "tp": 10,
+            "fp": 21,
+            "fn": 32
+          },
+          "z_rachunku": {
+            "tp": 31,
+            "fp": 0,
+            "fn": 11
+          }
+        }
+      }
+    }
+  },
+  "regression": {
+    "development_pdfs": 128,
+    "correct_classes": {
+      "pelnomocnictwo": 40,
+      "przelew": 40,
+      "odwolanie": 40,
+      "negative": 8
+    },
+    "identical_to_a2": 128,
+    "per_document_regressions": [],
+    "identical_output_and_diagnostics_after_rename": {
+      "losowe": 128,
+      "mylące": 128
+    },
+    "valid_contract": true,
+    "valid_run": true,
+    "micro_f1": 0.9963235294117647,
+    "tp": 1355,
+    "fp": 5,
+    "fn": 5,
+    "correct_reason_ids": 40,
+    "false_positive_documents": 0,
+    "identical_to_previous_a3_1503772": 128,
+    "revision": "59fcf1a7ef1e506dc3c2e9c5a5c8947b6047aad9"
+  },
+  "compose_development_smoke": {
+    "identical": true,
+    "count": 6
+  },
+  "first_isolated_host_attempt": {
+    "baseline": {
+      "outputs": 0,
+      "signal": 11,
+      "valid_run": false
+    },
+    "candidate": {
+      "outputs": 0,
+      "signal": 11,
+      "valid_run": false
+    }
+  },
+  "evidence_on_vps": "/home/dev-viralpay/uzp-parallel/a3-przelewy-dane/karr-v2"
+}
