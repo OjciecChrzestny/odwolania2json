@@ -2,12 +2,13 @@
 import logging
 import re
 from contextlib import closing
+from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
 from itertools import islice
-from dataclasses import dataclass, replace
+from math import ceil
 from pathlib import Path
 
-from .bank_accounts import valid_nrb
+from .bank_accounts import account_layout, valid_nrb
 from .bank_scan import ScanView, Word, numeric_boxes, recovered_numbers, token_value, row_text, word_rows
 
 
@@ -64,18 +65,31 @@ def refine_bank_reference(text, api, bitmap, api_type, data):
 
 def account_crops(positions):
     """Retry nearly complete numeric groups in their own box, within one visual row."""
-    for row_index, row in enumerate(positions):
+    for row_index, _, _, divider in account_layout(row_text(positions), positions):
+        row = positions[row_index]
+        boundary = ceil(divider) if divider is not None else None
+        if boundary is not None and any(w.x < boundary < w.x + w.width for w in row):
+            # A bounding box that crosses the divider makes this row ambiguous.
+            continue
         start = 0
         while start < len(row):
             word = row[start]
             if not re.fullmatch(r"(?:PL)?[0-9IOol|()/]+", word.text):
                 start += 1
                 continue
+            x_min, x_max = 0, None
+            if boundary is not None:
+                if word.x < boundary:
+                    x_max = boundary
+                else:
+                    x_min = boundary
             end = start + 1
             while end < len(row):
                 following, previous = row[end], row[end - 1]
                 gap = following.x - (previous.x + previous.width)
-                if gap > 2 * max(previous.height, following.height) or not re.fullmatch(r"[0-9IOol|()/]+", following.text):
+                if (x_max is not None and following.x >= x_max
+                        or gap > 2 * max(previous.height, following.height)
+                        or not re.fullmatch(r"[0-9IOol|()/]+", following.text)):
                     break
                 end += 1
             chunk = row[start:end]
@@ -86,7 +100,7 @@ def account_crops(positions):
                 top = min(w.y for w in chunk)
                 right = max(w.x + w.width for w in chunk)
                 bottom = max(w.y + w.height for w in chunk)
-                yield row_index, start, end, digits, (left, top, right, bottom)
+                yield row_index, start, end, digits, (left, top, right, bottom), (x_min, x_max)
             start = end
 
 
@@ -99,13 +113,14 @@ def read_account_crops(positions, bitmap, api_type, data):
         api.SetVariable("tessedit_char_whitelist", "0123456789")
         api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height, bitmap.n_channels, bitmap.stride)
         # Work right to left so replacing a run preserves the remaining indices.
-        for row, start, end, original, (left, top, right, bottom) in reversed(crops):
+        for row, start, end, original, (left, top, right, bottom), (x_min, x_max) in reversed(crops):
             height = bottom - top
+            limit = bitmap.width if x_max is None else min(bitmap.width, x_max)
             readings = []
             for margin in (.25, .6):
-                x = max(0, left - round(height * margin))
+                x = max(x_min, left - round(height * margin))
                 y = max(0, top - round(height * .3))
-                w = min(bitmap.width, right + round(height * margin)) - x
+                w = min(limit, right + round(height * margin)) - x
                 h = min(bitmap.height, bottom + round(height * .3)) - y
                 api.SetRectangle(x, y, w, h)
                 value = "".join(api.GetUTF8Text().split())
