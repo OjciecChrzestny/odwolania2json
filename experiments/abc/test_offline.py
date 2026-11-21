@@ -14,6 +14,7 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from odwolania2json.__main__ import json_bytes, process
 from odwolania2json.extract import extract, read_pdf
+from odwolania2json.legal import Fragment, first_allegation
 from odwolania2json.model import load_classes
 
 from .adapters import (Adapter, HttpResponse, IDS, PROVIDERS, TIMEOUT_SECONDS, encode,
@@ -28,6 +29,8 @@ APPEAL_HEADER = (
 FIRST = "Zaniechanie odrzucenia oferty dnia 2 stycznia 2026"
 SECOND = "Wybór najkorzystniejszej oferty dnia 1 stycznia 2026"
 FORMAL = f"Zarzut 1: {FIRST}:\nUzasadnienie zarzutu.\nZarzut 2: {SECOND}"
+UNMATCHED = "Zamawiający pozbawił wykonawcę prawa dalszego udziału w postępowaniu."
+UNMATCHED_FORMAL = f"Zarzut 1: {UNMATCHED}\nZarzut 2: {SECOND}"
 HINT = "Zamawiający w dniu 3 stycznia 2026 r. wykluczył wykonawcę"
 TRANSFER = (
     "POTWIERDZENIE PRZELEWU\nData operacji: 2026-01-02\nKwota: 12,50 PLN\n"
@@ -141,7 +144,7 @@ class OfflineTest(unittest.TestCase):
                 request = json.loads(requests.call_args.args[2])
                 fragment = request["messages"][1]["content"]
                 self.assertEqual(fragment, expected)
-                source = diagnostics["first_allegation"]
+                source = diagnostics["decision_source"]
                 offset = source["start_offset"]
                 self.assertEqual(doc.text[offset:offset + len(fragment)], fragment)
                 self.assertEqual(source["fragment_sha256"], sha256(fragment.encode("utf-8")))
@@ -149,6 +152,94 @@ class OfflineTest(unittest.TestCase):
                 self.assertEqual(ocr_pages, [])
                 section.update(czynnosc_powod_id=12, czynnosc_opis=self.descriptions["12"])
                 self.assertEqual(json_bytes(original), json_bytes(predicted))
+
+    def test_structured_allegation_without_a_rule(self):
+        pdf = self.appeal("01-unmatched.pdf", UNMATCHED_FORMAL)
+        document, _ = read_pdf(pdf)
+        patterns = self.classes["odwolanie"]["patterns"]
+        body = Fragment(document.text).after(patterns["header"]).slice(0, 8500)
+        fragment, rule = first_allegation(body, patterns)
+        expected_fragment = UNMATCHED + "\n"
+        self.assertEqual((fragment.text, rule), (expected_fragment, "pierwszy_numerowany_zarzut"))
+        a_root = self.root / "A"
+        baseline(pdf.parent, a_root)
+        a_output = (a_root / "output/01-unmatched.json").read_bytes()
+        a_record, = json.loads((a_root / "diagnostics/extraction.json").read_bytes())["documents"]
+        self.assertEqual(a_record["first_allegation"],
+                         {"page": 2, "rule": "brak_jednoznacznej_reguły_czynności", "fallback": True})
+        a_section = json.loads(a_output)["OdwolanieKIO"]
+        self.assertEqual((a_section["czynnosc_powod_id"], a_section["czynnosc_dzien"]), (11, None))
+
+        requests, request_hashes = [], []
+        for label, model_id in (("B", 3), ("C", 8)):
+            with self.subTest(variant=label):
+                rpc = Mock(return_value=ok(model_id))
+                root = self.root / label
+                self.assertEqual(run_variant(pdf.parent, root, label, token="placeholder",
+                                             transport=rpc, mode="test_technical"), 0)
+                record, = records(root)
+                result = (root / "output/01-unmatched.json").read_bytes()
+                section = json.loads(result)["OdwolanieKIO"]
+                outcome = record["experiment"]
+                print(f"Regresja {label} | struktura {rule} | ID A 11 | "
+                      f"ID wyjścia {section['czynnosc_powod_id']} | próby {rpc.call_count} | "
+                      f"przyczyna {outcome['cause']} | bajty A {result == a_output}")
+                self.assertEqual(rpc.call_count, 1, outcome)
+                self.assertEqual((outcome["outcome"], outcome["cause"]), ("success", None))
+                self.assertEqual(record["first_allegation"],
+                                 {**a_record["first_allegation"], "reason_id": 11})
+                self.assertEqual(record["allegation_structure"], {"rule": rule, "page": 2})
+                source = record["decision_source"]
+                self.assertEqual(source, {"rule": rule, "page": 2, "start_offset": fragment.offset,
+                                          "start_page": 2, "end_page": 2,
+                                          "fragment_sha256": sha256(expected_fragment.encode("utf-8"))})
+                request = json.loads(rpc.call_args.args[2])
+                self.assertEqual(request.pop("model"), PROVIDERS[label].model)
+                self.assertEqual(request["messages"][1]["content"], expected_fragment)
+                self.assertNotIn(SECOND, request["messages"][1]["content"])
+                requests.append(request)
+                request_hashes.append(outcome["request_sha256"])
+                expected = json.loads(a_output)
+                expected["OdwolanieKIO"].update(czynnosc_powod_id=model_id,
+                                               czynnosc_opis=self.descriptions[str(model_id)])
+                self.assertEqual(result, json_bytes(expected))
+
+        if len(requests) == 2:
+            self.assertEqual(requests[0], requests[1])
+            self.assertEqual(request_hashes, [sha256(encode(requests[0]))] * 2)
+            print(f"SHA-256 fragmentu {sha256(expected_fragment.encode('utf-8'))} | "
+                  f"SHA-256 wspólnego żądania {request_hashes[0]}")
+
+    def test_unmatched_allegation_provider_failure_continues_to_rule_matched_id_11(self):
+        first = self.appeal("01-unmatched.pdf", UNMATCHED_FORMAL)
+        self.appeal("02-rule-11.pdf", "Zarzut 1: Opis przedmiotu zamówienia z dnia 2 stycznia 2026.")
+        a_root = self.root / "A"
+        baseline(first.parent, a_root)
+        a_tree = output_tree(a_root / "output")
+        self.assertEqual(json.loads(a_tree["02-rule-11.json"])["OdwolanieKIO"]["czynnosc_dzien"],
+                         "2026-01-02")
+        failures = {"B": (HttpResponse(429, b""), "http_429"), "C": (TimeoutError(), "timeout")}
+        for label, (failure, cause) in failures.items():
+            with self.subTest(variant=label):
+                rpc = Mock(side_effect=[failure, ok(11)])
+                root = self.root / label
+                self.assertEqual(run_variant(first.parent, root, label, token="placeholder",
+                                             transport=rpc, mode="test_technical"), 0)
+                self.assertEqual(rpc.call_count, 2)
+                self.assertEqual(output_tree(root / "output"), a_tree)
+                failed, later = records(root)
+                self.assertEqual(failed["output"], "01-unmatched.json")
+                self.assertEqual(failed["first_allegation"]["reason_id"], 11)
+                self.assertTrue(failed["first_allegation"]["fallback"])
+                self.assertEqual(failed["experiment"]["outcome"], "fallback")
+                self.assertEqual(failed["experiment"]["cause"], cause)
+                self.assertTrue(failed["experiment"]["attempted"])
+                self.assertEqual(later["output"], "02-rule-11.json")
+                self.assertEqual(later["first_allegation"], {"page": 2,
+                                 "rule": "pierwszy_numerowany_zarzut", "reason_id": 11, "fallback": False})
+                self.assertEqual(later["experiment"]["outcome"], "success")
+                print(f"Awaria {label} | {cause} | 1 próba na pierwszy PDF | "
+                      "bajty A True | kolejne rozpoznanie ID 11 przetworzone")
 
     def test_single_ocr_for_each_variant(self):
         pdf = self.root / "input" / "synthetic.pdf"
@@ -164,19 +255,22 @@ class OfflineTest(unittest.TestCase):
                 ocr.assert_called_once_with(pdf, 1)
                 rpc.assert_called_once()
                 self.assertEqual(records(root)[0]["ocr_pages"], [1])
-                self.assertEqual(records(root)[0]["first_allegation"]["page"], 2)
+                self.assertEqual(records(root)[0]["decision_source"]["page"], 2)
 
     def test_no_transport_for_other_classes_missing_key_or_no_fragment(self):
         folder = self.root / "input"
         for filename, text in (("transfer.pdf", TRANSFER), ("power.pdf", POWER),
                                ("negative.pdf", NEGATIVE)):
             write_pdf(folder / filename, text)
-        self.appeal("unresolved.pdf", "Zarzut 1: Uchybienie proceduralne.")
+        self.appeal("empty.pdf", f"Zarzut 1:\nZarzut 2: {SECOND}")
+        self.appeal("missing.pdf", "Pismo bez wyodrębnionych zarzutów.")
         a = self.root / "A"
         baseline(folder, a)
         expected = {
             "transfer.json": ("przelew", None), "power.json": ("pelnomocnictwo", None),
-            "negative.json": ("negative", None), "unresolved.json": ("odwolanie", "no_reliable_fragment"),
+            "negative.json": ("negative", None),
+            "empty.json": ("odwolanie", "no_reliable_fragment"),
+            "missing.json": ("odwolanie", "no_reliable_fragment"),
         }
         for label in PROVIDERS:
             with self.subTest(label=label):
@@ -185,11 +279,18 @@ class OfflineTest(unittest.TestCase):
                 self.assertEqual(run_variant(folder, root, label, token="placeholder", transport=rpc,
                                              mode="test_technical"), 0)
                 self.assertEqual(output_tree(root / "output"), output_tree(a / "output"))
-                self.assertEqual({row["output"]: (row["class"], row["experiment"].get("cause"))
-                                  for row in records(root)}, expected)
+                rows = {row["output"]: row for row in records(root)}
+                self.assertEqual({name: (row["class"], row["experiment"].get("cause"))
+                                  for name, row in rows.items()}, expected)
+                self.assertEqual(rows["empty.json"]["allegation_structure"],
+                                 {"page": 2, "rule": "pierwszy_numerowany_zarzut"})
+                self.assertIsNone(rows["missing.json"]["allegation_structure"])
+                for name in ("empty.json", "missing.json"):
+                    self.assertNotIn("decision_source", rows[name])
+                    self.assertTrue(rows[name]["first_allegation"]["fallback"])
                 rpc.assert_not_called()
 
-        eligible = self.appeal("eligible.pdf")
+        eligible = self.appeal("eligible.pdf", UNMATCHED_FORMAL)
         for label in PROVIDERS:
             with self.subTest(label=label, cause="missing_key"):
                 rpc = Mock()
@@ -199,6 +300,8 @@ class OfflineTest(unittest.TestCase):
                     doc, self.classes, self.descriptions, Adapter(PROVIDERS[label], " ", rpc))
                 self.assertEqual(json_bytes(candidate), json_bytes(baseline_value))
                 self.assertEqual(diagnostics["experiment"]["cause"], "missing_key")
+                self.assertTrue(diagnostics["first_allegation"]["fallback"])
+                self.assertIn("fragment_sha256", diagnostics["decision_source"])
                 rpc.assert_not_called()
 
     def test_https_framing_without_network(self):

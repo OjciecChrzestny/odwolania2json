@@ -63,10 +63,10 @@ index 11451d9..2742d3b 100644
      if errors:
          raise ValueError(f"{name}: " + "; ".join(errors))
 diff --git a/odwolania2json/legal.py b/odwolania2json/legal.py
-index 69cc28f..34822bc 100644
+index 69cc28f..e1d2893 100644
 --- a/odwolania2json/legal.py
 +++ b/odwolania2json/legal.py
-@@ -192,7 +192,7 @@ def first_allegation(body, patterns):
+@@ -192,10 +192,16 @@ def first_allegation(body, patterns):
      return None, None
 
 
@@ -75,7 +75,16 @@ index 69cc28f..34822bc 100644
      patterns = config["patterns"]
      hint = body.find(patterns["action_line"])
      allegation, selector = first_allegation(body, patterns)
-@@ -208,7 +208,8 @@ def challenged_action(result, config, body):
++    details = {}
++    if capture_decision:
++        details["allegation_structure"] = (
++            {"page": result.document.page(allegation.offset), "rule": selector}
++            if allegation is not None else None
++        )
+     # Dla zarzutu z nagłówkiem kolejny wiersz zwykle opisuje podstawę prawną i skutki.
+     # Typ czynności jest ustalany z nagłówka, bez przenoszenia motywów z uzasadnienia.
+     decision = allegation
+@@ -208,7 +214,8 @@ def challenged_action(result, config, body):
          hint_scope = body.group(hint)
          chosen = classify_reason(hint_scope, config)
          if chosen:
@@ -85,14 +94,15 @@ index 69cc28f..34822bc 100644
 
      prefix = ("OdwolanieKIO",)
      if chosen:
-@@ -230,10 +231,13 @@ def challenged_action(result, config, body):
+@@ -230,10 +237,14 @@ def challenged_action(result, config, body):
      result.put((*prefix, "czynnosc_powod_id"), reason_id, location, record["rule"])
      description = config["reasons"]["descriptions"][str(reason_id)]
      result.put((*prefix, "czynnosc_opis"), description, location, "opis_kanoniczny_id")
 -    return {"first_allegation": record}
-+    details = {"first_allegation": record}
-+    if capture_decision and chosen:
++    details["first_allegation"] = record
++    if capture_decision and decision is not None and decision.text.strip():
 +        details["decision_fragment"] = decision
++        details["decision_source"] = {"page": result.document.page(location), "rule": selector}
 +    return details
 
 
@@ -101,7 +111,7 @@ index 69cc28f..34822bc 100644
      patterns = config["patterns"]
      document = Fragment(result.document.text)
      first_page = document.before(r"\f")
-@@ -255,7 +259,8 @@ def appeal(result, config):
+@@ -255,7 +266,8 @@ def appeal(result, config):
          add_party(result, config, key, role, block, buyers > 1)
      fields(result, config["header_fields"], cover)
      body = document.after(patterns["header"])

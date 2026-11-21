@@ -32,11 +32,13 @@ def classify_document(document, classes, descriptions, adapter):
     record["a_sha256"] = sha256(b"" if value is None else json_bytes(value))
     if record["class"] != "odwolanie":
         return value, {**record, "experiment": {"outcome": "not_appeal", "attempted": False}}
+    section = value["OdwolanieKIO"]
+    record["first_allegation"]["reason_id"] = section[REASON_FIELD]
     if fragment is None:
         return value, {**record, "experiment": {"outcome": "fallback",
                                                 "cause": "no_reliable_fragment", "attempted": False}}
 
-    source = record["first_allegation"]
+    source = record["decision_source"]
     source["fragment_sha256"] = sha256(fragment.text.encode("utf-8"))
     source["start_offset"] = fragment.offset
     source["start_page"] = document.page(fragment.offset)
@@ -45,7 +47,6 @@ def classify_document(document, classes, descriptions, adapter):
     if reason_id is None:
         return value, {**record, "experiment": {**report, "outcome": "fallback"}}
 
-    section = value["OdwolanieKIO"]
     section[REASON_FIELD] = reason_id
     section["czynnosc_opis"] = descriptions[str(reason_id)]
     for field, rule in ((REASON_FIELD, "odpowiedź_modelu_dla_fragmentu"),

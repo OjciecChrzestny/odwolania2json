@@ -143,6 +143,8 @@ def compare(dataset, manifest_path, roots):
             verify_document(name, a, optional_bytes(roots[label] / "output" / name),
                             indexed["A"][name], row, descriptions)
         if (b.get("first_allegation") != c.get("first_allegation")
+                or b.get("allegation_structure") != c.get("allegation_structure")
+                or b.get("decision_source") != c.get("decision_source")
                 or b.get("experiment", {}).get("request_sha256") !=
                 c.get("experiment", {}).get("request_sha256")):
             raise ValueError(f"{name}: B/C przekazały różne wejście modelu")
