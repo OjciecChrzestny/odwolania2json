@@ -2,6 +2,10 @@
 
 Wymagany jest uruchomiony Docker Engine obsługujący kontenery Linux oraz Docker Compose v2 z BuildKit. Budowa pobiera obraz Pythona, koła z przypiętymi zależnościami oraz `pol.traineddata` weryfikowany przez SHA-256. Przetwarzanie działa lokalnie na CPU. Usługa uruchamia publiczne CLI z włączonym polskim OCR i z trybem sieci `none`. [Dokumentacja Docker Compose](https://docs.docker.com/reference/compose-file/services/#network_mode)
 
+## Uprawnienia na Linuxie
+
+W zwykłym Docker Engine ustaw `ODW_UID` i `ODW_GID` na identyfikatory właściciela katalogów hosta, jak w przykładach poniżej. Przy Docker Engine w trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed pierwszym `docker compose run`. UID 0 w kontenerze rootless odpowiada użytkownikowi, który uruchomił silnik na hoście.
+
 ## Domyślne katalogi
 
 W świeżej kopii repozytorium na Linuxie utwórz katalogi, a do `input/` wstaw swoje PDF-y, również w podkatalogach.

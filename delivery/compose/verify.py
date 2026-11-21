@@ -112,10 +112,15 @@ def compose(work):
     env = os.environ.copy()
     for name in HOST_VARIABLES:
         env.pop(name, None)
-    if os.name == "posix":
-        env.update(ODW_UID=str(os.getuid()), ODW_GID=str(os.getgid()))
     run("docker", "version", env=env)
     run(*COMPOSE, "version", env=env)
+    if os.name == "posix":
+        security_options = json.loads(subprocess.check_output(
+            ["docker", "info", "--format", "{{json .SecurityOptions}}"], env=env
+        ))
+        uid, gid = (0, 0) if "name=rootless" in security_options else (os.getuid(), os.getgid())
+        env.update(ODW_UID=str(uid), ODW_GID=str(gid))
+        print(f"Użytkownik kontenera: {uid}:{gid}", flush=True)
     run(*COMPOSE, "build", "cli", env=env)
 
     for directory in ("input", "output", ".output.odwolania2json", "diagnostics"):
