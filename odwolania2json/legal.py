@@ -180,9 +180,22 @@ def reason_evidence(fragment, config):
     """Rozpoznaje przedmiot zaskarżenia z pominięciem wyraźnie wyłączonych czynności."""
     patterns = config["patterns"]
     verb = patterns.get("challenge_verb")
+    basis = patterns.get("legal_basis_start")
+    legal_basis = basis and fragment.find(basis)
+    if legal_basis:
+        # Łącznik w nawiasie lub cytacie należy do przywołania przepisu.
+        connector = next((match for match in re.finditer(
+            patterns["legal_basis_action"], fragment.text, FLAGS) if match["connector"]), None)
+        if connector:
+            fragment = fragment.slice(connector.end())
+        else:
+            assertion = fragment.find(verb) if verb else None
+            if not assertion:
+                return None, None, None
+            fragment = fragment.slice(assertion.start())
     markers = list(re.finditer(verb, fragment.text, FLAGS)) if verb else []
     if not markers:
-        return match_reason(fragment, config), None, fragment
+        return match_reason(fragment, config), fragment if legal_basis else None, fragment
     remaining = list(fragment.text)
     excluded = []
     first_assertion = None
@@ -218,20 +231,31 @@ def classify_reason(fragment, config):
 def first_allegation(body, patterns):
     body = body.before(patterns["formal_next"])
     formal = body.find(patterns["formal_first"])
-    intro = body.find(patterns["allegation_list_intro"])
-    if intro and (not formal or intro.start() < formal.start()):
-        scope = body.slice(intro.end()).before(patterns["section_end"])
-        bullets = list(re.finditer(patterns["enumeration"], scope.text, FLAGS))
-        prelude = scope.text[:bullets[0].start()] if bullets else ""
-        prelude = re.sub(r"(?im)^[ \t]*Strona \d+(?: z \d+)?[ \t]*$", "", prelude)
-        first = bullets[0] if bullets and not prelude.strip() else None
-        if first and re.fullmatch(r"\s*\(?(?:1|I)[.)]\s*", first.group(), FLAGS):
-            end = bullets[1].start() if len(bullets) > 1 else None
-            return scope.slice(bullets[0].end(), end), "pierwsza_czynność_z_listy"
-    if formal:
-        scope = body.slice(formal.end()).before(patterns["section_end"])
-        return scope, "pierwszy_numerowany_zarzut"
-    return None, None
+    assertion_pattern = patterns.get("allegation_assertion")
+    assertion = body.find(assertion_pattern) if assertion_pattern else None
+    marker = min((match for match in (formal, assertion) if match),
+                 key=lambda match: match.start(), default=None)
+    before_marker = body.slice(0, marker.start()) if marker else body
+    for intro in re.finditer(patterns["allegation_list_intro"], before_marker.text, FLAGS):
+        if intro.groupdict().get("filing_context") and before_marker.group(intro, "filing_context").find(
+                patterns["section_end"]):
+            continue
+        scope = before_marker.slice(intro.end()).before(patterns["section_end"])
+        bullets = iter(re.finditer(patterns["enumeration"], scope.text, FLAGS))
+        first = next(bullets, None)
+        if not first or not re.fullmatch(r"\s*\(?(?:1|I)[.)]\s*", first.group(), FLAGS):
+            continue
+        prelude = re.sub(r"(?im)^[ \t]*Strona \d+(?: z \d+)?[ \t]*$", "", scope.text[:first.start()])
+        if not prelude.strip():
+            second = next(bullets, None)
+            return scope.slice(first.end(), second.start() if second else None), "pierwsza_czynność_z_listy"
+
+    if marker is None:
+        return None, None
+    scope = body.slice(marker.end()).before(patterns["section_end"])
+    if marker is assertion:
+        return scope.before(assertion_pattern), "pierwszy_zarzut_wprost"
+    return scope, "pierwszy_numerowany_zarzut"
 
 
 def challenged_action(result, config, body, *, capture_decision=False):
@@ -247,11 +271,14 @@ def challenged_action(result, config, body, *, capture_decision=False):
     decision = allegation
     verb = patterns.get("challenge_verb")
     explicit = allegation.find(verb) if allegation and verb else None
-    if allegation and selector == "pierwszy_numerowany_zarzut" and not explicit:
+    basis = patterns.get("legal_basis_start")
+    legal_basis = allegation is not None and basis and allegation.find(basis)
+    contextual_hint = not (explicit or legal_basis or selector == "pierwszy_zarzut_wprost")
+    if allegation and selector == "pierwszy_numerowany_zarzut" and not (explicit or legal_basis):
         decision = allegation.slice(0, min(len(allegation.text), 240)).before(
             r"(?m):[ \t]*$|,[ \t\n]*tj\.")
     chosen, date_scope, excerpt = reason_evidence(decision, config) if decision else (None, None, None)
-    if hint and not chosen and not explicit:
+    if hint and not chosen and contextual_hint:
         # W starszej redakcji fakt poprzedzający zarzut opisuje kwestionowaną czynność.
         hint_scope = body.group(hint)
         chosen = classify_reason(hint_scope, config)
@@ -268,7 +295,7 @@ def challenged_action(result, config, body, *, capture_decision=False):
         if action_date:
             put_match(result, (*prefix, "czynnosc_dzien"), dated, action_date, "date",
                       "data_pierwszej_zaskarżonej_czynności", "date")
-        elif hint and not explicit and (classify_reason(body.group(hint), config) or (None,))[0] == reason_id:
+        elif hint and contextual_hint and (classify_reason(body.group(hint), config) or (None,))[0] == reason_id:
             put_match(result, (*prefix, "czynnosc_dzien"), body, hint, "date",
                       "data_z_jednoznacznego_opisu_tej_czynności", "date")
     else:
