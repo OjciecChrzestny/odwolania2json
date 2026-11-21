@@ -16,6 +16,7 @@ from pathlib import Path
 from odwolania2json.model import load_classes
 
 from .check_outputs import check_outputs, read_json
+from .comparison_admission import admit, read_source_seal
 from .score import checked_file, fields, load_object, score
 from .score_accounts import measure_accounts
 from .score_review import is_relative_name, score_review
@@ -23,7 +24,8 @@ from .score_review import is_relative_name, score_review
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL = ROOT / "evaluation/protocol_06.json"
 COHORTS = tuple(read_json(PROTOCOL)["cohorts"])
-EVALUATOR = ("evaluation/protocol_06.json", "evaluation/compare_once.py", "evaluation/score.py",
+EVALUATOR = ("evaluation/protocol_06.json", "evaluation/compare_once.py", "evaluation/comparison_admission.py",
+             "evaluation/score.py",
              "evaluation/check_outputs.py", "evaluation/score_accounts.py",
              "evaluation/score_review.py", "evaluation/restrict_linux.c", "odwolania2json/model.py")
 COORD = Path.home() / "uzp-parallel/koordynacja"
@@ -117,23 +119,29 @@ def ensure_private(cohort, rows, info):
         raise ValueError("Manifest lub etykieta znajduje się w katalogu dostępnym dla ekstraktora.")
 
 
-def prepare_seal(args):
-    spec = read_json(args.spec)
+def checked_cohorts(spec, baseline, info):
     mode = spec["mode"]
-    cohorts = spec["cohorts"]
-    if mode not in ("synthetic", "production") or not cohorts or not cohorts.keys() <= set(COHORTS):
+    requested = {name: dict(config) for name, config in spec["cohorts"].items()}
+    if mode not in ("synthetic", "production") or not requested or not requested.keys() <= set(COHORTS):
         raise ValueError("Nieznana grupa lub tryb porównania.")
-    protocol = read_json(PROTOCOL)
-    if mode == "production":
-        if set(cohorts) != set(COHORTS) or args.baseline != protocol["frozen_baseline_sha"]:
-            raise ValueError("Przebieg produkcyjny wymaga pełnego zestawu grup i bazy z protokołu.")
-    if args.baseline == args.candidate:
-        raise ValueError("Porównanie wymaga dwóch osobnych, pełnych SHA.")
-    revisions = {"baseline": verify_revision(args.baseline), "candidate": verify_revision(args.candidate)}
-    subprocess.run(["git", "-C", ROOT, "merge-base", "--is-ancestor", args.baseline, args.candidate], check=True)
-    info = runtime(args.python, args.ocr_data, args.ocr_lock)
-    for name, cohort in cohorts.items():
-        if cohort["labels"] not in (("synthetic",) if mode == "synthetic" else ("human", "unavailable")):
+    if mode == "production" and baseline != read_json(PROTOCOL)["frozen_baseline_sha"]:
+        raise ValueError("Przebieg produkcyjny wymaga bazy z protokołu.")
+    binding = spec.get("source_seal")
+    if mode == "production" and not binding:
+        raise ValueError("Przebieg produkcyjny wymaga pieczęci źródeł 01.")
+    proof = None
+    if binding:
+        binding = {"path": str(Path(binding["path"]).resolve()), "sha256": binding["sha256"]}
+        proof = read_source_seal(binding, baseline, digest)
+    manifests = {}
+    for name, cohort in requested.items():
+        state = cohort.get("status", "ready")
+        if state == "unavailable":
+            continue
+        if state != "ready":
+            raise ValueError(f"{name}: nieznany stan kohorty.")
+        label_states = ("synthetic", "unavailable") if mode == "synthetic" else ("human", "unavailable")
+        if cohort["labels"] not in label_states:
             raise ValueError(f"{name}: poświadcz pochodzenie adnotacji stron i kontroli.")
         cohort["dataset"] = str(Path(cohort["dataset"]).resolve())
         cohort["manifest"] = str(Path(cohort["manifest"]).resolve())
@@ -143,11 +151,29 @@ def prepare_seal(args):
             "odwolanie": 40, "pelnomocnictwo": 40, "przelew": 40, "negative": 8
         }:
             raise ValueError("Znane 128 wymaga podziału 40/40/40/8.")
-        cohort["documents"] = len(rows)
-        cohort["inputs"] = {row["input"]: row["sha256"] for row in rows}
-        for row in rows:
+        manifests[name] = rows
+    admission = admit(mode, requested, manifests, proof, COHORTS)
+    ready = {}
+    for name, rows in manifests.items():
+        if admission[name]["status"] == "ready":
+            ready[name] = {**requested[name], "documents": len(rows),
+                           "inputs": {row["input"]: row["sha256"] for row in rows}}
+    return requested, binding, admission, ready
+
+
+def prepare_seal(args):
+    if args.baseline == args.candidate:
+        raise ValueError("Porównanie wymaga dwóch osobnych, pełnych SHA.")
+    revisions = {"baseline": verify_revision(args.baseline), "candidate": verify_revision(args.candidate)}
+    subprocess.run(["git", "-C", ROOT, "merge-base", "--is-ancestor", args.baseline, args.candidate], check=True)
+    info = runtime(args.python, args.ocr_data, args.ocr_lock)
+    spec = read_json(args.spec)
+    requested, binding, admission, cohorts = checked_cohorts(spec, args.baseline, info)
+    for cohort in cohorts.values():
+        for row in manifest_rows(cohort):
             checked_file(Path(cohort["dataset"]), row["pdf"], row["sha256"])
-    seal = dict(version=1, frozen_utc=now(), mode=mode, revisions=revisions, cohorts=cohorts,
+    seal = dict(version=2, frozen_utc=now(), mode=spec["mode"], revisions=revisions, cohorts=cohorts,
+                requested_cohorts=requested, source_seal=binding, admission=admission,
                 evaluator=evaluator_hashes(), runtime=info)
     with args.seal.open("xb") as target:
         target.write(encoded(seal))
@@ -213,6 +239,7 @@ def extract(restrict, info, product, job, secret):
     save(job / "extract-status.json", {"exit_code": result.returncode, "finished_utc": now()})
     if result.returncode not in (0, 1) or not (job / "diagnostics/extraction.json").is_file():
         raise RuntimeError(f"Awaria ekstrakcji w {job}, kod {result.returncode}.")
+
 
 def inventory(folder):
     return {path.relative_to(folder).as_posix(): digest(path)
@@ -322,7 +349,7 @@ def run_once(args):
     if seal_digest != args.seal_sha256:
         raise ValueError("Niezgodny SHA-256 pieczęci.")
     seal = json.loads(seal_raw)
-    if seal["version"] != 1 or seal["evaluator"] != evaluator_hashes():
+    if seal["version"] != 2 or seal["evaluator"] != evaluator_hashes():
         raise ValueError("Niezgodna wersja pieczęci lub zmieniony kod miernika.")
     mode = seal["mode"]
     approval = authorize(args, seal_digest, mode)
@@ -332,8 +359,16 @@ def run_once(args):
     for revision in seal["revisions"].values():
         verify_revision(revision)
     root = args.trial_root.resolve() if mode == "synthetic" else REGISTRY
-    root.mkdir(parents=True, exist_ok=True)
     directory = root / (f"synthetic-{seal_digest}" if mode == "synthetic" else "production-attempt")
+    if directory.exists():
+        raise ValueError(f"Próba już istnieje: {directory}")
+    spec = {"mode": mode, "cohorts": seal["requested_cohorts"], "source_seal": seal["source_seal"]}
+    _, _, admission, cohorts = checked_cohorts(spec, seal["revisions"]["baseline"], info)
+    if admission != seal["admission"] or cohorts != seal["cohorts"]:
+        raise ValueError("Stan dopuszczenia różni się od zamrożonego.")
+    if not cohorts:
+        raise ValueError("Brak dopuszczonej kohorty. Szczegóły znajdują się w pieczęci.")
+    root.mkdir(parents=True, exist_ok=True)
     directory.mkdir()
     (directory / "seal.json").write_bytes(seal_raw)
     if approval:
@@ -376,7 +411,8 @@ def run_jobs(seal, directory):
             save(job / "diagnostics.sha256.json", inventory(job / "diagnostics"))
 
     # Open field labels only once both variants and every cohort have finished extraction.
-    result = {"revisions": seal["revisions"], "mode": seal["mode"], "cohorts": {}}
+    result = {"revisions": seal["revisions"], "mode": seal["mode"], "source_seal": seal["source_seal"],
+              "cohorts": {name: dict(record) for name, record in seal["admission"].items()}}
     for name, (cohort, rows) in batches.items():
         jobs = {tag: directory / name / tag for tag in products}
         manifest_rows(cohort)
@@ -392,7 +428,7 @@ def run_jobs(seal, directory):
         )
         delta.update(gold_deltas(Path(cohort["dataset"]), rows,
                                 jobs["baseline"] / "output", jobs["candidate"] / "output"))
-        result["cohorts"][name] = {"scores": local, "candidate_minus_baseline": delta}
+        result["cohorts"][name].update(scores=local, candidate_minus_baseline=delta)
     return result
 
 
