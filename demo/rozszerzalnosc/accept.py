@@ -120,12 +120,19 @@ def synthetic(input_dir, output, records, expected, extended):
         value = json.loads((output / name).read_bytes())
         equal(value, spec["result"], f"Pola {name}")
         equal(records[name]["signals"], spec["signals"], f"Sygnały {name}")
-        equal(records[name]["fields"], spec["fields"], f"Źródła {name}")
+        equal(set(records[name]["fields"]), set(spec["fields"]), f"Źródła pól {name}")
         pdf = PdfReader(input_dir / Path(name).with_suffix(".pdf"))
         print(f"{name} | {json.dumps(value, ensure_ascii=False)}")
         for field, observed in records[name]["fields"].items():
             page = observed["page"]
+            reference = spec["fields"][field]
+            equal((page, observed["rule"]), (reference["page"], reference["rule"]), f"Podstawa {name} {field}")
+            equal(observed["source"], "text", f"Źródło tekstowe {name} {field}")
+            equal(observed["precision"] in {"page", "snippet"}, True, f"Dokładność {name} {field}")
             line = spec["source_lines"][field]
+            if observed["precision"] == "snippet":
+                snippet = observed["snippet"]
+                equal(bool(snippet.strip()) and snippet in line, True, f"Fragment {name} {field}")
             equal(line in pdf.pages[page - 1].extract_text().splitlines(), True, f"Wiersz {name} s. {page}")
             verified_fields += 1
             print(f"  {field} | s. {page} | {observed['rule']} | {line}")
