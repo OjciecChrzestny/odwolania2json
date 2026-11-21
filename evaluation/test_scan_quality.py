@@ -42,6 +42,26 @@ class PageQualityTest(unittest.TestCase):
         pdf.write(result)
         return result
 
+    def test_appeal_reads_image_only_pages_within_the_extraction_limit(self):
+        path = self.pdf("", "", "", "")
+        native = ["Krajowa Izba Odwoławcza\nOdwołujący: Fikcyjna spółka\nZamawiający: Fikcyjna gmina\nODWOŁANIE", "Opis sprawy", ""]
+        calls = []
+
+        def scanner(_pdf, stop, *, start):
+            calls.append((start, stop))
+            return [(start, "Zarzut 1: Zaniechanie odrzucenia oferty.")]
+
+        with patch.object(PageObject, "extract_text", side_effect=native):
+            document, pages = read_pdf(path, scanner, max_pages=3, classes=self.classes)
+
+        value, report = extract(document, self.classes)
+        self.assertEqual(calls, [(2, 3)])
+        self.assertEqual(pages, [3])
+        self.assertEqual(value["OdwolanieKIO"]["czynnosc_powod_id"], 7)
+        self.assertEqual(report["first_allegation"]["page"], 3)
+        self.assertFalse(report["first_allegation"]["fallback"])
+        self.assertEqual(document.scan_quality["pages"][3]["reason"], "page_limit")
+
     def test_native_readability_and_extraction_are_separate(self):
         text = TRANSFER.replace("Kwota: 12,50 PLN", "Kwota: 12,50 PLN\nKwota: 26,50 PLN")
         path = self.pdf(text)

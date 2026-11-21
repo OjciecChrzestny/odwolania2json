@@ -64,11 +64,13 @@ def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
                 observations[index] = native_observation(index + 1, text, readable(text), skipped)
 
         ocr_pages, orientations = [], []
+        scanned_indices = set()
         scanner = ocr.oriented_pages if isinstance(ocr, LocalOCR) else ocr
 
         def read_scan(stop, *, start=None):
             first = 0 if start is None else start
             pending = set(range(first, stop))
+            scanned_indices.update(pending)
             missing_reason = "ocr_no_page_result"
             try:
                 results = scanner(path, stop) if start is None else scanner(path, stop, start=start)
@@ -100,6 +102,12 @@ def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
             if missing and classify(Document.from_pages(pages), classes)[0] == "negative":
                 for i in missing:
                     read_scan(i + 1, start=i)
+            remaining = [i for i, text in enumerate(pages) if i not in scanned_indices and not readable(text)]
+            if remaining:
+                name, _ = classify(Document.from_pages(pages), classes)
+                if classes.get(name, {}).get("builder") == "appeal":
+                    for i in remaining:
+                        read_scan(i + 1, start=i)
         if not any(map(readable, pages)):
             read_error = "no_readable_content"
             raise ReadError("brak czytelnej treści")
