@@ -145,7 +145,11 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 
 **Rezerwa KARR.** Dwa nowe układy, BNP Paribas i Millenet, zamrożono przed strojeniem A3. Wersja `59fcf1a` uzyskała na słabych skanach 41,67% mikro-F1. Odczytała 3/3 kwot i 1/3 dat. Obie faktury dały po 0 B, a 128/128 wyników rozwojowych pozostało identycznych bajtowo. Warunek poprawnego odczytu kwoty i daty na obu nowych układach spełnił tylko Millenet. Ważny wynik pochodzi z Docker Compose na VPS. Pierwsze uruchomienie bez kontenera przerwał `SIGSEGV`. [Raport, rozbicie na pola i pliki odbioru](RAPORT_KARR_A3.md)
 
-**Następny krok techniczny.** Odtworzyć i usunąć `SIGSEGV` na osobnych skanach rozwojowych. Odbiór wymaga zakończenia całego folderu przez CLI bez kontenera i przez Compose oraz bajtowej zgodności ich wyników. Rezerwa KARR v2 po pomiarze służy do regresji. W kolejce produktowej pozostają pierwszy zarzut na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
+**Przelewy przez Scaleway API.** Mistral Small 3.2 24B na czterech zamrożonych wycinkach z 44 rozwojowych PDF-ów odzyskał 3/3 brakujących kwot. Wpisał datę wygenerowania w miejsce daty operacji. Mikro-F1 wszystkich pól wyniosło 76,82% wobec 76,19% dla A3. Czas wzrósł z 51,92 s do 86,93 s. [Pomiar, przyczyna błędu i polecenie weryfikacji](experiments/transfer_api/RAPORT.md)
+
+**Następny krok eksperymentu.** Zamrozić niezależne przelewy z datą operacji zapisaną słownie i możliwą do pomylenia datą wydruku. Taka partia umożliwi ocenę osobno wariantu kwotowego i wyboru daty z wiarygodną etykietą.
+
+**Warunek gotowości CLI do wydania.** Odtworzyć i usunąć `SIGSEGV` na osobnych skanach rozwojowych. Odbiór wymaga zakończenia całego folderu przez CLI bez kontenera i przez Compose oraz bajtowej zgodności ich wyników. Rezerwa KARR v2 po pomiarze służy do regresji. W kolejce produktowej pozostają pierwszy zarzut na dalszych stronach i rozróżnianie pełnomocników od osób podpisujących.
 
 Dokumentacja czytników: [pypdf](https://pypdf.readthedocs.io/en/stable/user/extract-text.html) · [pdfplumber](https://github.com/jsvine/pdfplumber) · [dane językowe Tesseract](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html).
 
