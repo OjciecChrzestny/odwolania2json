@@ -186,12 +186,16 @@ class Extraction:
         self.data = empty(schema)
         self.evidence = {}
 
-    def put(self, path, value, offset, rule):
+    def put(self, path, value, offset, rule, *, span_end=None, operation="text", source=None):
         if value is None:
             return
+        from .field_evidence import record_field_evidence
         target = self.data
         for key in path[:-1]:
             target = target[key]
         target[path[-1]] = value
         field = ".".join(str(key) for key in path)
-        self.evidence[field] = {"page": self.document.page(offset), "rule": rule}
+        self.evidence[field] = record_field_evidence(
+            self.document, field, value, offset, rule,
+            span_end=span_end, operation=operation, source=source,
+        )
