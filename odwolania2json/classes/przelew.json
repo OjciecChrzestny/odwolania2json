@@ -171,13 +171,6 @@
         "title_layout": "description"
       }
     ],
-    "przelew_bankowy.numer_transakcji": [
-      {
-        "name": "numer_referencyjny_transakcji",
-        "pattern": "^[ \\t]*(?:(?:Transaction|Transfer) (?:reference|ID)|Reference number|Nr ref\\.?|(?:Numer|Nr|Identyfikator|ID) (?:transakcji|operacji|referencyjny|przelewu|referencji))(?:[ \\t]+operacji)?[ \\t]*[:\\-]?[ \\t]*(?:\\.{2,}[ \\t]*)?(?:\\n[ \\t]*)?(?!(?:Status|Kwota|Data|Rachunek|Numer|Bank|ZREALIZOWANO|Booking|Amount)\\b)([a-z0-9][a-z0-9_./\\-]+)",
-        "operation": "identifier"
-      }
-    ],
     "przelew_bankowy.z_rachunku": [
       {
         "name": "rachunek_z_etykiety_roli",

@@ -18,8 +18,27 @@ OWN = re.compile(r"^(?:Account (?:info(?:rmation)?|details)|Dane rachunku|Rachun
 STOP = re.compile(r"^(?:Szczegóły|Transaction details|Kwota|Wartość|Data|Tytuł|Opis|Amount|Title|Status|Nr ref)\b", re.I)
 MONEY = re.compile(r"(?<![\d.,])(?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2}(?![\d.,])")
 DATE_VALUE = re.compile(DATE, re.I)
-REF = re.compile(r"^(?:Nr ref\.?|Numer referencyjny|Identyfikator (?:operacji|transakcji))(?=\W|$)", re.I)
-REF_VALUE = re.compile(r"(?<![\w/.-])(?=[\w/.-]*\d)[a-zA-Z0-9][a-zA-Z0-9_./-]{2,}(?![\w/.-])")
+REF = re.compile(
+    r"^(?:(?P<bank>Referencj[ae] banku|Bank reference(?: number)?)"
+    r"|(?P<daily>Dzienny (?:numer|nr) transakcji)"
+    r"|(?:Transaction|Transfer) (?:reference(?: number)?|ID|number)"
+    r"|Reference number|Nr ref\.?"
+    r"|(?:Numer|Nr|Identyfikator|ID) (?:transakcji|operacji|referencyjny|przelewu|referencji))"
+    r"(?:[ \t]+operacji)?(?=[ \t:.\-]|$)",
+    re.I,
+)
+REF_BANK_QUALIFIER = re.compile(r"^[ \t]+w[ \t]+[^:\d]*\b(?:banku|bank)\b[^:\d]*:", re.I)
+REF_NEXT_FIELD = re.compile(
+    r"[ \t]+(?:[|;][ \t]*)?(?:Data|Date|Kwota|Amount|Rachunek|Account|Status|Tytuł|Title|Opis|"
+    r"(?:Nr|Numer|ID|Identyfikator)[ \t]+(?:dokumentu|wydruku|potwierdzenia))\b",
+    re.I,
+)
+REF_VALUE = re.compile(r"(?=[A-Za-z0-9_./-]*[0-9])[A-Za-z0-9][A-Za-z0-9_./-]*")
+REF_GROUPED_DIGITS = re.compile(r"[0-9]+(?:[ \t]+[0-9]+)+")
+REF_ACCOUNT = re.compile(r"(?:PL)?[0-9]{24,26}", re.I)
+REF_IBAN = re.compile(r"[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}", re.I)
+REF_RULE = "numer_referencyjny_transakcji"
+REF_DAILY_RULE = "dzienny_numer_transakcji"
 DIRECTION = {
     "z_rachunku": re.compile(r"\b(?:przelew (?:wychodzący|wychodzacy)|outgoing (?:bank )?transfer)\b|^(?:Transfer amount|Amount|Kwota(?: operacji)?)[ \t]*:?[ \t]+(?:PLN[ \t]*)?[-−][ \t]*[0-9]", re.I | re.M),
     "na_rachunek": re.compile(r"\b(?:przelew przychodzący|incoming (?:bank )?transfer)\b", re.I),
@@ -104,26 +123,61 @@ def amount_and_date(result, lines):
                            pos + match.start(), "kwota_i_data_w_kolumnach")
 
 
+def reference_value(text, *, bank_reference):
+    value = normalize(text, "identifier")
+    if not value or DATE_VALUE.fullmatch(value):
+        return None
+    # Bank references can contain visual spacing between groups of digits.
+    if bank_reference and REF_GROUPED_DIGITS.fullmatch(value):
+        value = value.replace(" ", "")
+    if not REF_VALUE.fullmatch(value):
+        return None
+    compact = re.sub(r"[./_-]", "", value).upper()
+    if REF_ACCOUNT.fullmatch(compact):
+        return None
+    if REF_IBAN.fullmatch(compact):
+        reordered = compact[4:] + compact[:4]
+        digits = "".join(str(ord(ch) - ord("A") + 10) if ch.isalpha() else ch for ch in reordered)
+        if int(digits) % 97 == 1:
+            return None
+    return value
+
+
 def reference_number(result, lines):
+    path = ("przelew_bankowy", "numer_transakcji")
+    field = ".".join(path)
+    evidence = result.evidence.get(field)
+    # A daily sequence is useful only when there is no full transaction reference.
+    if evidence and evidence["rule"] != REF_DAILY_RULE:
+        return
     for i, (start, line) in enumerate(lines):
         label = REF.match(line)
-        if not label:
+        if not label or (label["daily"] and evidence):
             continue
-        value = result.data["przelew_bankowy"]["numer_transakcji"]
-        if value and any(ch.isdigit() for ch in value):
-            return
         tail = line[label.end():]
-        tokens = list(REF_VALUE.finditer(tail))
-        if len(tokens) == 1:
-            token = tokens[0]
-            result.put(("przelew_bankowy", "numer_transakcji"), token[0].rstrip("."),
-                       start + label.end() + token.start(), "identyfikator_w_wierszu_referencji")
-        elif i and not re.search(r"\w", tail):
-            pos, previous = lines[i - 1]
-            if REF_VALUE.fullmatch(previous) and not ACCOUNT.fullmatch(previous) and any(ch.isalpha() for ch in previous):
-                result.put(("przelew_bankowy", "numer_transakcji"), previous,
-                           pos, "identyfikator_nad_etykietą")
-        return
+        qualifier = REF_BANK_QUALIFIER.match(tail)
+        if qualifier:
+            tail = tail[qualifier.end():]
+        value_pos = start + len(line) - len(tail)
+        first = tail.lstrip(" \\t:.-")
+        value_pos += len(tail) - len(first)
+        if first:
+            following_field = REF_NEXT_FIELD.search(first)
+            if following_field:
+                first = first[:following_field.start()]
+        elif i + 1 < len(lines):
+            next_pos, next_line = lines[i + 1]
+            gap = result.document.text[start + len(line):next_pos]
+            if gap.count("\\n") <= 2:
+                value_pos, first = next_pos, next_line
+        value = reference_value(first, bank_reference=bool(label["bank"]))
+        if value is None:
+            continue
+        rule = REF_DAILY_RULE if label["daily"] else REF_RULE
+        result.put(path, value, value_pos, rule)
+        if rule == REF_RULE:
+            return
+        evidence = result.evidence[field]
 
 
 def transfer(result, config):
