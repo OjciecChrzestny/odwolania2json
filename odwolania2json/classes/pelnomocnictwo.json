@@ -59,13 +59,21 @@
     "name_end": ",\\s*(?:(?:ul|al|pl|os)\\.|(?:z siedzibą|KRS|NIP|REGON|PESEL)\\b)|[ \\t]+z siedzibą\\b|\\s*\\((?:KRS|NIP|PESEL|dalej)\\b|,\\s*\\d{2}-\\d{3}|\\n[ \\t]*(?:ul\\.|al\\.|adres\\b|dane\\b|KRS\\b|NIP\\b|REGON\\b|PESEL\\b)",
     "physical": "\\bosob[ayą]\\s+fizyczn|\\bPESEL\\b|\\bprowadząc\\w*\\s+działalność gospodarczą|\\bCentralnej Ewidencji i Informacji o Działalności Gospodarczej\\b",
     "counsel": "\\b(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)\\s*((?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:[ \\t\\n]+(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})(?=\\s*(?:\\(|,|;|$|(?:PESEL|nr wpisu|do reprezentowania)\\b))",
-    "counsel_label": "^[ \\t]*(?:§[ \\t]*\\d+[.)][ \\t]*)?Pełnomocni(?:k|cy)(?=[ \\t:\\n])[ \\t]*:?[ \\t\\n]*",
-    "counsel_end": "^[ \\t]*(?:(?:§[ \\t]*\\d+[.)][ \\t]*)?(?:Postępowanie|Zakres|Zamawiający|Niniejszym)\\b|Pełnomocnictwo(?: udzielone| obejmuje| dotyczy)|(?:Mocodawca|W imieniu)[^\\n]*:[ \\t]*$)|\\bdo reprezentowania\\b",
+    "counsel_label": "^[ \\t]*(?:§[ \\t]*\\d+[.)][ \\t]*)?Pełnomocni(?:k|cy)(?:[ \\t]*:[ \\t]*|[ \\t]*$|[ \\t]+(?=(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)))",
+    "counsel_end": "^[ \\t]*(?:(?:§[ \\t]*\\d+[.)][ \\t]*)?(?:Postępowanie|Zakres|Zamawiający|Niniejszym)\\b|Pełnomocnictwo(?: udzielone| obejmuje| dotyczy)|(?:Mocodawca|W imieniu)[^\\n]*:[ \\t]*$)|\\bdo reprezentowania\\b|\\bdo[ \\t\\n]+reprezentacji\\b|^[ \\t]*(?:Podpis(?:y)?\\b|Osob[ay][ \\t]+podpisując[ae]\\b|Podpisano\\b|W imieniu\\b|Za[ \\t]+mocodawcę\\b|Pełnomocnictwo[ \\t]+przyjmuj\\w*\\b|[._]{4,}[ \\t]*$)",
     "signed_heading": "^[ \\t]*W imieniu[ \\t]+(?P<entity>[^\\n\\f]+?)[ \\t]*:[ \\t]*$",
-    "acceptance": "^[ \\t]*Pełnomocnictwo przyjmuj[ęe][ \\t]*:?[ \\t]*$",
+    "acceptance": "^[ \\t]*Pełnomocnictwo[ \\t]+przyjmuj(?:[ęe]|emy)\\b",
     "signature": "^[ \\t]*(?:[._]{4,}[ \\t]*\\n)+[ \\t]*(?:Za[ \\t]+[^\\n\\f]+\\n[ \\t]*)?((?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:[ \\t]+(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})[ \\t]*$",
     "sole_trader": "\\bprowadz\\w*\\s+działalność\\s+gospodarczą\\s+pod\\s+firmą[ \\t\\n]+",
-    "sole_trader_person": "\\b(?:Ja,\\s*)?(?:niżej\\s+)?podpisan(?:y|a)\\s+([^,\\n]+)"
+    "sole_trader_person": "\\b(?:Ja,\\s*)?(?:niżej\\s+)?podpisan(?:y|a)\\s+([^,\\n]+)",
+    "principal_label": "^[ \\t]*Mocodawc(?:a[ \\t]*:|ą[ \\t]+jest\\b)[ \\t]*",
+    "principal_representation": "(?:^[ \\t]*|[,;][ \\t]*)reprezentowan(?:a|y|e|ą)[ \\t]+przez\\b",
+    "signature_label": "^[ \\t]*(?:Podpis(?:y)?[ \\t]+mocodawcy|Osob(?:a|y)[ \\t]+podpisując(?:a|e))[ \\t]*:[ \\t]*",
+    "signature_entry": "^[ \\t]*(?:(?:Podpisano[ \\t]+elektronicznie[ \\t]+przez|(?:Prezes|Wiceprezes|Członek)[ \\t]+Zarządu|Prokurent)[ \\t]*:[ \\t]*)?(?:(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)[ \\t]+)?(?P<name>(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:[ \\t]+(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})(?:[ \\t]*[–—-][ \\t]*(?:(?:Prezes|Wiceprezes|Członek)[ \\t]+Zarządu|Prokurent))?[ \\t]*$",
+    "counsel_entry": "\\A[ \\t\\n]*(?P<point>(?:\\d+[.)]|[•–-])[ \\t]+)?(?:Pan(?:a|i|u)?[ \\t]+)?(?P<title>(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)[ \\t\\n]+)?(?P<name>(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:(?(title)[ \\t\\n]+|[ \\t]+)(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})(?P<details>(?:[ \\t]*\\([^\\f()]*\\)|[ \\t]*(?:,|\\n)?[ \\t]*(?:PESEL[ \\t]*:?[ \\t]*\\d{11}(?!\\d)|nr[ \\t]+wpisu(?:[ \\t]+na[ \\t]+listę)?[ \\t]*:?[ \\t]*[\\w/-]+(?:[ \\t]+\\d+)?))*)(?=[ \\t]*(?:[.;,]|\\n|\\Z)|[ \\t]+(?:i|oraz)\\b)",
+    "counsel_separator": "\\A(?:[ \\t]*[,;][ \\t]*(?:(?:i|oraz)[ \\t]+)?|[ \\t]+(?:i|oraz)[ \\t]+|[ \\t]*\\n)",
+    "signature_office": "[ \\t]*(?:(?:Prezes|Wiceprezes|Członek)[ \\t]+Zarządu|Prokurent)[ \\t]*",
+    "company_suffix": "(\\bsp\\.)[ \\t]*(z)[ \\t]*(o\\.o\\.?)$"
   },
   "principal_fields": {
     "data.krs": [
