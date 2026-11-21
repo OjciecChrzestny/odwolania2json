@@ -1,0 +1,166 @@
+{
+  "frozen_utc": "2026-11-21T22:08:08.169616+00:00",
+  "parent": "99862aa5a3df8b8ca8f3ca1c4ce9a3aa3d062aec",
+  "inventory_sha256": "2b4b99b828bfd65a3b51731427723f4fc2a402f7ceeed2c8a65913ae89820a0b",
+  "manifests": {
+    "hold": "6bfbe7740292cd96094d5315f77c69e3adb95f5915fe2c4941c1a37408c1e593",
+    "dev": "e95ca04cf94d0e83ee34e5c0ae48f58bafce08e2f850c3b31314e1b43cbb3ef9"
+  },
+  "counts": {
+    "dev": {
+      "transfers": 2,
+      "negatives": 0
+    },
+    "hold": {
+      "transfers": 6,
+      "negatives": 0
+    }
+  },
+  "prior_hash_counts": {
+    "development-40": 128,
+    "validation-10": 32,
+    "final-10": 31,
+    "holdout-10-84cc976": 30,
+    "external-v1": 70,
+    "KARR-1": 4,
+    "KARR-2": 59,
+    "przelewy-v3": 16,
+    "classification-v4": 20,
+    "classification-v4b": 16,
+    "previous-source-files": 38
+  },
+  "prior_hash_intersections": {
+    "dev": {
+      "development-40": 0,
+      "validation-10": 0,
+      "final-10": 0,
+      "holdout-10-84cc976": 0,
+      "external-v1": 0,
+      "KARR-1": 0,
+      "KARR-2": 0,
+      "przelewy-v3": 0,
+      "classification-v4": 0,
+      "classification-v4b": 0,
+      "previous-source-files": 0
+    },
+    "hold": {
+      "development-40": 0,
+      "validation-10": 0,
+      "final-10": 0,
+      "holdout-10-84cc976": 0,
+      "external-v1": 0,
+      "KARR-1": 0,
+      "KARR-2": 0,
+      "przelewy-v3": 0,
+      "classification-v4": 0,
+      "classification-v4b": 0,
+      "previous-source-files": 0
+    }
+  },
+  "dev_hold_intersections": {
+    "sha256": 0,
+    "raster_first_page": 0,
+    "sources": 0,
+    "layout_families": 0,
+    "banks_or_form_families": 0
+  },
+  "historical_external_first_page_fingerprints_compared": 181,
+  "historical_first_page_matches": 0,
+  "layouts": {
+    "dev": [
+      "DNB iNORD Business – strony w pionie",
+      "ING Business – dwie kolumny Winien i Ma"
+    ],
+    "hold": [
+      "CA24 – szczegóły transakcji",
+      "Millenet – potwierdzenie wykonania operacji",
+      "PekaoBiznes24 – potwierdzenie operacji",
+      "Santander – zestawienie Data Opis Kwota",
+      "mBank detaliczny – Winien i Ma"
+    ]
+  },
+  "notes": "Six public transactions at six different payees and six distinct recipient accounts. Five outside UZP, including an incoming business-to-business transaction. Two mBank receipts share a layout. Earlier experiments covered retail mBank, Millennium, Pekao and CA24. The new development set uses ING and DNB. Documents are individual confirmations and public originals, not six complete cases.",
+  "protocol": "Single 96 dpi gray scan per original (Gaussian blur 0.55 pixels, JPEG quality 55). Compare immutable 4edfd0c and one committed candidate on these same six holdout PDFs once. Primary: strict micro-F1 over both ordered account fields, TP/FP/FN for each role; count full swaps and individual fields containing the opposite gold account, distinct from other incorrect values or blanks. Secondary: strict six-field F1 and validity, both-correct pairs, transfer class and coverage. Report 128/128 byte equality and reproducibility under misleading file names; no LLM, filename or account lists. Accept only if account TP increases, no swaps, account FP do not increase and 128 baseline outputs match. Report failed gates honestly, no tuning on this reserve.",
+  "targets": {
+    "hold_pdfs": 6,
+    "distinct_hold_recipients": 6,
+    "outside_UZP": 5,
+    "incoming": 1,
+    "layout_families": 5
+  },
+  "seal_sha256": "2d52bee3bfcd41cb6ee0a83106200dfd5f1cbbee6edfc3ffc409c7f5c7cfa3af",
+  "sources": [
+    {
+      "group": "dev",
+      "layout": "ING Business – dwie kolumny Winien i Ma",
+      "source": "https://khk.krakow.pl/media/upload/auction/0/21/file/odwolanie_grontmij.PDF",
+      "source_page": 15,
+      "source_sha256": "a126a685ce7424f6311c9c6a88b15847b7fb5e5b8dbea0b87688f8b5470143ea",
+      "native_sha256": "c6e3d28d4d0b4479e6220a5e136640e8e03bd3d6f5e8a7d82e4f626c39f749ff",
+      "weak_sha256": "237d948df5eaefa1a1e78ab34c69e751cb82eeec63589d2c4b7275e2029152d5"
+    },
+    {
+      "group": "dev",
+      "layout": "DNB iNORD Business – strony w pionie",
+      "source": "https://www.cez.gov.pl/fileadmin/user_upload/odwolanie_wniesione_przez_netia_sa_5d3953d4037df.pdf",
+      "source_page": 23,
+      "source_sha256": "e68011cf0de5e5fc9436fe0468416c57c764df4b5316195d2dd1c666e3260e83",
+      "native_sha256": "6a620735bf57724223d1359e14588fedb75dfb6bffb3f6aed55b02feea2922c4",
+      "weak_sha256": "73b69b465e852b7dbd90284bc6cdf40ba7cc31cb254bfb3427662d3140f50dd0"
+    },
+    {
+      "group": "hold",
+      "layout": "mBank detaliczny – Winien i Ma",
+      "source": "https://www.drmg.gdansk.pl/images/CSK_Sobieszewo_-_Wycinka.pdf",
+      "source_page": 7,
+      "source_sha256": "90ba6a6ec5cf9cab23d360e3d6847a1a7c6655488a70e8951e5c277c66dbfee3",
+      "native_sha256": "be5b01cfc957157c5207d8a74027d2cfd8cf3d1bfe07adfecf66e3f6bc684a7b",
+      "weak_sha256": "3c0dec99282d74dd235470877706d82249c3fa4a1cebfd6abc430072d3493e78"
+    },
+    {
+      "group": "hold",
+      "layout": "mBank detaliczny – Winien i Ma",
+      "source": "https://czyszczenie-posadzek.com.pl/wp-content/uploads/2022/03/74905336_3891.pdf",
+      "source_page": 1,
+      "source_sha256": "eab144debf8e95b2b69ed4c6e8bf0887b111ff76d6b6520934b5d8b4e2bca7fc",
+      "native_sha256": "eab144debf8e95b2b69ed4c6e8bf0887b111ff76d6b6520934b5d8b4e2bca7fc",
+      "weak_sha256": "116d5f9d477a3278339dfd28ebf416de9bc35d0665f6f7e250d48326b1596403"
+    },
+    {
+      "group": "hold",
+      "layout": "Millenet – potwierdzenie wykonania operacji",
+      "source": "https://rar.ms.gov.pl/api/v1/download/document?caseReference=OL.VIII+Ns-Rej.KRS+14464%2F25%2F242&identifier=6364c096-f15e-4f97-9c86-b4568de766ca&transform=pdf",
+      "source_page": 1,
+      "source_sha256": "882168588980add72b1d633019a6f459448cd3a3a6c401b3c25b97f164de26e5",
+      "native_sha256": "882168588980add72b1d633019a6f459448cd3a3a6c401b3c25b97f164de26e5",
+      "weak_sha256": "f06c2ef1b4393de23fe6169a6e5cf2a14a18ca9c66260f2461165748ba47d163"
+    },
+    {
+      "group": "hold",
+      "layout": "PekaoBiznes24 – potwierdzenie operacji",
+      "source": "https://spzozsiemiatycze.pl/wp-content/uploads/Dokumenty/ZamowieniaPubliczne/Aktualne/2025/SPZOZZP_10_25/za%C5%82.%201%20wpis.pdf",
+      "source_page": 1,
+      "source_sha256": "0018b3d1d4341895c1688575340e16e2eff80b858ccec48b774d27f2b522fa50",
+      "native_sha256": "0018b3d1d4341895c1688575340e16e2eff80b858ccec48b774d27f2b522fa50",
+      "weak_sha256": "ad0ec18d737a5d16facde064f90c3ca5c083187f8987d8c94d3d8cd8b5e0d79a"
+    },
+    {
+      "group": "hold",
+      "layout": "Santander – zestawienie Data Opis Kwota",
+      "source": "https://rar.ms.gov.pl/api/v1/download/document?caseReference=TO.VII+Ns-Rej.KRS+10053%2F25%2F832&identifier=6b3faed0-348f-43cc-9569-8812b81fd302&transform=pdf",
+      "source_page": 1,
+      "source_sha256": "653d14ed4d2c011c07e6e23b336d348a93a51b7a80d498e87feccee870e567f6",
+      "native_sha256": "653d14ed4d2c011c07e6e23b336d348a93a51b7a80d498e87feccee870e567f6",
+      "weak_sha256": "ebe6b0d36e7d3b848318220637c662a0c7f04e6cce19c7068cd8b8136d13d835"
+    },
+    {
+      "group": "hold",
+      "layout": "CA24 – szczegóły transakcji",
+      "source": "https://rar.ms.gov.pl/api/v1/download/document?caseReference=WA.XIV+Ns-Rej.KRS+53068%2F25%2F399&identifier=f7c03e1b-cece-4fdb-8685-8850b7ddd779&transform=pdf",
+      "source_page": 1,
+      "source_sha256": "c198659e3da43c63f1baeb5357468abee120a60aede0d5c333ed9b23f456e1c7",
+      "native_sha256": "c198659e3da43c63f1baeb5357468abee120a60aede0d5c333ed9b23f456e1c7",
+      "weak_sha256": "2486b2616529ef8a0c6cf2782f8229d789454086878908264266b3e6ed574435"
+    }
+  ]
+}
