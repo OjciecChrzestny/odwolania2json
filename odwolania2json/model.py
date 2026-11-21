@@ -62,7 +62,7 @@ def cover_limit(first_page, config):
 
 
 def class_candidate(document, name, config, text, offset=0, required=()):
-    if excluded_heading(text, config):
+    if excluded_heading(text, config) or (config.get("exclude_page") and re.search(config["exclude_page"], text, FLAGS)):
         return None
     score = 0
     evidence = []

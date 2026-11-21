@@ -4,9 +4,12 @@ import unicodedata
 
 from pypdf import PdfReader
 
-from .legal import BUILDERS
+from .legal import BUILDERS as LEGAL_BUILDERS
 from .model import Document, Extraction, classify, cover_limit, schema_errors
 from .operations import apply_fields
+from .transfer import transfer
+
+BUILDERS = {**LEGAL_BUILDERS, "transfer": transfer}
 
 
 class ReadError(ValueError):
