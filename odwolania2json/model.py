@@ -19,6 +19,7 @@ class Document:
     bank_scan: Callable | None = field(default=None, repr=False, compare=False)
     scan_quality: dict | None = field(default=None, repr=False, compare=False)
     ocr_layout_tsv: str | None = field(default=None, repr=False, compare=False)
+    signature_guides: Callable | None = field(default=None, repr=False, compare=False)
 
     @classmethod
     def from_pages(cls, pages):
