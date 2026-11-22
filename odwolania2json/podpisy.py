@@ -34,6 +34,8 @@ GRAPHIC_MARK = re.compile(r"[\d_/|<>=–—-]")
 SIGNATURE_RULE = "podpis_za_mocodawce_i_deklaracja_reprezentacji"
 EMPTY_SLOT_LINE = re.compile(r"\A(?:[ \t]*[_.…—–-]){4,}[ \t]*\Z")
 
+SIGNATURE_EXAMPLE = re.compile(r"^[ \t]*(?:wzór|wzory|przykład(?:y|owe)?)[ \t]+(?:podpis\w*|paraf\w*)\b", FLAGS)
+
 
 @dataclass(frozen=True)
 class FooterRow:
@@ -41,6 +43,7 @@ class FooterRow:
     left: int
     bottom: int
     right: int
+    confidence: float
     text: str
 
     @property
@@ -56,19 +59,20 @@ def _layout_rows(tsv):
             continue
         try:
             left, top, width, height = map(int, columns[6:10])
+            confidence = float(columns[10])
         except ValueError:
             return []
-        lines[tuple(columns[2:5])].append((left, top, width, height, columns[11]))
+        lines[tuple(columns[2:5])].append((left, top, width, height, columns[11], confidence))
 
     rows = []
     for tokens in lines.values():
         left = min(token[0] for token in tokens)
         top = min(token[1] for token in tokens)
-        bottom = max(y + height for _, y, _, height, _ in tokens)
-        right = max(x + width for x, _, width, _, _ in tokens)
+        bottom = max(y + height for _, y, _, height, _, _ in tokens)
+        right = max(x + width for x, _, width, _, _, _ in tokens)
         ordered = sorted(tokens, key=lambda token: (token[0], token[1], token[4]))
         text = " ".join(token[4] for token in ordered)
-        rows.append(FooterRow(top, left, bottom, right, text))
+        rows.append(FooterRow(top, left, bottom, right, max(token[5] for token in tokens), text))
     return sorted(rows, key=lambda row: (row.top, row.left))
 
 
@@ -209,6 +213,7 @@ def _confirmed_footer_names(heading, footer, names, scan=None):
     has_office = False
     captions = []
     graphics = []
+    needs_physical = False
     for row in footer:
         matches = _signature_row(row.text, entry)
         if not matches:
@@ -216,6 +221,11 @@ def _confirmed_footer_names(heading, footer, names, scan=None):
                 return set()
             if _is_graphic_fragment(row.text):
                 graphics.append(row.text)
+                continue
+            if scan is not None and row.confidence == 0 and len(row.text.split()) == 1:
+                # Odręczna kreska bywa odczytana jako pojedyncze słowo o zerowej
+                # pewności. Taki wiersz omijamy tylko przy weryfikacji obrazu.
+                needs_physical = True
                 continue
             break
         blank_line = any(EMPTY_SLOT_LINE.fullmatch(line) for line in graphics)
@@ -234,7 +244,7 @@ def _confirmed_footer_names(heading, footer, names, scan=None):
     verified = _signed_guides(heading, captions, in_footer_order, scan)
     if verified is not None:
         return verified
-    return confirmed if not _unconfirmed_signature_slots(heading, captions) else set()
+    return confirmed if not needs_physical and not _unconfirmed_signature_slots(heading, captions) else set()
 
 def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
     """Uzupełnij puste listy na podstawie odczytu i układu tej samej strony OCR."""
@@ -270,7 +280,7 @@ def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
         footer.append(row)
 
     after_grant = signing.text[grant.end():]
-    if ATTRIBUTED_CERTIFICATE.search(after_grant):
+    if ATTRIBUTED_CERTIFICATE.search(after_grant) or SIGNATURE_EXAMPLE.search(after_grant):
         return
     confirmed = _confirmed_footer_names(
         layout[anchors[0]], footer, names, result.document.signature_guides
