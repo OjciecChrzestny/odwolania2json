@@ -7,7 +7,8 @@ from functools import partial
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
-from .bank_accounts import LABEL, account_observations, apply_accounts, fold
+from .bank_accounts import (LABEL, PAYEE, PAYER, account_observations, apply_accounts,
+                            explicit_account_conflicts, fold)
 from .bank_scan import primary_scan_view, recovered_numbers, row_text
 from .legal import BUILDERS as LEGAL_BUILDERS
 from .model import Document, Extraction, FLAGS, classify, cover_limit, excluded_heading, schema_errors
@@ -15,6 +16,7 @@ from .ocr import LocalOCR
 from .operations import apply_fields
 from .podpisy import read_signature_guides
 from .transfer import primary_number_fallback, transfer
+from .transfer_cover import completed_transfer, neutral_cover
 from .transfer_reference import apply_scan_reference
 from .transfer_title import TITLE, apply_scan_title
 
@@ -35,6 +37,17 @@ def clean_page(text):
 
 def readable(text):
     return bool(re.search(r"[^\W\d_]{3}", text))
+
+
+def plain_cover(page):
+    """Reject mixed or graphical content hidden behind a native cover label."""
+    resources = page.get("/Resources")
+    resources = resources.get_object() if resources is not None else {}
+    if not isinstance(resources, dict) or page.get("/Annots") or resources.get("/XObject"):
+        return False
+    content = page.get_contents()
+    paint = {b"Do", b"INLINE IMAGE", b"sh", b"S", b"s", b"f", b"F", b"f*", b"B", b"B*", b"b", b"b*"}
+    return content is not None and not any(operator in paint for _, operator in content.operations)
 
 
 def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET):
@@ -74,6 +87,13 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
                     continue
                 pages.append(text)
                 observations[index] = native_observation(index + 1, text, readable(text), skipped)
+
+            transfer_cover_verified = False
+            if count == len(pages) == 2 and neutral_cover(pages[0]):
+                try:
+                    transfer_cover_verified = plain_cover(selected[0])
+                except PAGE_READ_ERRORS:
+                    pass
 
         ocr_pages, orientations = [], []
         scanned_indices = set()
@@ -137,6 +157,18 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
                 if classes.get(name, {}).get("builder") == "appeal":
                     for i in remaining:
                         read_scan(i + 1, start=i)
+        transfer_config = classes.get("przelew", {}) if classes else {}
+        if ocr and count == len(pages) == 2 and transfer_config.get("builder") == "transfer":
+            if transfer_cover_verified and not readable(pages[1]) and 1 not in scanned_indices:
+                if classify(Document.from_pages(pages), classes)[0] == "negative":
+                    read_scan(2, start=1)
+            elif isinstance(ocr, LocalOCR) and observations[0]["reason"] == "ocr_no_text":
+                candidate = Document.from_pages(pages)
+                if completed_transfer(candidate, transfer_config) and classify(candidate, classes)[0] == "negative":
+                    try:
+                        transfer_cover_verified = ocr.blank_opening(path)
+                    except PAGE_READ_ERRORS:
+                        pass
         if not any(map(readable, pages)):
             read_error = "no_readable_content"
             raise ReadError("brak czytelnej treści")
@@ -145,7 +177,7 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
         raise
 
     document = replace(Document.from_pages(pages), scan_quality=quality_report(observations),
-                       ocr_layout_tsv=single_page_layout)
+                       ocr_layout_tsv=single_page_layout, transfer_cover_verified=transfer_cover_verified)
     if orientations:
         document = replace(document, bank_scan=partial(ocr.transfer_views, path, tuple(orientations)))
     if single_page_layout and orientations:
@@ -183,6 +215,10 @@ def transfer_from_alternate_page(document, classes, views):
     return document, "negative", []
 
 
+def transfer_page_views(scan):
+    return [view for view in scan() if view.page == 2]
+
+
 def extract(document, classes, *, capture_decision=False):
     primary = document
     name, signals = classify(document, classes)
@@ -191,14 +227,25 @@ def extract(document, classes, *, capture_decision=False):
     if name == "negative" and scan and "przelew" in classes and possible_transfer_scan(document, classes["przelew"]):
         views = scan()
         document, name, signals = transfer_from_alternate_page(document, classes, views)
+    cover_receipt = False
+    if name == "negative" and document.transfer_cover_verified:
+        candidate = completed_transfer(document, classes.get("przelew", {}))
+        if candidate:
+            _, name, signals = candidate
+            cover_receipt = True
+            offset = document.starts[1][0] - 3
+            # Preserve the original physical offsets while giving field readers only the receipt.
+            document = replace(document, text=" " * offset + document.text[offset:],
+                               bank_scan=partial(transfer_page_views, scan) if scan else None)
+            views = None
     if name == "negative":
         return None, {"class": name, "status": "negative", "signals": signals, "fields": {}}
     return extract_class(document, classes, name, signals, views=views, capture_decision=capture_decision,
-                         primary_document=primary)
+                         primary_document=primary, cover_receipt=cover_receipt)
 
 
 def extract_class(document, classes, name, signals, *, views=None, capture_decision=False,
-                  primary_document=None):
+                  primary_document=None, cover_receipt=False):
     """Extract fields of an identified class, preserving the normal local field rules."""
     config = classes[name]
     result = Extraction(document, config["schema"], signals)
@@ -211,7 +258,7 @@ def extract_class(document, classes, name, signals, *, views=None, capture_decis
     if builder == "transfer":
         if views is not None:
             details["classification_from_ocr_layout"] = True
-        apply_bank_scans(result, config, views, primary_document)
+        apply_bank_scans(result, config, views, primary_document, cover_receipt=cover_receipt)
     errors = list(schema_errors(result.data, config["schema"]))
     if errors:
         raise ValueError(f"{name}: " + "; ".join(errors))
@@ -219,7 +266,7 @@ def extract_class(document, classes, name, signals, *, views=None, capture_decis
                          "fields": result.evidence, **details}
 
 
-def apply_bank_scans(result, config, views, primary_document):
+def apply_bank_scans(result, config, views, primary_document, *, cover_receipt=False):
     """Give each bank field reader only the physical observations already available."""
     document = result.document
     primary_number_fallback(result, primary_document)
@@ -235,6 +282,13 @@ def apply_bank_scans(result, config, views, primary_document):
         rows = row_text(view.positions) if view.positions else view.rows
         evidence.append((view.page, account_observations(rows, view.positions)))
     apply_accounts(result, evidence, scanned={view.page for view in scans})
+    if cover_receipt:
+        conflicts = explicit_account_conflicts(pages[1].splitlines())
+        for role in (PAYER, PAYEE):
+            candidates = {number for _, reading in evidence for number in reading.get(role, ())}
+            if role in conflicts or len(candidates) > 1:
+                bank[role] = None
+                result.evidence.pop("przelew_bankowy." + role, None)
 
     primary_view = primary_scan_view(primary_document or document)
     apply_scan_title(result, config["fields"].get(TITLE, ()), views=scans, primary_document=primary_document)

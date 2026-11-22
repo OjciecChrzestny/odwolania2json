@@ -172,6 +172,15 @@ class LocalOCR:
         return recognize(self.document_type, self.api_type, self.data, path, limit, start=start,
                          angles=True, capture_layout=capture_layout)
 
+    def blank_opening(self, path):
+        """Verify a white opening at OCR resolution without recognizing text again."""
+        with closing(self.document_type(path)) as pdf, closing(pdf[0]) as page:
+            scale = min(2.5, 2200 / max(page.get_size()))
+            with closing(page.render(scale=scale, grayscale=True, draw_annots=True)) as bitmap:
+                pixels = bytes(bitmap.buffer)
+                return all(pixels[start:start + bitmap.width].count(255) == bitmap.width
+                           for start in range(0, bitmap.stride * bitmap.height, bitmap.stride))
+
     def transfer_views(self, path, orientations):
         try:
             return self._transfer_views(path, orientations)

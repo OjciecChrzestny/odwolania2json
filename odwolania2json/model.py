@@ -20,6 +20,7 @@ class Document:
     scan_quality: dict | None = field(default=None, repr=False, compare=False)
     ocr_layout_tsv: str | None = field(default=None, repr=False, compare=False)
     signature_guides: Callable | None = field(default=None, repr=False, compare=False)
+    transfer_cover_verified: bool = field(default=False, repr=False, compare=False)
 
     @classmethod
     def from_pages(cls, pages):
