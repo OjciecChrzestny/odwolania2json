@@ -1,5 +1,6 @@
 """Powiązanie podpisów z deklaracją reprezentacji i stopką mocodawcy."""
 from collections import defaultdict
+from dataclasses import dataclass
 import re
 
 from .model import FLAGS
@@ -30,28 +31,46 @@ ROW_GAP = re.compile(r"[\s.,;:=_–—-]*")
 WORD_FRAGMENT = re.compile(r"[^\W\d_]+")
 GRAPHIC_MARK = re.compile(r"[\d_/|<>=–—-]")
 SIGNATURE_RULE = "podpis_za_mocodawce_i_deklaracja_reprezentacji"
+EMPTY_SLOT_LINE = re.compile(r"\A(?:[ \t]*[_.…—–-]){4,}[ \t]*\Z")
 
 
-def _layout_lines(tsv):
+@dataclass(frozen=True)
+class FooterRow:
+    top: int
+    left: int
+    bottom: int
+    text: str
+
+    @property
+    def height(self):
+        return self.bottom - self.top
+
+
+def _layout_rows(tsv):
     lines = defaultdict(list)
     for raw in tsv.splitlines():
         columns = raw.split("\t", 11)
         if len(columns) != 12 or columns[0] != "5" or not columns[11].strip():
             continue
         try:
-            left, top = map(int, columns[6:8])
+            left, top, height = map(int, (columns[6], columns[7], columns[9]))
         except ValueError:
             return []
-        lines[tuple(columns[2:5])].append((left, top, columns[11]))
+        lines[tuple(columns[2:5])].append((left, top, height, columns[11]))
 
-    positioned = []
+    rows = []
     for tokens in lines.values():
         left = min(token[0] for token in tokens)
         top = min(token[1] for token in tokens)
-        text = " ".join(token[2] for token in sorted(tokens))
-        positioned.append((top, left, text))
-    return [text for _, _, text in sorted(positioned, key=lambda line: (line[0], line[1]))]
+        bottom = max(y + height for _, y, height, _ in tokens)
+        ordered = sorted(tokens, key=lambda token: (token[0], token[1], token[3]))
+        text = " ".join(token[3] for token in ordered)
+        rows.append(FooterRow(top, left, bottom, text))
+    return sorted(rows, key=lambda row: (row.top, row.left))
 
+
+def _layout_lines(tsv):
+    return [row.text for row in _layout_rows(tsv)]
 
 def _representatives(text):
     label = REPRESENTATION.search(text)
@@ -84,30 +103,56 @@ def _is_graphic_fragment(line):
     )
 
 
-def _confirmed_footer_names(footer, names):
-    if NO_SIGNATURE.search("\n".join(footer)):
+def _unconfirmed_signature_slots(heading, captions):
+    if any(blank_line and not has_mark for _, _, blank_line, has_mark in captions):
+        return True
+    if len(captions) < 2 or any(not single_caption for _, single_caption, _, _ in captions):
+        return False
+
+    # OCR potrafi pominąć linię formularza. Wtedy wykrywalny pozostaje powtarzalny
+    # odstęp na podpis nad każdym wyrównanym nadrukiem osoby i funkcji.
+    rows = [row for row, _, _, _ in captions]
+    typical_height = max(row.height for row in rows)
+    if typical_height <= 0 or max(row.left for row in rows) - min(row.left for row in rows) > typical_height:
+        return False
+    gaps = [row.top - previous.bottom for previous, row in zip([heading, *rows], rows)]
+    return (
+        min(gaps) >= 2 * typical_height
+        and max(gaps) - min(gaps) <= typical_height
+        and any(not has_mark for _, _, _, has_mark in captions)
+    )
+
+
+def _confirmed_footer_names(heading, footer, names):
+    if NO_SIGNATURE.search("\n".join(row.text for row in footer)):
         return set()
     alternatives = "|".join(r"\s+".join(map(re.escape, name.split())) for name in sorted(names, key=len, reverse=True))
     entry = re.compile(rf"(?<![\w’'-])(?P<name>{alternatives})(?![\w’'-])"
                        rf"(?:\s*[–—-]\s*(?P<office>(?i:{OFFICE})))?")
     confirmed = set()
     has_office = False
-    for line in footer:
-        matches = _signature_row(line, entry)
+    captions = []
+    graphics = []
+    for row in footer:
+        matches = _signature_row(row.text, entry)
         if not matches:
-            if ENTRY.search(line):
+            if ENTRY.search(row.text):
                 return set()
-            if _is_graphic_fragment(line):
+            if _is_graphic_fragment(row.text):
+                graphics.append(row.text)
                 continue
             break
+        blank_line = any(EMPTY_SLOT_LINE.fullmatch(line) for line in graphics)
+        has_mark = any(not EMPTY_SLOT_LINE.fullmatch(line) for line in graphics)
+        captions.append((row, len(matches) == 1 and bool(matches[0]["office"]), blank_line, has_mark))
+        graphics.clear()
         for match in matches:
             name = normalize(match["name"], "text")
             if name in confirmed:
                 return set()
             confirmed.add(name)
             has_office = has_office or bool(match["office"])
-    return confirmed if has_office else set()
-
+    return confirmed if has_office and not _unconfirmed_signature_slots(heading, captions) else set()
 
 def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
     """Uzupełnij puste listy na podstawie odczytu i układu tej samej strony OCR."""
@@ -132,17 +177,17 @@ def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
     if any(not group for group in declarations) or len(set(names)) != len(names):
         return
 
-    layout = _layout_lines(layout_tsv)
-    anchors = [index for index, line in enumerate(layout) if PRINCIPAL_SIGNATURES.fullmatch(line.strip())]
+    layout = _layout_rows(layout_tsv)
+    anchors = [index for index, row in enumerate(layout) if PRINCIPAL_SIGNATURES.fullmatch(row.text.strip())]
     if len(anchors) != 1:
         return
     footer = []
-    for line in layout[anchors[0] + 1:]:
-        if NEXT_SECTION.search(line):
+    for row in layout[anchors[0] + 1:]:
+        if NEXT_SECTION.search(row.text):
             break
-        footer.append(line)
+        footer.append(row)
 
-    if _confirmed_footer_names(footer, names) != set(names):
+    if _confirmed_footer_names(layout[anchors[0]], footer, names) != set(names):
         return
 
     for owner, declared in enumerate(declarations):

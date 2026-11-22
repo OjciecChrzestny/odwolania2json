@@ -137,6 +137,30 @@ class RoleRecoveryTest(unittest.TestCase):
         _, _, updates = self.check(CONSORTIUM + footer, footer)
         self.assertEqual(updates, {0: ["Roman Bór"], 1: ["Emilia Ptak"]})
 
+    def test_blank_signature_slots_with_or_without_recognized_rules(self):
+        header = "Za Mocodawcę:"
+        first = "Roman Bór — Prezes Zarządu"
+        second = "Emilia Ptak — Członek Zarządu"
+        body = PREAMBLE + "\n".join((header, first, second))
+        doc = Document.from_pages([body])
+        obj, _ = extract(doc, self.classes)
+        config = self.classes["pelnomocnictwo"]
+
+        for physical in (
+            (header, "", "", first, "", "", second),
+            (header, "________", first, "________", second),
+            (header, "_ | —", "", first, "", "", second),
+        ):
+            with self.subTest(physical=physical):
+                updates, evidence = apply_signatures(doc, obj, config, footer_tsv("\n".join(physical)))
+                self.assertEqual(updates, {})
+                self.assertEqual(evidence, {})
+
+        fully_marked = "\n".join((header, "_ | —", "", first, "= / _", "", second))
+        updates, evidence = apply_signatures(doc, obj, config, footer_tsv(fully_marked))
+        self.assertEqual(updates, {0: ["Roman Bór", "Emilia Ptak"]})
+        self.assertTrue(all(field["page"] == 1 for field in evidence.values()))
+
     def test_frozen_independent_negatives(self):
         for case, (body, kind, counsel, signatures) in NEGATIVES.items():
             with self.subTest(case=case):
