@@ -19,7 +19,7 @@ Przed pomiarem końcowym wybrano A2 z lokalnym polskim OCR. Przemawiają za tym 
 | Zbudowany obraz CLI na VPS | `sha256:ceeb1cc0b6f688c187759df952ed57d5e0c65aa98c328758cb3762d61238441a` |
 | SHA-256 polskich danych OCR | `c4476cdbc0e33d898d32345122b7be1cbf85ace15f920f06c7714756e1ef79b2` |
 
-Historia wydania zawiera A2 `39805dd26c0443f5dcdcef837734897f843f4395`, oba commity pokazu `c01401cd7abdf82655b18188f68cb46652dc239e` i `72337e2164f871fa3b1d6c63edde0381b7ed8b31` oraz Compose `a2f5412a89a2ccfbfd9d91f19641df88a50f05a4`. Raporty źródłowe i miernik zachowano. [Odbiór źródłowy Compose](delivery/compose/RAPORT.md)
+Historia wydania zawiera A2 `39805dd26c0443f5dcdcef837734897f843f4395`, oba commity pokazu `c01401cd7abdf82655b18188f68cb46652dc239e` i `72337e2164f871fa3b1d6c63edde0381b7ed8b31` oraz Compose `a2f5412a89a2ccfbfd9d91f19641df88a50f05a4`. Raporty źródłowe i miernik zachowano. [Odbiór źródłowy Compose](../../delivery/compose/RAPORT.md)
 
 ## Wyniki odbioru
 

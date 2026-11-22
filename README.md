@@ -107,14 +107,14 @@ Odbiór przelewu porównuje wszystkie pola z rozwojową referencją dopiero po u
 
 ## Wybór kandydata i pomiary
 
-A3 uzyskał mikro-F1 0,9963 na 128 rozwojowych PDF-ach, z prawidłowym przebiegiem i 40/40 poprawnych ID. Wszystkie pliki wynikowe miały te same bajty co w A2. Dwie zmiany nazw i katalogów dla każdego wejścia dały 256/256 zgodnych wyników i rekordów diagnostyki z pominięciem ścieżki. To wynik historyczny na zbiorze rozwojowym. Odrębna historyczna próba A3 na skanach ujawniła błędy klasyfikacji przelewów. [Odbiór A3](RAPORT_A3.md) · [Raport historycznej próby na skanach](RAPORT_KONCOWY_A3.md)
+A3 uzyskał mikro-F1 0,9963 na 128 rozwojowych PDF-ach, z prawidłowym przebiegiem i 40/40 poprawnych ID. Wszystkie pliki wynikowe miały te same bajty co w A2. Dwie zmiany nazw i katalogów dla każdego wejścia dały 256/256 zgodnych wyników i rekordów diagnostyki z pominięciem ścieżki. To wynik historyczny na zbiorze rozwojowym. Odrębna historyczna próba A3 na skanach ujawniła błędy klasyfikacji przelewów. [Odbiór A3](docs/historia/RAPORT_A3.md) · [Raport historycznej próby na skanach](docs/historia/RAPORT_KONCOWY_A3.md)
 
-Wcześniejsza walidacja A dała mikro-F1 0,9878 z `valid_run=false`. Warianty B i C to oddzielne eksperymenty z wyborem ID pierwszego zarzutu, sprawdzone na atrapach z zablokowanym TCP. Domyślne CLI i obraz Compose pracują bez API. [Aktualne warunki UZP dla wariantu z API](delivery/final/INSTRUKCJA-JURORA.md#warunki-użycia-api) · [Raport A](RAPORT_A.md) · [Eksperyment B/C](experiments/abc/README.md) · [Plan i podział danych](PLAN.md)
+Wcześniejsza walidacja A dała mikro-F1 0,9878 z `valid_run=false`. Warianty B i C to oddzielne eksperymenty z wyborem ID pierwszego zarzutu, sprawdzone na atrapach z zablokowanym TCP. Domyślne CLI i obraz Compose pracują bez API. [Aktualne warunki UZP dla wariantu z API](delivery/final/INSTRUKCJA-JURORA.md#warunki-użycia-api) · [Raport A](docs/historia/RAPORT_A.md) · [Eksperyment B/C](experiments/abc/README.md) · [Plan i podział danych](docs/historia/PLAN.md)
 
-[Odbiór historycznego RC1](RAPORT_RC1.md)
+[Odbiór historycznego RC1](docs/historia/RAPORT_RC1.md)
 
 ## Materiały przekazania
 
 [Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md) · [Prezentacja PDF](delivery/final/prezentacja.pdf) · [Ekrany rezerwowe](delivery/final/ekrany-rezerwowe.pdf) · [Scenariusz finału](delivery/final/SCENARIUSZ.md) · [Raport próby](delivery/final/RAPORT-PROBY.md)
 
-Jeden wewnętrzny pomiar końcowy objął 31 PDF-ów na zamrożonym A2 z lokalnym OCR. Miernik zwrócił 0,9821958457 mikro-F1 oraz `valid_run=false` po sklasyfikowaniu jednego pełnomocnictwa jako dokumentu obcego. [Raport końcowy](RAPORT_KONCOWY.md)
+Jeden wewnętrzny pomiar końcowy objął 31 PDF-ów na zamrożonym A2 z lokalnym OCR. Miernik zwrócił 0,9821958457 mikro-F1 oraz `valid_run=false` po sklasyfikowaniu jednego pełnomocnictwa jako dokumentu obcego. [Raport końcowy](docs/historia/RAPORT_KONCOWY.md)

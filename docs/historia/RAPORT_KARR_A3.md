@@ -49,7 +49,7 @@ Ekstrakcję, testy i scoring wykonano na VPS `hacknation`. Pierwszy pomiar obu r
 
 Na VPS przeszły oba zestawy testów, liczące 33 i 10 przypadków. Testy integracji z dostawcami używały atrap. Dodatkowe porównanie sześciu skanów rozwojowych potwierdziło bajtową zgodność wyników Compose z wynikami uruchomienia bez kontenera.
 
-Metadane użyte do odbioru są w [indeksie pomiaru](evaluation/przelewy-karr-v2.json). Na VPS w `~/uzp-parallel/a3-przelewy-dane/karr-v2/` znajdują się `audit.json`, `candidate.json`, manifesty, wyniki, diagnostyki i logi obu prób. Archiwum `pakiet-karr-v2.tar.gz` ma SHA-256 `75d5f0f7926ed3e6cc8e30e56e05dc2c370b5dfe65e0c351fc102415036e9e65`. Pieczęć `corpus/seal.json` ma SHA-256 `7e18c2361a8d22b03a99c691330a9fc9a657665a6e72c56901c58a55ad7687ee`.
+Metadane użyte do odbioru są w [indeksie pomiaru](../../evaluation/przelewy-karr-v2.json). Na VPS w `~/uzp-parallel/a3-przelewy-dane/karr-v2/` znajdują się `audit.json`, `candidate.json`, manifesty, wyniki, diagnostyki i logi obu prób. Archiwum `pakiet-karr-v2.tar.gz` ma SHA-256 `75d5f0f7926ed3e6cc8e30e56e05dc2c370b5dfe65e0c351fc102415036e9e65`. Pieczęć `corpus/seal.json` ma SHA-256 `7e18c2361a8d22b03a99c691330a9fc9a657665a6e72c56901c58a55ad7687ee`.
 
 Ponowne obliczenie głównej metryki z już zapisanych wyników na VPS jest możliwe tym poleceniem.
 

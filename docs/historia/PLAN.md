@@ -2,7 +2,7 @@
 
 Juror wkłada własne PDF-y do `input/` i jednym poleceniem uzyskuje odpowiadające im pliki w `output/`. Laptop i7 z 16 GB RAM pozostaje wewnętrznym celem sprzętowym projektu. UZP zapowiedziało zmianę sposobu testowania. Wersja konkursowa działa lokalnie na CPU, w Pythonie 3.13+, z zależnościami w `requirements.txt`. Wspólna gałąź łączy A3, lokalny OCR, dystrybucję Compose i osobny pokaz konfiguracji. B i C są eksperymentem dotyczącym pojedynczej decyzji o pierwszym zarzucie.
 
-**Historyczny wybór do pierwszego testu końcowego.** Wybrano A2 z lokalnym OCR ze względu na dwa odzyskane syntetyczne przelewy i zgodność 128 JSON-ów rozwojowych z A. Wynik walidacji 0,9878 przy `valid_run=false` pozostaje historycznym wynikiem A. Konfiguracja wbudowana zawiera trzy klasy konkursowe. Pokaz rozszerzenia i Compose mają własne instrukcje odbioru. Opcjonalny eksperyment B/C korzysta teraz z selektora A3 w tej samej wersji repozytorium. [Odbiór bez API](experiments/abc/README.md) [Raport A](RAPORT_A.md) · [Raport A2](RAPORT_A2.md)
+**Historyczny wybór do pierwszego testu końcowego.** Wybrano A2 z lokalnym OCR ze względu na dwa odzyskane syntetyczne przelewy i zgodność 128 JSON-ów rozwojowych z A. Wynik walidacji 0,9878 przy `valid_run=false` pozostaje historycznym wynikiem A. Konfiguracja wbudowana zawiera trzy klasy konkursowe. Pokaz rozszerzenia i Compose mają własne instrukcje odbioru. Opcjonalny eksperyment B/C korzysta teraz z selektora A3 w tej samej wersji repozytorium. [Odbiór bez API](../../experiments/abc/README.md) [Raport A](RAPORT_A.md) · [Raport A2](RAPORT_A2.md)
 
 ## Stan prac nad A3
 
@@ -38,9 +38,9 @@ Podstawą danych jest [rewizja UZP de135d2](https://github.com/Urzad-Zamowien-Pu
 
 | Zbiór | Pełne sprawy | Odwołania / pełnomocnictwa / przelewy | Negatywy | Razem |
 |---|---:|---|---:|---:|
-| [Rozwojowy](evaluation/development-40.json) | 40 | 40 / 40 / 40 | 8 | 128 |
-| [Walidacyjny](evaluation/validation-10.json) | 10 | 10 / 10 / 10 | 2 | 32 |
-| [Końcowy](evaluation/final-10.json) | 10 | 10 / 10 / 10 | 1 | 31 |
+| [Rozwojowy](../../evaluation/development-40.json) | 40 | 40 / 40 / 40 | 8 | 128 |
+| [Walidacyjny](../../evaluation/validation-10.json) | 10 | 10 / 10 / 10 | 2 | 32 |
+| [Końcowy](../../evaluation/final-10.json) | 10 | 10 / 10 / 10 | 1 | 31 |
 
 **Test końcowy** obejmuje sprawy `03, 08, 12, 14, 24, 29, 31, 39, 47, 51`. Zawiera każdy PDF z tych katalogów, w tym dokument obcy należący do sprawy 24. SHA-256 pliku `final-10.json` po normalizacji końców wierszy do LF wynosi `f36fffc9127520e0caad2df4413a2e6769b2b4d9e2dc1de5de9c668e9efa0a8b`.
 
@@ -118,7 +118,7 @@ Godziny od startu w sobotę 21 listopada o 11:00 czasu polskiego. Szkic projektu
 
 Mikro-F1 może zawyżać wynik przy wymaganych kluczach lub silniejszej karze za błędną klasę. Może go zaniżać, jeżeli jury akceptuje alternatywną kolejność list i normalizuje tekst. Powyższe liczby opisują próby kontrolne miernika. Wyniki ekstraktora są w raportach A, A2 i A3.
 
-Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-walidacja`. Opcja `--manifest` wybiera inną próbę. Dopiero po zamrożeniu wydania wykonać `python evaluation/score.py ../hacknation-2026 wyniki-koncowe --manifest evaluation/final-10.json`. [Miernik](evaluation/score.py) · [Kontrola podziału](evaluation/check_splits.py)
+Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-walidacja`. Opcja `--manifest` wybiera inną próbę. Dopiero po zamrożeniu wydania wykonać `python evaluation/score.py ../hacknation-2026 wyniki-koncowe --manifest evaluation/final-10.json`. [Miernik](../../evaluation/score.py) · [Kontrola podziału](../../evaluation/check_splits.py)
 
 ## Odbiór produktu i pokrycie kryteriów
 
@@ -129,15 +129,15 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 | Finał | Według § 2 regulaminu zadania 50% za F1 i 50% za łatwość rozbudowy. Jury ocenia kod, opis architektury i treść prezentacji. README wymienia wielkość modelu, dodawanie klas i funkcje dodatkowe. UZP pracuje nad szczegółową punktacją LLM. Szczegółowy PDF podaje 50/30/20, a ogólny przewodnik wydarzenia wymienia pięciu finalistów. W tym zadaniu stosujemy regulamin UZP. |
 | Przekazanie przez zwycięzcę | § 3 ust. 5 wiąże wypłatę z umową przeniesienia praw i przekazaniem kodu, instrukcji uruchomienia, konfiguracji Docker Compose oraz dokumentacji architektury, konfiguracji istniejącej klasy i dodania nowej. Compose sprawdzamy wcześniej na tym samym wydaniu. Rozwiązania zewnętrzne wskazujemy w prezentacji zgodnie z § 4. |
 
-**Dowód rozszerzalności.** Profil demonstracyjny dodaje `zawiadomienie.json` z sygnałami, schematem i regułami dwóch pól. Pokaz ujawnia wartości `sygnatura` i `termin` oraz stronę i regułę terminu. Profil konkursowy daje 0 bajtów dla syntetycznych zawiadomień. Odbiór sprawdza 11/11 ścieżek i sum SHA-256 oraz 8/8 pustych negatywów rozwojowych. [Instrukcja pokazu](demo/rozszerzalnosc/README.md)
+**Dowód rozszerzalności.** Profil demonstracyjny dodaje `zawiadomienie.json` z sygnałami, schematem i regułami dwóch pól. Pokaz ujawnia wartości `sygnatura` i `termin` oraz stronę i regułę terminu. Profil konkursowy daje 0 bajtów dla syntetycznych zawiadomień. Odbiór sprawdza 11/11 ścieżek i sum SHA-256 oraz 8/8 pustych negatywów rozwojowych. [Instrukcja pokazu](../../demo/rozszerzalnosc/README.md)
 
-**Odbiór kolejnej poprawki A3.** Czysta kopia ma przejść testy CLI, pokaz rozszerzenia, porównanie bajtów i diagnostyki natywnego A3 z Compose oraz ocenę na 128 PDF-ach rozwojowych i odrębnych skanach. Pokaz dwuminutowy obejmuje własny PDF, źródło pola oraz dodanie klasy. [Odbiór Compose](delivery/compose/README.md)
+**Odbiór kolejnej poprawki A3.** Czysta kopia ma przejść testy CLI, pokaz rozszerzenia, porównanie bajtów i diagnostyki natywnego A3 z Compose oraz ocenę na 128 PDF-ach rozwojowych i odrębnych skanach. Pokaz dwuminutowy obejmuje własny PDF, źródło pola oraz dodanie klasy. [Odbiór Compose](../../delivery/compose/README.md)
 
 [Regulamin zadania, § 2–4](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aa36e74b-f96c-46cf-9970-5937ed203222.pdf) · [Szczegółowy opis PDF](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aeabc57d-7420-4069-946e-2c4de71d87ed.pdf) · [FAQ HackNation](https://hacknation.pl/faq)
 
 **Do potwierdzenia u mentora.** Jak jury traktuje brak pliku, `null`, typy liczb, permutacje list i normalizację? Czy negatyw ma dokładnie 0 bajtów? Jak postępować przy nieczytelnym skanie, braku podstawy do ID i niezgodności opisu z kanonicznym słownikiem? Jak są oceniane A bez modelu, limity API, kanał przekazania klucza, dostęp do repozytorium i czas pokazu?
 
-**Historyczny odbiór RC1 z A2.** Zamrożono `1937848079584ec72aa1307f1305637e93607e1c` po zaliczeniu odbioru CLI, OCR, Compose, rozszerzenia i development na VPS. Pomiar końcowy tej rewizji i materiały pokazu są w paczce przekazania. [Raport odbioru RC](RAPORT_RC1.md) · [Raport końcowy](RAPORT_KONCOWY.md) · [Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md)
+**Historyczny odbiór RC1 z A2.** Zamrożono `1937848079584ec72aa1307f1305637e93607e1c` po zaliczeniu odbioru CLI, OCR, Compose, rozszerzenia i development na VPS. Pomiar końcowy tej rewizji i materiały pokazu są w paczce przekazania. [Raport odbioru RC](RAPORT_RC1.md) · [Raport końcowy](RAPORT_KONCOWY.md) · [Instrukcja jurora](../../delivery/final/INSTRUKCJA-JURORA.md)
 
 **Najbliższy termin organizacyjny.** Szkic w HackTribe musi istnieć i wskazywać zadanie UZP przed 20:00 w sobotę 21 listopada. Na godzinę tego zapisu w materiałach projektu brakuje potwierdzenia. Termin finalnego zgłoszenia to 11:00 w niedzielę 22 listopada. [Przewodnik HackNation](https://hacknation.pl/przewodnik-uczestnika)
 
@@ -145,9 +145,9 @@ Polecenie walidacyjne to `python evaluation/score.py ../hacknation-2026 wyniki-w
 
 **Rezerwa KARR.** Dwa nowe układy, BNP Paribas i Millenet, zamrożono przed strojeniem A3. Wersja `59fcf1a` uzyskała na słabych skanach 41,67% mikro-F1. Odczytała 3/3 kwot i 1/3 dat. Obie faktury dały po 0 B, a 128/128 wyników rozwojowych pozostało identycznych bajtowo. Warunek poprawnego odczytu kwoty i daty na obu nowych układach spełnił tylko Millenet. Ważny wynik pochodzi z Docker Compose na VPS. Pierwsze uruchomienie bez kontenera przerwał `SIGSEGV`. [Raport, rozbicie na pola i pliki odbioru](RAPORT_KARR_A3.md)
 
-**Przelewy przez Scaleway API.** Mistral Small 3.2 24B na czterech zamrożonych wycinkach z 44 rozwojowych PDF-ów odzyskał 3/3 brakujących kwot. Wpisał datę wygenerowania w miejsce daty operacji. Mikro-F1 wszystkich pól wyniosło 76,82% wobec 76,19% dla A3. Czas wzrósł z 51,92 s do 86,93 s. [Pomiar, przyczyna błędu i polecenie weryfikacji](experiments/transfer_api/RAPORT.md)
+**Przelewy przez Scaleway API.** Mistral Small 3.2 24B na czterech zamrożonych wycinkach z 44 rozwojowych PDF-ów odzyskał 3/3 brakujących kwot. Wpisał datę wygenerowania w miejsce daty operacji. Mikro-F1 wszystkich pól wyniosło 76,82% wobec 76,19% dla A3. Czas wzrósł z 51,92 s do 86,93 s. [Pomiar, przyczyna błędu i polecenie weryfikacji](../../experiments/transfer_api/RAPORT.md)
 
-**Niezależna rezerwa przelewów.** Osiem dokumentów zamrożono przed zmianą selektora daty. Na trzech publicznych potwierdzeniach i dwóch negatywach każdy wariant uzyskał diagnostycznie 27,27%. Jedno rzeczywiste potwierdzenie dostało plik 0 B, więc miernik oznaczył przebieg jako nieważny. Na trzech syntetycznych próbach poprawiona data podniosła F1 z 96,97% do 100%. Na 44 znanych słabych skanach A3 uzyskał 76,19%, wariant kwotowy 76,99%, a oba pola 77,25%. Regresja 128/128 pozostała bajtowo zgodna. API pozostaje eksperymentalne. [Odtworzenie, źródła i błędy](experiments/transfer_api/RAPORT_REZERWA.md)
+**Niezależna rezerwa przelewów.** Osiem dokumentów zamrożono przed zmianą selektora daty. Na trzech publicznych potwierdzeniach i dwóch negatywach każdy wariant uzyskał diagnostycznie 27,27%. Jedno rzeczywiste potwierdzenie dostało plik 0 B, więc miernik oznaczył przebieg jako nieważny. Na trzech syntetycznych próbach poprawiona data podniosła F1 z 96,97% do 100%. Na 44 znanych słabych skanach A3 uzyskał 76,19%, wariant kwotowy 76,99%, a oba pola 77,25%. Regresja 128/128 pozostała bajtowo zgodna. API pozostaje eksperymentalne. [Odtworzenie, źródła i błędy](../../experiments/transfer_api/RAPORT_REZERWA.md)
 
 **Klasyfikacja wykonanych przelewów.** W pierwszej odłożonej próbie A3 rozpoznało 2/3 przelewy, a oba negatywy dały 0 B. Na drugiej, zamrożonej przed kolejną poprawką, wersja `4edfd0c` uzyskała 3/3 i 2/2. F1 klasy wyniosło 100%, a ścisłe mikro-F1 sześciu pól 41,38% przy zerze kompletnych przelewów. Wszystkie 128 wyników UZP pozostało identycznych bajtowo. Starszy skan Alior z BIP nadal daje 0 B. [Dwa pierwsze pomiary, rozbicie na pola i polecenia weryfikacji](RAPORT_KLASYFIKACJA_PRZELEWOW.md)
 
