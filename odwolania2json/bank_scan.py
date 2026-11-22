@@ -112,6 +112,23 @@ LABEL_GAP = re.compile(r"[\s|:;–—-]*")
 BOOKING_ROW = re.compile(rf"^{BOOKING_LABEL}\b", re.I)
 EXECUTION_ROW = re.compile(rf"^{DATE_LABEL}\b", re.I)
 BOOKING_VALUE = re.compile(rf"^(?P<date>{DATE})(?=[ \t]|$)(?:[ \t|]*|[ \t|]+na rachunek\b.*)", re.I)
+ORDER_DETAILS = re.compile(r"(?:dane|szczeg[oó][łl]y) zlecenia[ \t.:]*", re.I)
+COMPLETED_ORDER = re.compile(
+    r"^status(?: (?:operacji|transakcji|zlecenia|przelewu))?[\s.:'‘\"|;,-]{1,18}"
+    r"(?:wykonan|zrealizowan|zaksi[ęe]gowan)[aye]\b",
+    re.I | re.M,
+)
+PENDING_ORDER = re.compile(
+    r"^status(?: (?:operacji|transakcji|zlecenia|przelewu))?[\s.:'‘\"|;,-]{1,18}"
+    r"(?:oczekuj|planowan|zaplanowan|niewykonan|niezrealizowan|anulowan|odrzucon)\w*\b",
+    re.I | re.M,
+)
+ORDER_MODE = re.compile(r"tryb realizacji\b", re.I)
+ORDER_EXECUTION = re.compile(
+    rf"\bda[tl]a wykonania[ \t|:]+(?P<date>{DATE}|\d{{1,2}}[ \t]+\d{{1,2}}[ \t]+20\d{{2}})[ \t|]*$",
+    re.I,
+)
+NON_EXECUTED_DATE = re.compile(r"\b(?:planowan\w*|przewidywan\w*|oczekiwan\w*|ż[ąa]dan\w*|zlecon\w*|termin)\b", re.I)
 SEPARATORS = re.compile(r"[\s|:;]*")
 VALUE_SEPARATORS = re.compile(r"(?:[\s|:;]|PLN|zł|EUR|USD|GBP|CHF)*", re.I)
 
@@ -201,6 +218,34 @@ def structured_numbers(line, following):
             yield 1, 3, token
 
 
+def order_numbers(rows):
+    """Read the compact summary of a completed order with a wrapped date."""
+    text = "\n".join(rows)
+    if not COMPLETED_ORDER.search(text) or PENDING_ORDER.search(text):
+        return
+    for i in range(len(rows) - 3):
+        heading, amount_line, mode, date_line = rows[i:i + 4]
+        if not (ORDER_DETAILS.fullmatch(heading) and ORDER_MODE.match(mode)):
+            continue
+        date = ORDER_EXECUTION.search(date_line)
+        if date is None or NON_EXECUTED_DATE.search(date_line[:date.start()]):
+            continue
+        if value := normalize(date["date"], "date"):
+            yield i + 3, 3, Number("data_operacji", value, *date.span("date"))
+            amount = MONEY_TOKEN.search(amount_line)
+            if (amount and re.fullmatch(r"[\W_]{0,6}(?:kwota[ \t:]+)?", amount_line[:amount.start()], re.I)
+                    and re.fullmatch(r"[ \t]*PLN[ \t|]*", amount_line[amount.end():], re.I)):
+                if (value := money_value(amount[0])) is not None:
+                    yield i + 1, 3, Number("kwota", value, *amount.span())
+
+
+def labelled_numbers(rows):
+    for i, (line, following) in enumerate(zip(rows, rows[1:])):
+        for row, priority, token in structured_numbers(line, following):
+            yield i + row, priority, token
+    yield from order_numbers(rows)
+
+
 def booking_value(line, following, after, previous):
     """A wrapped booking cell inside a bounded operation row with both roles."""
     if (not BOOKING_ROW.match(line) or LABELS.search(following)
@@ -220,11 +265,11 @@ def booking_value(line, following, after, previous):
 
 def view_evidence(rows):
     candidates = defaultdict(list)
+    for _, priority, token in labelled_numbers(rows):
+        candidates[token.key].append((priority, token.value))
     for i, line in enumerate(rows):
         labels = list(LABELS.finditer(line))
         following = rows[i + 1] if i + 1 < len(rows) else ""
-        for _, priority, token in structured_numbers(line, following):
-            candidates[token.key].append((priority, token.value))
         after = rows[i + 2] if i + 2 < len(rows) else ""
         if value := booking_value(line, following, after, rows[max(0, i - 5):i]):
             candidates["data_operacji"].append((2, value))

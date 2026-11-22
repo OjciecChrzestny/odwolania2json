@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from math import isfinite
 
-from .bank_scan import structured_numbers
+from .bank_scan import labelled_numbers
 from .model import FLAGS
 from .operations import DATE, apply_fields, normalize
 from .transfer_title import TITLE, apply_transfer_title
@@ -109,10 +109,9 @@ def account_tables(result, lines):
 def amount_and_date(result, lines):
     bank = result.data["przelew_bankowy"]
     candidates = {}
-    for (start, header), (pos, values) in zip(lines, lines[1:]):
-        for row, priority, token in structured_numbers(header, values):
-            offset = start if row == 0 else pos
-            candidates.setdefault(token.key, []).append((priority, token.value, offset + token.start))
+    for row, priority, token in labelled_numbers(tuple(line for _, line in lines)):
+        offset, _ = lines[row]
+        candidates.setdefault(token.key, []).append((priority, token.value, offset + token.start))
     for key, hits in candidates.items():
         path = ("przelew_bankowy", key)
         rule = result.evidence.get(".".join(path), {}).get("rule")
@@ -231,11 +230,13 @@ def observed_amounts(page, offset, lines, patterns):
             if value is not None and isfinite(value):
                 start, end = match.span(1)
                 amounts.setdefault(start, AmountObservation(value, offset + start, offset + end, operation))
-    for (_, header), (start, values) in zip(lines, lines[1:]):
-        for _, _, token in structured_numbers(header, values):
-            if token.key == "kwota":
-                pos = start + token.start
-                amounts.setdefault(pos - offset, AmountObservation(token.value, pos, start + token.end, "money"))
+    for row, _, token in labelled_numbers(tuple(line for _, line in lines)):
+        if token.key == "kwota":
+            start, line = lines[row]
+            # The contract expresses the absolute amount. Exclude a debit sign
+            # from a span that may later be checked with the money normalizer.
+            pos = start + token.start + int(line[token.start] in "-−+")
+            amounts.setdefault(pos - offset, AmountObservation(token.value, pos, start + token.end, "money"))
     return list(amounts.values())
 
 

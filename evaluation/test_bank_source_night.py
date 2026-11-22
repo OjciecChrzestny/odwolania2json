@@ -102,3 +102,18 @@ class BankSourceNightTest(TestCase):
                                         "Data operacji przelew: prowizja 95,12 PLN")))
         self.assertFalse(view_evidence(("Data Opis Kwota",
                                         "Data operacji przelew: 55,10 EUR")))
+
+    def test_completed_order_summary_uses_only_its_own_price_and_execution_date(self):
+        rows = ("Status", "Wykonane", "Data wydruku 04 05 2026", "Dane zlecenia",
+                "○ -2 301.28 PLN", "Tryb realizacji zwykły", "Dala wykonania 03 05 2026",
+                "Prowizja 14,20 PLN")
+        doc = Document.from_pages(["Informacja dla klienta", "\n".join(rows)])
+        value, diagnostics = extract_class(doc, self.classes, "przelew", [])
+        self.assertEqual(value["przelew_bankowy"]["kwota"], 2301.28)
+        self.assertEqual(value["przelew_bankowy"]["data_operacji"], "2026-05-03")
+        for key in ("kwota", "data_operacji"):
+            self.assertEqual(diagnostics["fields"]["przelew_bankowy." + key]["page"], 2)
+        self.assertFalse(view_evidence(("Status Oczekujące", *rows[2:])))
+        self.assertFalse(view_evidence(("Status Wykonane", *rows[2:6], "Planowana Dala wykonania 03 05 2026")))
+        changed = (*rows[:4], "Prowizja 14,20 PLN", *rows[5:])
+        self.assertEqual(view_evidence(changed), {"data_operacji": [(3, "2026-05-03")]})
