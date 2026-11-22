@@ -4,8 +4,9 @@ services:
     pull_policy: never
     network_mode: none
     read_only: true
-    user: "${ODW_UID:-1000}:${ODW_GID:-1000}"
+    user: "${ODW_UID:-0}:${ODW_GID:-0}"
     cap_drop: [ALL]
+    cap_add: [DAC_OVERRIDE]
     security_opt: [no-new-privileges:true]
     volumes:
       - type: bind
@@ -20,7 +21,7 @@ services:
         bind:
           create_host_path: false
       - type: bind
-        # CLI locates the journal beside /work/output. Derive its host path from the output.
+        # Match RUN.md for output/ and keep a separate sibling journal for each custom output.
         source: "${ODW_OUTPUT_PARENT:-.}/.${ODW_OUTPUT_NAME:-output}.odwolania2json"
         target: /work/.output.odwolania2json
         bind:
