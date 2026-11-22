@@ -8,7 +8,7 @@ from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
 from .bank_accounts import LABEL, account_observations, apply_accounts, fold
-from .bank_scan import recovered_numbers, row_text
+from .bank_scan import primary_scan_view, recovered_numbers, row_text
 from .legal import BUILDERS as LEGAL_BUILDERS
 from .model import Document, Extraction, FLAGS, classify, cover_limit, excluded_heading, schema_errors
 from .ocr import LocalOCR
@@ -177,6 +177,7 @@ def transfer_from_alternate_page(document, classes, views):
 
 
 def extract(document, classes, *, capture_decision=False):
+    primary = document
     name, signals = classify(document, classes)
     scan = document.bank_scan
     views = None
@@ -185,10 +186,12 @@ def extract(document, classes, *, capture_decision=False):
         document, name, signals = transfer_from_alternate_page(document, classes, views)
     if name == "negative":
         return None, {"class": name, "status": "negative", "signals": signals, "fields": {}}
-    return extract_class(document, classes, name, signals, views=views, capture_decision=capture_decision)
+    return extract_class(document, classes, name, signals, views=views, capture_decision=capture_decision,
+                         primary_document=primary)
 
 
-def extract_class(document, classes, name, signals, *, views=None, capture_decision=False):
+def extract_class(document, classes, name, signals, *, views=None, capture_decision=False,
+                  primary_document=None):
     """Extract fields of an identified class, preserving the normal local field rules."""
     scan = document.bank_scan
     config = classes[name]
@@ -213,7 +216,15 @@ def extract_class(document, classes, name, signals, *, views=None, capture_decis
             evidence.append((view.page, account_observations(rows, view.positions)))
         apply_accounts(result, evidence, scanned={view.page for view in views or ()})
         if missing_number:
-            for key, (value, page) in recovered_numbers(views or ()).items():
+            numbers = recovered_numbers(views or ())
+            primary_view = primary_scan_view(primary_document or document)
+            if primary_view is not None and any(bank[key] is None and key not in numbers
+                                                for key in ("kwota", "data_operacji")):
+                # Complement the original fallback. A primary read cannot
+                # replace a value already supported by the alternate reads.
+                for key, reading in recovered_numbers((*views, primary_view) if views else (primary_view,)).items():
+                    numbers.setdefault(key, reading)
+            for key, (value, page) in numbers.items():
                 if bank[key] is None:
                     result.put(("przelew_bankowy", key), value, document.starts[page - 1][0],
                                "ocr_wiersz_kwoty" if key == "kwota" else "ocr_wiersz_daty")

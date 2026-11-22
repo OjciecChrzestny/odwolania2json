@@ -55,6 +55,21 @@ def visual_rows(tsv):
     return row_text(word_rows(tsv))
 
 
+def primary_scan_view(document):
+    """Keep the single-page primary OCR geometry tied to its own text."""
+    if len(document.starts) != 1 or not document.ocr_layout_tsv:
+        return None
+    try:
+        positions = word_rows(document.ocr_layout_tsv)
+    except ValueError:
+        return None
+    if not positions:
+        return None
+    text = document.text.removesuffix("\n\f\n")
+    return ScanView(1, text, row_text(positions), positions=positions)
+
+
+
 DATE_TOKEN = re.compile(r"(?<![\d./-])" + DATE + r"(?![\d./-])", re.I)
 MONEY_TOKEN = re.compile(
     r"(?<![\d.,])[-−+]?(?:[0-9]{1,3}(?:[ .][0-9]{3})+|[0-9]+)[,.][ \t]*[0-9]{2}(?![\d.,])"

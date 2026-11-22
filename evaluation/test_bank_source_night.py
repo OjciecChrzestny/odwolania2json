@@ -45,3 +45,20 @@ class BankSourceNightTest(TestCase):
         self.assertEqual(diagnostics["fields"]["przelew_bankowy.kwota"]["page"], 2)
         self.assertEqual(diagnostics["fields"]["przelew_bankowy.data_operacji"]["page"], 2)
         scan.assert_called_once()
+
+    def test_primary_tsv_can_confirm_alternate_value_without_reusing_its_text(self):
+        text = "Bank przelew"
+        row = "Kwota: 143,68 PLN"
+        alternate = ScanView(1, "Potwierdzenie przelewu\nRachunek odbiorcy: brak", (row,))
+        scan = Mock(return_value=[alternate])
+        tsv = "\n".join(
+            f"5\t1\t1\t1\t1\t{n}\t{x}\t15\t25\t12\t93\t{word}"
+            for n, (x, word) in enumerate(((10, "Kwota:"), (50, "143,68"), (90, "PLN")), start=1)
+        )
+        primary = replace(Document.from_pages([text]), bank_scan=scan, ocr_layout_tsv=tsv)
+        value, diagnostics = extract(primary, self.classes)
+        self.assertEqual(value["przelew_bankowy"]["kwota"], 143.68)
+        observation = diagnostics["fields"]["przelew_bankowy.kwota"]
+        self.assertEqual((observation["page"], observation["source"], observation["precision"]), (1, "ocr", "page"))
+        self.assertNotIn("snippet", observation)
+        scan.assert_called_once()
