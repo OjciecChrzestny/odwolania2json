@@ -14,7 +14,7 @@ docker run --rm --pull=never --read-only \
   --env OMP_THREAD_LIMIT=1 --publish 127.0.0.1:8765:8765 \
   --mount "type=bind,source=$PANEL_RUN,target=/work/demo" \
   --entrypoint python odwolania2json-jury:final-20261122 \
-  -m operator_panel --demo-workspace /work/demo --ocr-data /opt/tessdata \
+  -m operator_panel --demo-workspace /work/demo/przebiegi --ocr-data /opt/tessdata \
   --bind 0.0.0.0 --port 8765
 ```
 
@@ -30,7 +30,7 @@ Otwórz `http://127.0.0.1:8765`. Przy przeglądarce działającej na hoście Doc
 
 ## Własny PDF, źródło i decyzja
 
-Wybierz **Wgraj własny PDF**, a następnie **Przetwórz PDF**. Panel przyjmuje jeden plik do 32 MiB w każdej próbie. Możesz wgrać syntetyczny skan `delivery/compose/skan-syntetyczny.pdf` z kopii projektu. Każdy upload zapisuje osobny przebieg w `$PANEL_RUN/<id>/`, z własnymi katalogami `input/`, `output/` i `diagnostics/`.
+Wybierz **Wgraj własny PDF**, a następnie **Przetwórz PDF**. Panel przyjmuje jeden plik do 32 MiB w każdej próbie. Możesz wgrać syntetyczny skan `delivery/compose/skan-syntetyczny.pdf` z kopii projektu. Każdy upload zapisuje osobny przebieg w `$PANEL_RUN/przebiegi/<id>/`, z własnymi katalogami `input/`, `output/` i `diagnostics/`.
 
 Otwórz przetworzony `dokument.pdf`, wskaż pole i otwórz fizyczną stronę z dowodem. W skanie demonstracyjnym kwota 123,45 pochodzi ze strony 1. Porównaj wynik ze stroną i zapisz akceptację lub korektę. Decyzja trafia do `diagnostics/run.decisions.sqlite3`. Surowy JSON nadal zawiera wynik ekstrakcji. Zakończ serwer przez Ctrl+C.
 
