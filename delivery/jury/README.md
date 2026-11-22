@@ -4,7 +4,9 @@
 
 ## Partia PDF-ów
 
-Z katalogu rozpakowanej paczki wykonaj [polecenie z RUN.md](RUN.md). Używa ono przygotowanego lokalnie obrazu `odwolania2json-jury:final-20261122` z Pythonem 3.13 i polskim OCR. Na VM użyj istniejących `input/` i `output/`. We własnej kopii możesz utworzyć oba katalogi przez `mkdir -p input output`. Zagnieżdżony `input/sprawa/pismo.pdf` daje `output/sprawa/pismo.json`. Dokument obcy daje plik 0 B, a źródła pól są w `diagnostics/last-run.json`.
+Na VM wstaw PDF-y do `/opt/solution/input/` i wykonaj `./run-jury.sh`. Limit lokalnego OCR wynosi do 6 różnych stron na PDF. Odczyt brakującej kwoty przez LLM włącza się automatycznie i współdzieli z panelem limit 1 EUR na VM.
+
+Z katalogu rozpakowanej paczki wykonaj [polecenie z RUN.md](RUN.md). Używa ono przygotowanego lokalnie obrazu `odwolania2json-jury:auto-20261122` z Pythonem 3.13 i polskim OCR. Na VM użyj istniejących `input/` i `output/`. We własnej kopii możesz utworzyć oba katalogi przez `mkdir -p input output`. Zagnieżdżony `input/sprawa/pismo.pdf` daje `output/sprawa/pismo.json`. Dokument obcy daje plik 0 B, a źródła pól są w `diagnostics/last-run.json`.
 
 W tej samej kopii możesz wykonać partię przez Compose. Domyślna usługa używa tego samego obrazu, katalogów i ewidencji.
 
@@ -24,7 +26,7 @@ Pokaz dodaje [klasę zawiadomienia](demo/rozszerzalnosc/zawiadomienie.json) i [o
 ```sh
 DEMO="$PWD/demo/rozszerzalnosc"
 WORK="$(mktemp -d)"
-IMAGE=odwolania2json-jury:final-20261122
+IMAGE=odwolania2json-jury:auto-20261122
 CLI_USER="$(id -u):$(id -g)"
 # Dla Docker rootless ustaw CLI_USER=0:0.
 docker run --rm --pull=never --network=none --read-only --user "$CLI_USER" \

@@ -1,14 +1,21 @@
 services:
   cli:
-    image: "${ODW_JURY_IMAGE:-odwolania2json-jury:final-20261122}"
+    image: "${ODW_JURY_IMAGE:-odwolania2json-jury:auto-20261122}"
     pull_policy: never
-    network_mode: none
+    network_mode: "${ODW_JURY_NETWORK:-none}"
     read_only: true
     user: "${ODW_UID:-0}:${ODW_GID:-0}"
     cap_drop: [ALL]
     cap_add: [DAC_OVERRIDE]
     security_opt: [no-new-privileges:true]
     volumes:
+      - type: bind
+        source: "${ODW_JURY_KEY_FILE:-/dev/null}"
+        target: /run/odwolania2json/scaleway.env
+        read_only: true
+      - type: bind
+        source: "${ODW_JURY_BUDGET_DIR:-./.llm-jury}"
+        target: /work/llm
       - type: bind
         source: "${ODW_INPUT_DIR:-./input}"
         target: /work/input

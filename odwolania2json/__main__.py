@@ -68,7 +68,7 @@ def output_lock(output_dir):
 
 def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
             read_document=None, extract_document=_DEFAULT_EXTRACT_DOCUMENT, ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET,
-            negative_verifier=None):
+            negative_verifier=None, amount_reader=None):
     if read_document is None:
         read_document = partial(read_pdf_with_title_evidence, ocr_page_budget=ocr_page_budget)
     input_dir.mkdir(parents=True, exist_ok=True)
@@ -83,6 +83,8 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
     ocr_enabled = ocr is not None
     revision = extractor_revision(config_sha256, ocr_enabled, ocr_page_budget=ocr_page_budget,
                                   verifier_profile=negative_verifier.profile if negative_verifier else None)
+    if amount_reader is not None:
+        revision = "sha256:" + digest((revision + ":scaleway-amount-v1").encode())
     with output_lock(output_dir) as journal:
         owned = set(json.loads(journal.read_text(encoding="utf-8"))) if journal.exists() else set()
         for name in owned | sources.keys():
@@ -108,6 +110,8 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
                 if classes.get(record["class"], {}).get("builder") == "power_of_attorney":
                     value, record = verify_power_name(pdf, ocr, value, record, ocr_pages)
                 record = {**record, "ocr_pages": ocr_pages}
+                if amount_reader is not None:
+                    amount_reader.fill(pdf, pdf_sha256, value, record)
                 if negative_verifier is not None and record["status"] == "negative" and "przelew" in classes:
                     value, record = negative_verifier(pdf, document, classes, record)
 
@@ -155,7 +159,7 @@ def main():
                         help="plik diagnostyki poza wejściem i wyjściem")
     parser.add_argument("--ocr-max-pages", type=int, default=DEFAULT_OCR_PAGE_BUDGET,
                         help="maksymalna liczba różnych stron poddanych OCR na PDF (domyślnie 6)")
-    parser.add_argument("--ocr-data", type=Path, help="katalog pol.traineddata dla opcjonalnego OCR")
+    parser.add_argument("--ocr-data", type=Path, help="katalog z polskim modelem OCR")
     commands = parser.add_subparsers(dest="command")
     review = commands.add_parser("review", help="kolejka operatora i lokalny dziennik decyzji")
     actions = review.add_subparsers(dest="action", required=True)
@@ -192,8 +196,13 @@ def main():
                 except (KeyError, TypeError, AttributeError) as exc:
                     raise ValueError("Nieprawidłowa struktura diagnostyki lub konfiguracji.") from exc
         ocr = prepare_ocr(args.ocr_data) if args.ocr_data else None
+        amount_reader = None
+        if (ocr is not None and args.config.resolve() == DEFAULT_CONFIG.resolve()
+                and Path("/run/odwolania2json/scaleway.env").is_file() and Path("/work/llm").is_dir()):
+            from experiments.transfer_api.jury_amount import AmountReader
+            amount_reader = AmountReader(args.ocr_data)
         return process(input_dir, output_dir, load_classes(args.config), diagnostic, ocr,
-                       ocr_page_budget=args.ocr_max_pages)
+                       ocr_page_budget=args.ocr_max_pages, amount_reader=amount_reader)
     except (OSError, sqlite3.Error, ValueError) as exc:
         print(f"Błąd: {exc}", file=sys.stderr)
         return 2

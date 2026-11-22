@@ -30,6 +30,8 @@ FROM runtime AS jury
 USER 0:0
 COPY operator_panel/requirements.txt ./operator_panel/
 RUN python -m pip install --no-cache-dir --only-binary=:all: -r operator_panel/requirements.txt
+COPY experiments/abc/adapters.py ./experiments/abc/
+COPY experiments/transfer_api/crops.py experiments/transfer_api/dates.py experiments/transfer_api/scaleway.py experiments/transfer_api/jury_amount.py ./experiments/transfer_api/
 COPY operator_panel/__main__.py ./operator_panel/
 COPY operator_panel/static/ ./operator_panel/static/
 USER 1000:1000

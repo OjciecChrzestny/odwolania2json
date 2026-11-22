@@ -9,7 +9,7 @@ Uruchom na Linuksie z katalogu głównego pakietu. Potrzebujesz gotowego lokalne
 ```sh
 DEMO=demo/rozszerzalnosc
 WORK="$(mktemp -d)/pokaz-obiektu"
-IMAGE=odwolania2json-jury:final-20261122
+IMAGE=odwolania2json-jury:auto-20261122
 python "$DEMO/obiekt.py" --image "$IMAGE" --work "$WORK"
 ```
 
@@ -38,7 +38,7 @@ Przy gotowym obrazie na hoście wystarczą Docker, powłoka i biblioteka standar
 ```sh
 DEMO=demo/rozszerzalnosc
 WORK="$(mktemp -d)/pokaz-wlasny"
-IMAGE=odwolania2json-jury:final-20261122
+IMAGE=odwolania2json-jury:auto-20261122
 CLI_USER="$(id -u):$(id -g)"
 # Dla Dockera rootless ustaw CLI_USER=0:0.
 python3 -S -B "$DEMO/obiekt.py" --image "$IMAGE" --user "$CLI_USER" \

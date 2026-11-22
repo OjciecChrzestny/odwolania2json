@@ -9,4 +9,6 @@ runs/
 .jury/
 .env
 .env.*
+.llm-jury/
+panel-demo/
 *.env

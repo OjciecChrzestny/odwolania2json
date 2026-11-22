@@ -31,15 +31,15 @@ SYSTEM = (
 )
 
 
-def load_token():
-    token = os.environ.get(PROVIDER.token_env, "")
+def load_token(path=None):
+    token = os.environ.get(PROVIDER.token_env, "") if path is None else ""
     if not token:
-        path = Path.home() / ".config/odwolania2json/llm.env"
+        path = path or Path.home() / ".config/odwolania2json/llm.env"
         if not path.is_file():
             raise ValueError("missing_key_file")
         with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), encoding="utf-8-sig") as file:
             st = os.fstat(file.fileno())
-            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+            if not stat.S_ISREG(st.st_mode) or (os.geteuid() != 0 and st.st_uid != os.getuid()) or st.st_mode & 0o077:
                 raise ValueError("private_key_file_permissions")
             for line in file:
                 name, separator, value = line.partition("=")
@@ -93,13 +93,13 @@ def parse_answer(obj, field, rows):
     return row, parsed
 
 
-def read_field(token, field, png, rows):
+def read_field(token, field, png, rows, *, timeout=45):
     body = encode(make_payload(field, png, rows))
     record = {"model": PROVIDER.model, "request_sha256": sha256(body), "http": None, "usage": None}
     started = perf_counter()
     try:
         response = https_post(PROVIDER.url, {"Content-Type": "application/json",
-                                             "Authorization": "Bearer " + token}, body, 45)
+                                             "Authorization": "Bearer " + token}, body, timeout)
         record["http"] = response.status
         if response.status != 200:
             record["outcome"] = f"http_{response.status}"

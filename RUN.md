@@ -1,46 +1,27 @@
 # Uruchomienie oceny na VM
 
-Z katalogu `/opt/solution` w powłoce z uprawnieniami administratora wykonaj cały blok. Katalogi `input/` i `output/` przygotowuje jury.
+Umieść PDF-y w `/opt/solution/input/`. W powłoce administratora, w katalogu `/opt/solution`, wykonaj jedno polecenie.
 
 ```sh
-test -d "$PWD/input" &&
-test -d "$PWD/output" &&
-mkdir -p "$PWD/.output.odwolania2json" "$PWD/diagnostics" &&
-docker run --rm --pull=never --network=none --read-only \
-  --user=0:0 --cap-drop=ALL --cap-add=DAC_OVERRIDE \
-  --security-opt=no-new-privileges \
-  --env OMP_THREAD_LIMIT=1 \
-  --mount "type=bind,source=$PWD/input,target=/work/input,readonly" \
-  --mount "type=bind,source=$PWD/output,target=/work/output" \
-  --mount "type=bind,source=$PWD/.output.odwolania2json,target=/work/.output.odwolania2json" \
-  --mount "type=bind,source=$PWD/diagnostics,target=/work/diagnostics" \
-  odwolania2json-jury:final-20261122
+./run-jury.sh
 ```
 
-CLI odczytuje PDF-y rekurencyjnie. `input/sprawa/pismo.pdf` daje `output/sprawa/pismo.json`. Dokument obcy daje plik o rozmiarze 0 B. Błąd odczytu pomija wynik danego PDF-u, zapisuje `read_error` i kończy komendę kodem 1 po przetworzeniu pozostałych plików. Kod 2 oznacza błąd konfiguracji lub zapisu. Diagnostyka jest w `diagnostics/last-run.json`, a ewidencja w `.output.odwolania2json/`. Domyślne Compose używa tych samych katalogów i ewidencji. Przy zmianie sposobu uruchomienia pozostaw `output/` oraz `.output.odwolania2json/` na miejscu.
+Wyniki znajdziesz w `output/`, w tych samych podkatalogach co pliki wejściowe. Dokument obcy daje plik JSON o rozmiarze 0 B. Diagnostyka stron, pól i błędów odczytu jest w `diagnostics/last-run.json`. Kod wyjścia 0 oznacza ukończoną partię, 1 oznacza co najmniej jeden błąd odczytu, a 2 błąd konfiguracji lub zapisu.
 
-Jeśli dotychczasowe wyniki powstały ze starszego polecenia RUN i ich ewidencja jest w `.jury/state/`, zatrzymaj wszystkie przebiegi. Jeżeli `.output.odwolania2json/` jeszcze nie istnieje, przenieś całą ewidencję poleceniem `mv .jury/state .output.odwolania2json` w katalogu rozwiązania. Jeśli istnieją obie ewidencje, zabezpiecz obie i ustal, która odpowiada bieżącemu `output/`, przed wznowieniem pracy.
+## Automatyczny OCR i budżet API
+
+Program odczytuje warstwę tekstową wszystkich stron. W razie potrzeby kieruje do polskiego OCR do **6 różnych stron każdego PDF-u**. Każdy dokument ma osobny limit, także w dużej partii.
+
+Jeżeli rozpoznanemu przelewowi ze skanem na pierwszej stronie brakuje kwoty, aplikacja szuka wycinka z cyframi. Gdy znajdzie odpowiedni wiersz, może odczytać kwotę przez **Scaleway Generative APIs**, modelem `mistral-small-3.2-24b-instruct-2506`. Do usługi trafiają obraz wycinków liczbowych i etykiety z zamkniętego słownika. W razie braku klucza, błędu usługi lub wyczerpania limitu aplikacja oddaje lokalny wynik.
+
+Klucz dla jury znajduje się w `/opt/solution/.env` jako `SCALEWAY_SECRET_KEY`, z uprawnieniami `0600`. Skrypt montuje go tylko do odczytu. Limit wynosi **1 EUR łącznie dla aplikacji na VM**. CLI i panel dzielą 20 rezerwacji po 0,05 EUR. Rezerwacja poprzedza wysłanie żądania i obejmuje także błędy transportu. Powtórzenie tego samego PDF-u wykorzystuje wcześniejszy wynik lub informację o próbie. Ewidencja jest w `.llm-jury/usage.sqlite3` i musi pozostać na miejscu między uruchomieniami. Panel i CLI wybierają tryb automatycznie.
 
 ## Przygotowanie obrazu przed oceną
 
-Po zamrożeniu wydania ustaw `REV` na pełny SHA zatwierdzonego kodu. Koordynator buduje obraz z archiwum tej rewizji, z katalogu repozytorium i w magazynie Dockera używanym do oceny.
+Na przydzielonej VM obraz `odwolania2json-jury:auto-20261122` jest już zainstalowany. Na własnej maszynie pobierz obraz z [wydania](https://github.com/OjciecChrzestny/odwolania2json/releases), wczytaj go przez `docker image load -i odwolania2json-auto-obraz.tar.gz` i utwórz katalogi `input/` i `output/`. Źródła i pliki uruchomieniowe powinny pochodzić z tego samego wydania. Z czystego repozytorium obraz zbudujesz poniższym poleceniem.
 
-```bash
-(
-  set -eu
-  : "${REV:?Ustaw REV na pełny SHA zamrożonego wydania}"
-  test "${#REV}" -eq 40
-  test "$(git rev-parse --verify "$REV^{commit}")" = "$REV"
-  IMAGE=odwolania2json-jury:final-20261122
-  BUILD="$(mktemp -d)"
-  git archive --format=tar "$REV" > "$BUILD/kod.tar"
-  test "$(git get-tar-commit-id < "$BUILD/kod.tar")" = "$REV"
-  mkdir "$BUILD/kod"
-  tar --same-permissions -xf "$BUILD/kod.tar" -C "$BUILD/kod"
-  docker build --target jury --label "org.opencontainers.image.revision=$REV" \
-    --tag "$IMAGE" "$BUILD/kod"
-  docker image inspect "$IMAGE" --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
-)
+```sh
+docker build --target jury --label "org.opencontainers.image.revision=$(git rev-parse HEAD)" -t odwolania2json-jury:auto-20261122 .
 ```
 
-Przy przenoszeniu obrazu sprawdź sumę archiwum i wczytaj je przez `docker image load --input ŚCIEŻKA_ARCHIWUM`. Na serwerze oceny zapisz pełny SHA źródeł z etykiety i `Image ID` zwrócony przez ostatnie polecenie. Przed restartem serwera przygotuj pliki projektu, uruchomiony demon Dockera oraz lokalny obraz. Po restarcie sprawdź ten sam tag, ID i etykietę w magazynie administratora. Próbę przed przekazaniem wykonaj na własnych przykładach. Kontener oceny korzysta z Pythona 3.13 i polskiego OCR, działa offline i kończy pracę po partii.
+Usługa panelu na VM uruchamia się po restarcie. [Panel operatora](docs/operator.md)

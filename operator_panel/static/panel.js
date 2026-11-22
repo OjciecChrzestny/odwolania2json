@@ -183,7 +183,7 @@ function renderField() {
   renderEvidenceQuality(field);
   const proof = proofFor(field.path);
   text("value", JSON.stringify(field.value));
-  const source = { text: "Tekst PDF-u", ocr: "OCR" }[proof?.source];
+  const source = { text: "Tekst PDF-u", ocr: "OCR", llm: "Scaleway, wycinek kwoty" }[proof?.source];
   text("evidence-meta", [proof?.page && "Strona " + proof.page, source, proof?.rule].filter(Boolean).join(" · "));
   const exact = proof?.precision === "snippet" && typeof proof.snippet === "string" && proof.snippet.length > 0;
   text("snippet", exact ? proof.snippet : "");

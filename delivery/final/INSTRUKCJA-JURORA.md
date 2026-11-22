@@ -1,120 +1,20 @@
 # Odwołania2JSON dla jurora UZP
 
+## Ocena na VM
+
+Wgraj PDF-y do `/opt/solution/input/` i wykonaj w `/opt/solution` polecenie `./run-jury.sh`. Wyniki będą w `output/`. Ten sam przebieg obsługuje dokumenty tekstowe i skany. Polski OCR ma do 6 różnych stron na każdy PDF, a automatyczny odczyt brakującej kwoty przez Scaleway współdzieli z panelem limit 1 EUR na VM. [Instrukcja uruchomienia](../../RUN.md)
+
 ## Czysta kopia i własny PDF
 
-Potrzebujesz Git oraz linku i pełnego SHA wskazanych w zgłoszeniu. Poniższe polecenia są dla Linuksa. Do instalacji zależności lub budowy obrazu potrzebna jest sieć. Samo przetwarzanie odbywa się lokalnie.
+Pobierz kod i obraz z [wydania jurorskiego](https://github.com/OjciecChrzestny/odwolania2json/releases). Po wczytaniu obrazu utwórz `input/` i `output/`, umieść swój PDF w `input/` i wykonaj `./run-jury.sh`. Możesz użyć [syntetycznego skanu](../compose/skan-syntetyczny.pdf). Jego kwota wynosi 123,45 zł i ma dowód na stronie 1.
 
-```sh
-: "${REPO_URL:?Ustaw REPO_URL na adres repozytorium ze zgłoszenia}"
-: "${RELEASE_SHA:?Ustaw RELEASE_SHA na pełny SHA ze zgłoszenia}"
-WORK="$(mktemp -d)"
-git clone --no-checkout "$REPO_URL" "$WORK/repo"
-cd "$WORK/repo"
-git checkout --detach "$RELEASE_SHA"
-git rev-parse HEAD
+## Wynik i źródło pola
 
-: "${PDF:?Ustaw PDF na bezwzględną ścieżkę do własnego PDF-u}"
-IN="$WORK/PDF jurora"
-OUT="$WORK/JSON jurora"
-DIAG="$WORK/Diagnostyka jurora"
-mkdir -p "$IN/sprawa" "$OUT" "$DIAG"
-cp "$PDF" "$IN/sprawa/pismo.pdf"
-```
-
-Możesz dodać dalsze PDF-y także w innych podkatalogach wejścia. Aby sprawdzić OCR bez własnych danych, ustaw `PDF="$PWD/delivery/compose/skan-syntetyczny.pdf"` po wejściu do repozytorium i przed skopiowaniem PDF-u. Uruchom wtedy wariant z OCR. Skan powinien dać `kwota=123.45`, tytuł „Opłata za usługę” i `ocr_pages=[1]`.
-
-### Python
-
-Utwórz środowisko w repozytorium. Dla nowszej wersji Pythona podstaw jej polecenie zamiast `python3.13`.
-
-```sh
-python3.13 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements.txt
-```
-
-Dla PDF-ów z warstwą tekstową uruchom:
-
-```sh
-python -m odwolania2json --input "$IN" --output "$OUT" \
-  --diagnostics "$DIAG/last-run.json"
-```
-
-Dla skanów wykonaj pierwszy blok poleceń z [instalacji polskiego OCR](../../README.md#opcjonalny-ocr). Po potwierdzeniu sumy użyj tego samego katalogu `TESSDATA`. Uruchom:
-
-```sh
-OMP_THREAD_LIMIT=1 python -m odwolania2json --input "$IN" --output "$OUT" \
-  --diagnostics "$DIAG/last-run.json" --ocr-data "$TESSDATA"
-```
-
-### Docker Compose z OCR
-
-Uruchom na silniku Docker obsługującym kontenery linuksowe, z Compose v2. Wczytaj wcześniej lokalny obraz `odwolania2json-jury:final-20261122`. [Przygotowanie obrazu z zatwierdzonego SHA](../../RUN.md#przygotowanie-obrazu-przed-oceną) Domyślne Compose i `RUN.md` używają wspólnej ewidencji `.output.odwolania2json/` dla `output/`. Przykład poniżej wskazuje własne wyjście z osobną ewidencją obok niego.
-
-```sh
-OUT="$WORK/JSON Compose"
-DIAG="$WORK/Diagnostyka Compose"
-export ODW_INPUT_DIR="$IN" ODW_OUTPUT_PARENT="$WORK" ODW_OUTPUT_NAME="$(basename "$OUT")"
-export ODW_DIAGNOSTICS_DIR="$DIAG"
-mkdir -p "$OUT" "$DIAG" "$WORK/.${ODW_OUTPUT_NAME}.odwolania2json"
-docker compose run --rm --pull never -e OMP_THREAD_LIMIT=1 cli
-```
-
-Kontener ma wyłączoną sieć i montuje katalog wejściowy tylko do odczytu. [Domyślne katalogi Compose, konfiguracja Windows i ewidencja wyników](../compose/README.md)
-
-### Wynik i źródło pola
-
-Przy poprawnym odczycie `sprawa/pismo.pdf` ma odpowiadający plik `sprawa/pismo.json`. Diagnostyka jest obok wyjścia.
-
-```sh
-wc -c "$OUT/sprawa/pismo.json"
-cat "$OUT/sprawa/pismo.json"
-cat "$DIAG/last-run.json"
-```
-
-Plik 0 B i status `negative` oznaczają dokument obcy. Przy błędzie odczytu danego PDF-u wynik jest pomijany, wpis ma status `read_error`, a CLI kończy pozostałe PDF-y i zwraca kod 1. Kod 2 oznacza błąd konfiguracji lub operacji na drzewie. Puste wejście daje zero wyników i pustą listę `documents`. Przy nowym przebiegu możesz wskazać nowe wyjście i nową diagnostykę.
-
-Dla rozpoznanego przelewu odszukaj np. `przelew_bankowy.kwota`. W `documents` wybierz rekord z `output: sprawa/pismo.json`, a w jego `fields` odczytaj `page` i `rule`. `page` liczymy od 1. Otwórz stronę PDF-u i porównaj wartość. W natywnym środowisku Pythona skrypt może wypisać warstwę tekstową wskazanej strony. Dla strony rozpoznanej przez OCR obejrzyj obraz w czytniku PDF.
-
-```sh
-python demo/rozszerzalnosc/pokaz.py zrodlo "$IN/sprawa/pismo.pdf" \
-  "$DIAG/last-run.json" --output sprawa/pismo.json
-```
-
-### Kontrola przez operatora
-
-Użyj tych samych katalogów wejścia, wyjścia i diagnostyki co przy ekstrakcji. Wybierz polecenie dla swojego trybu.
-
-Po ekstrakcji natywnej, w aktywnym środowisku Pythona:
-
-```sh
-kontrola() {
-  python -m odwolania2json --input "$IN" --output "$OUT" --diagnostics "$DIAG/last-run.json" review "$@"
-}
-```
-
-Po ekstrakcji w Compose, z tymi samymi ustawieniami `ODW_*` i z katalogu repozytorium:
-
-```sh
-kontrola() {
-  docker compose run --rm --pull never cli review "$@"
-}
-```
-
-Wyświetl kolejkę i podaj względną ścieżkę PDF-u z listy. `show` pokazuje wynik, ocenę stron, powody kontroli oraz identyfikator bieżącej wersji.
-
-```sh
-kontrola list
-kontrola show sprawa/pismo.pdf
-```
-
-Po kodzie 1 z ekstrakcji nadal możesz sprawdzić dokumenty. Dla uszkodzonego PDF-u `show` zwraca `status: read_error`, `review_status: unavailable` i `review_id: null`.
-
-Jeśli `show` zwróci identyfikator, porównaj wynik ze źródłem i skopiuj `review_id` do zmiennej `ID`. Dla poprawnego wyniku użyj `kontrola accept sprawa/pismo.pdf --expect "$ID"`. Jeśli źródło potwierdza np. inną kwotę, użyj `kontrola correct sprawa/pismo.pdf --expect "$ID" --field przelew_bankowy.kwota --value 125.50`. Powtórne `show` wyświetla decyzję zapisaną w dzienniku SQLite obok diagnostyki. Oddany JSON zawiera surową ekstrakcję. Przy braku niezależnie zweryfikowanych profili wszystkie dokumenty trafiają do kontroli człowieka.
+Dla `input/sprawa/pismo.pdf` otwórz `output/sprawa/pismo.json`. W `diagnostics/last-run.json` znajdziesz numer fizycznej strony i regułę pola. W panelu można wgrać PDF, obejrzeć stronę, sprawdzić czytelność i zapisać własną decyzję. [Instrukcja panelu](../../docs/operator.md)
 
 ## Skąd bierze się wynik
 
-1. `extract.py` odczytuje przez pypdf warstwę tekstową ze wszystkich stron. Włączone OCR domyślnie próbuje rozpoznać tekst na najwyżej sześciu różnych stronach. `ocr.py` renderuje wybrane strony przez PDFium i rozpoznaje polski tekst przez Tesseract.
+1. `extract.py` odczytuje przez pypdf warstwę tekstową ze wszystkich stron. Automatyczny OCR próbuje rozpoznać tekst na najwyżej sześciu różnych stronach każdego PDF-u. `ocr.py` renderuje wybrane strony przez PDFium i rozpoznaje polski tekst przez Tesseract.
 2. `model.py` wczytuje definicje klas. `odwolanie.json` odpowiada odwołaniom KIO, `pelnomocnictwo.json` pełnomocnictwom, a `przelew.json` potwierdzeniom przelewu. Punktowane sygnały z treści i progi wyłaniają jedną klasę. Brak rozpoznania lub remis daje dokument obcy. Nazwy PDF-ów służą do wyznaczenia ścieżki wynikowej.
 3. Reguły pól i operacje w `operations.py` normalizują wartości, a schemat określa klucze, typy i pola dopuszczające `null`. Logika dokumentów prawnych jest w `legal.py`. Dane przelewów korzystają też z `transfer.py` i reguł dla skanów i rachunków.
 4. `python -m odwolania2json` zapisuje wyniki zgodnie z drzewem wejścia. Osobny plik diagnostyczny wskazuje status, klasę oraz podstawę wydobycia pola na poziomie strony i reguły.
@@ -132,13 +32,11 @@ Aby zmienić konfigurację ekstrakcji lub dodać klasę, skopiuj standardowe kon
 
 Według instrukcji HackTribe projekt i wybór zadania należało zapisać do 20:00 w sobotę 21 listopada. Termin końcowy to 11:00 w niedzielę 22 listopada 2026 r., czasu warszawskiego. Szczegółowy opis PDF podaje podział finału 50/30/20. Do finału UZP stosujemy § 2 regulaminu zadania. [README UZP, rewizja z 21 listopada](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/blob/0b360a9da4b482a6a280696df6714404e0953505/README.md#4-wymagania-formalne) · [Regulamin UZP, § 2–4](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aa36e74b-f96c-46cf-9970-5937ed203222.pdf#page=2) · [Szczegółowy opis UZP](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aeabc57d-7420-4069-946e-2c4de71d87ed.pdf#page=4) · [Przewodnik HackNation](https://hacknation.pl/przewodnik-uczestnika) · [Instrukcja HackTribe, s. 6–7](https://hacknation.pl/api/public/przewodnik/1f73a661-0852-4e9e-b3ed-58c93bce6456?asset=aa346c52-8bd9-44ac-9499-364e44c4b6b4#page=6)
 
-**Dostęp z konta jurora pozostaje niezweryfikowany.** Właściciel potwierdza adres i SHA zgłoszenia, odczyt prywatnego repozytorium z właściwego konta oraz możliwość pobrania przesłanej prezentacji. Zaproszenia i wysyłka zgłoszenia należą do właściciela.
+Repozytorium jest publiczne. Materiały do zgłoszenia udostępnia strona wydań GitHub.
 
 ## Warunki użycia API
 
-A3 uruchamiane z tego przewodnika przetwarza dokumenty lokalnie. `experiments/abc` i `experiments/transfer_api` zawierają oddzielne eksperymenty. Działanie A3 i dostęp do niego nie wymagają klucza API.
-
-W README UZP sprawdzonym 21 listopada 2026 r. wymagane są komponenty open source, w tym otwartoźródłowe modele językowe. Wariant korzystający z LLM ma używać API i być dostarczony z kluczem testowym. Dostawca ma świadczyć usługę z serwerów w UE/EOG i określać zakres oraz miejsce przetwarzania w polityce prywatności. OCR przez API podlega ocenie parametrów jak LLM. Organizator zapowiedział aktualizację szczegółowych zasad punktacji modeli. W razie wyboru wariantu z API właściciel potwierdza zgodność modelu, dostawcy i regionu, limity oraz kanał przekazania klucza poza Git. Limit testu organizatora to 45 minut na 150 PDF-ów. [Wymagania techniczne i walidacja UZP](https://github.com/Urzad-Zamowien-Publicznych/hacknation-2026/blob/0b360a9da4b482a6a280696df6714404e0953505/README.md#5-wymagania-techniczne) · [Dokumentacja eksperymentu B/C](../../experiments/abc/README.md#dostawcy-i-warunki-sprawdzone-21112026)
+Automatyczny odczyt kwoty korzysta z europejskiej usługi Scaleway i wspólnego limitu wydatków. [Reguły użycia i budżet](../../RUN.md#automatyczny-ocr-i-budżet-api)
 
 ## Komponenty zewnętrzne
 

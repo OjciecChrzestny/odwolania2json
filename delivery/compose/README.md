@@ -1,6 +1,6 @@
 # Odwołania2JSON przez Docker Compose
 
-Wymagany jest uruchomiony Docker Engine obsługujący kontenery Linux i Docker Compose v2. Compose uruchamia lokalny obraz `odwolania2json-jury:final-20261122`. Przed użyciem wczytaj obraz przygotowany z zatwierdzonego SHA zgodnie z [RUN.md](../../RUN.md#przygotowanie-obrazu-przed-oceną). Przetwarzanie działa lokalnie na CPU. Usługa uruchamia publiczne CLI z włączonym polskim OCR i z trybem sieci `none`. [Dokumentacja Docker Compose](https://docs.docker.com/reference/compose-file/services/#network_mode)
+Wymagany jest uruchomiony Docker Engine obsługujący kontenery Linux i Docker Compose v2. Compose uruchamia lokalny obraz `odwolania2json-jury:auto-20261122`. Przed użyciem wczytaj obraz przygotowany z zatwierdzonego SHA zgodnie z [RUN.md](../../RUN.md#przygotowanie-obrazu-przed-oceną). Przetwarzanie działa lokalnie na CPU. Usługa uruchamia publiczne CLI z włączonym polskim OCR i z trybem sieci `none`. [Dokumentacja Docker Compose](https://docs.docker.com/reference/compose-file/services/#network_mode)
 
 ## Uprawnienia na Linuxie
 

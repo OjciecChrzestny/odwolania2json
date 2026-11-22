@@ -1,14 +1,17 @@
 # Odwołania2JSON
 
-Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przelewów. Dla dokumentów obcych zapisuje plik 0 B. Wariant A3 stosuje reguły i lokalny polski OCR na CPU. Profil regułowy działa bez sieci, GPU i klucza API.
+Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przelewów. Dla dokumentów obcych zapisuje plik 0 B. Dokumenty są klasyfikowane i odczytywane lokalnie na CPU. Gdy brakuje kwoty rozpoznanego przelewu, aplikacja może automatycznie poprosić Scaleway o odczyt wycinka z cyframi.
 
 ## Uruchomienie na VM oceny
 
-W `/opt/solution` użyj [polecenia z RUN.md](RUN.md). Przed oceną koordynator przygotowuje obraz `odwolania2json-jury:final-20261122` z zatwierdzonego SHA. Polecenie uruchamia jednorazowy kontener offline, zapisuje wyniki w `output/`, ewidencję w `.output.odwolania2json/`, a diagnostykę w `diagnostics/`. Domyślne Compose używa tych samych katalogów.
+Włóż PDF-y do `/opt/solution/input/` i w `/opt/solution` wykonaj `./run-jury.sh`. Wyniki pojawią się w `output/`. Aplikacja sama wybiera strony do polskiego OCR i przydziela do 6 różnych stron każdemu PDF-owi. Rozpoznany przelew z brakującą kwotą może uruchomić odczyt wycinka przez Scaleway. Wspólny limit CLI i panelu wynosi 1 EUR na VM. [RUN.md](RUN.md)
 
-[CLI z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md) · [Wgranie PDF-u w panelu z obrazu jurora](docs/operator.md) · [Dodanie klasy przez konfigurację](demo/rozszerzalnosc/README.md) · [Wyniki i tryb offline](docs/jakosc.md)
+[Wydanie do pobrania](https://github.com/OjciecChrzestny/odwolania2json/releases) · [Własny PDF w panelu](docs/operator.md) · [Dodanie klasy przez konfigurację](demo/rozszerzalnosc/README.md) · [Wyniki pomiarów](docs/jakosc.md)
 
-## Instalacja i własne PDF-y
+<details>
+<summary>Instalacja programistyczna bez Dockera</summary>
+
+### Środowisko Pythona
 
 Wymagany jest Python 3.13 lub nowszy. Przy pierwszej instalacji pip pobiera zależności. Poniższe polecenia uruchom z katalogu głównego repozytorium na Linuksie.
 
@@ -40,11 +43,13 @@ python -m odwolania2json --input moje-pdf --output wyniki \
   --diagnostics diagnostyka/przebieg.json
 ```
 
-### Opcjonalny OCR
+<a id="opcjonalny-ocr"></a>
+
+### Instalacja polskiego OCR na Linuksie
 
 CLI czyta warstwę tekstową każdej strony. Opcja `--ocr-max-pages N` ustala osobny budżet różnych stron poddanych OCR w jednym PDF-ie (domyślnie 6). Strona z tekstem nie zużywa budżetu. Brak wolnego miejsca na potrzebny OCR daje w diagnostyce `ocr_page_budget` dla nieocenionej strony. Rozpoznawanie klasy nadal korzysta z jej skonfigurowanych stron początkowych.
 
-Do dokumentów skanowanych włącz polski OCR lub użyj Compose. Poniższe polecenia wykonaj na Linuksie w środowisku utworzonym powyżej. Koła binarne muszą być dostępne dla używanej wersji Pythona i architektury. Plik językowy jest przypięty do wydania `tessdata_fast` 4.1.0.
+W osobnej instalacji programistycznej przygotuj zależności lokalnego OCR. Poniższe polecenia wykonaj na Linuksie w środowisku utworzonym powyżej. Koła binarne muszą być dostępne dla używanej wersji Pythona i architektury. Plik językowy jest przypięty do wydania `tessdata_fast` 4.1.0.
 
 ```sh
 python -m pip install --only-binary=:all: -r requirements-ocr.txt
@@ -64,9 +69,11 @@ OMP_THREAD_LIMIT=1 python -m odwolania2json --ocr-data "$TESSDATA"
 
 A3 odczytuje przez OCR wybrane strony, gdy brakuje czytelnej warstwy tekstowej. Odczyt używa pypdf, a OCR korzysta z PDFium przez pypdfium2 i z Tesseract przez tesserocr. [Pochodzenie i licencje komponentów](delivery/final/INSTRUKCJA-JURORA.md#komponenty-zewnętrzne)
 
+</details>
+
 ## Docker Compose
 
-Wymagany jest Docker Engine z kontenerami linuksowymi i Compose v2. Compose uruchamia wcześniej przygotowany `odwolania2json-jury:final-20261122` z polskim OCR i wyłączoną siecią. [Przygotowanie i weryfikacja obrazu](RUN.md#przygotowanie-obrazu-przed-oceną) Domyślny użytkownik kontenera jest wspólny z `RUN.md`. W trybie rootless odpowiada użytkownikowi demona na hoście.
+Wymagany jest Docker Engine z kontenerami linuksowymi i Compose v2. Compose uruchamia wcześniej przygotowany `odwolania2json-jury:auto-20261122` z polskim OCR. Na VM użyj polecenia z RUN.md. [Przygotowanie i weryfikacja obrazu](RUN.md#przygotowanie-obrazu-przed-oceną) Domyślny użytkownik kontenera jest wspólny z `RUN.md`. W trybie rootless odpowiada użytkownikowi demona na hoście.
 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
@@ -76,7 +83,7 @@ docker compose run --rm --pull never -e OMP_THREAD_LIMIT=1 cli
 
 [Compose z własnymi katalogami oraz instrukcja dla Windows](delivery/compose/README.md)
 
-## Opcjonalny obraz z adapterami
+## Obraz do eksperymentów deweloperskich
 
 Zadania z adapterami można spakować osobno. Obraz zawiera kod weryfikacji przelewów, adaptery B/C i kod odczytu pól przelewu. Punkt wejścia i lokalna ekstrakcja zachowują dotychczasowe działanie.
 
@@ -84,7 +91,7 @@ Zadania z adapterami można spakować osobno. Obraz zawiera kod weryfikacji prze
 docker build --target adapters --tag odwolania2json:adapters .
 ```
 
-Budowa obejmuje wyłącznie potrzebne moduły i zależności. Dane, pliki referencyjne i `.env` są poza obrazem. Użyj tego celu po wyborze adaptera i uzgodnieniu konfiguracji sieciowej. Komenda oceny w `RUN.md` uruchamia profil offline. [Weryfikator przelewów i pomiary](experiments/transfer_api/RAPORT_KLASYFIKACJA.md) · [Adaptery B/C](experiments/abc/README.md)
+Budowa obejmuje wyłącznie potrzebne moduły i zależności. Dane, pliki referencyjne i `.env` są poza obrazem. Użyj tego celu po wyborze adaptera i uzgodnieniu konfiguracji sieciowej. Komenda oceny w `RUN.md` automatycznie obsługuje kwalifikujące się brakujące kwoty. [Weryfikator przelewów i pomiary](experiments/transfer_api/RAPORT_KLASYFIKACJA.md) · [Adaptery B/C](experiments/abc/README.md)
 
 ## Reguły i rozszerzanie
 

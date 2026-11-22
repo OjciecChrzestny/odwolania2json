@@ -20,6 +20,7 @@ experiments/transfer_api/**
 !experiments/transfer_api/negative_verifier.py
 !experiments/transfer_api/run.py
 !experiments/transfer_api/scaleway.py
+!experiments/transfer_api/jury_amount.py
 !operator_panel/
 operator_panel/**
 !operator_panel/__main__.py

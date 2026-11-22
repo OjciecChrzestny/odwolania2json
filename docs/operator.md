@@ -1,39 +1,13 @@
-# Panel operatora w obrazie jurora
+# Panel operatora
 
-Użyj obrazu `odwolania2json-jury:final-20261122` przygotowanego dla tej samej rewizji co [próba CLI](../RUN.md). Obraz zawiera Python 3.13 i polski OCR. Na hoście wystarczy Docker. Weryfikację pełnego SHA i ID obrazu opisuje [RUN.md](../RUN.md#przygotowanie-obrazu-przed-oceną).
-
-## Uruchomienie pokazu
-
-Na hoście oceny w powłoce administratora wykonaj:
-
-```sh
-umask 077
-PANEL_RUN="$(mktemp -d)"
-docker run --rm --pull=never --read-only \
-  --user=0:0 --cap-drop=ALL --security-opt=no-new-privileges \
-  --env OMP_THREAD_LIMIT=1 --publish 127.0.0.1:8765:8765 \
-  --mount "type=bind,source=$PANEL_RUN,target=/work/demo" \
-  --entrypoint python odwolania2json-jury:final-20261122 \
-  -m operator_panel --demo-workspace /work/demo/przebiegi --ocr-data /opt/tessdata \
-  --bind 0.0.0.0 --port 8765
-```
-
-Panel nasłuchuje na interfejsach kontenera, a Docker udostępnia port wyłącznie pod `127.0.0.1` hosta. Panel sprawdza adres `Host` i pochodzenie żądań zapisu. Polecenie montuje własny katalog pokazu. Domyślne polecenie obrazu nadal uruchamia partię z `RUN.md`.
-
-Na komputerze z przeglądarką otwórz tunel, podając login i adres hosta oceny zamiast `LOGIN@HOST`:
+Na przydzielonej VM panel działa pod `127.0.0.1:8765`. Na swoim komputerze zestaw tunel SSH do tej VM.
 
 ```sh
 ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8765:127.0.0.1:8765 LOGIN@HOST
 ```
 
-Otwórz `http://127.0.0.1:8765`. Przy przeglądarce działającej na hoście Dockera możesz użyć tego adresu bezpośrednio.
+Otwórz `http://127.0.0.1:8765`, wybierz **Wgraj własny PDF**, a następnie **Przetwórz PDF**. Polski OCR i odczyt brakującej kwoty używają tych samych reguł oraz tego samego limitu 1 EUR co [partia jurorska](../RUN.md). Każde wgranie tworzy osobny przebieg, maksymalny rozmiar jednego PDF-u wynosi 32 MiB.
 
-## Własny PDF, źródło i decyzja
+W sekcji **Dowód i decyzja** wybierz pole i kliknij **Otwórz stronę dowodu**. Porównaj stronę i odczytaną wartość. Możesz zapisać akceptację lub korektę. Decyzja zostaje w dzienniku operatora, a surowy JSON zawiera wynik ekstrakcji. W [syntetycznym skanie](../delivery/compose/skan-syntetyczny.pdf) kwota 123,45 zł pochodzi ze strony 1.
 
-Wybierz **Wgraj własny PDF**, a następnie **Przetwórz PDF**. Panel przyjmuje jeden plik do 32 MiB w każdej próbie. Możesz wgrać syntetyczny skan `delivery/compose/skan-syntetyczny.pdf` z kopii projektu. Każdy upload zapisuje osobny przebieg w `$PANEL_RUN/przebiegi/<id>/`, z własnymi katalogami `input/`, `output/` i `diagnostics/`.
-
-W sekcji **Dowód i decyzja** wybierz kwotę lub datę operacji z listy **Pole wyniku** i kliknij **Otwórz stronę dowodu**. Cytat pokazuje fragment tekstu PDF-u albo odczytu OCR, na którym oparto zapis wartości do weryfikacji. Automatyczne oznaczenie wysokiej pewności jest wyłączone, ponieważ reguła nie oznaczyła pól w niezależnej próbie 72 syntetycznych PDF-ów.
-
-W skanie demonstracyjnym kwota 123,45 pochodzi ze strony 1. Porównaj wynik ze stroną i zapisz akceptację lub korektę. Decyzja trafia do `diagnostics/run.decisions.sqlite3`. Surowy JSON nadal zawiera wynik ekstrakcji. Zakończ serwer przez Ctrl+C.
-
-[CLI jurora](../RUN.md) · [Próba dodania klasy](../README.md#reguły-i-rozszerzanie)
+Na własnej maszynie po wczytaniu obrazu jednorazowe polecenie `./run-jury.sh panel` uruchamia usługę. Jej dane trafiają do `panel-demo/`, oddzielnie od katalogów wejściowych jury.

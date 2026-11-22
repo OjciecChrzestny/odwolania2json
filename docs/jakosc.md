@@ -10,7 +10,11 @@ Miara to mikro-F1 pól. TP, FP i FN oznaczają poprawne trafienia, fałszywe tra
 
 Publiczne 30 PDF-ów wykorzystano do strojenia. Dawne próby 7+4 są raportowane osobno jako pomiary historyczne. Wynik na tajnym zbiorze pozostaje nieznany. Wynik zmierzony na finalnym SHA i paczce oraz raport z każdej niezależnej próby znajdą się w `RAPORT-KONCOWY.md` obok archiwum wydania.
 
-## Szybkie sprawdzenie offline
+## Pomiary wariantu z automatycznym odczytem kwoty
+
+W historycznej próbie 44 słabych skanów uzupełnianie brakującej kwoty przez Scaleway poprawiło F1 sześciu pól z 76,19% do 76,99%. Najnowsza integracja z trwałym limitem 1 EUR została wdrożona bez nowego przebiegu jakościowego. Wyniki wcześniejszego wydania opisuje jego [raport](https://github.com/OjciecChrzestny/odwolania2json/releases/tag/v2026.11.22-uzp). [Zakres historycznego porównania](../experiments/transfer_api/RAPORT_REZERWA.md)
+
+## Szybkie sprawdzenie obrazu bazowego
 
 Wybrany profil regułowy używa lokalnego OCR i działa bez klucza API. Poniższe polecenie sprawdza pełny SHA i ID przygotowanego obrazu.
 
