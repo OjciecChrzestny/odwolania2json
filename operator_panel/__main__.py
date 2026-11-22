@@ -1,8 +1,11 @@
-"""Lokalny panel kontroli istniejących wyników Odwołania2JSON."""
+"""Lokalny panel kontroli i demonstracyjnego przetwarzania PDF-ów."""
 import argparse
 import json
+import os
 import re
 import sqlite3
+import subprocess
+import sys
 from base64 import b64encode
 from contextlib import closing
 from http import HTTPStatus
@@ -11,6 +14,7 @@ from io import BytesIO
 from pathlib import Path
 from threading import Lock
 from urllib.parse import parse_qs, urlsplit
+from uuid import uuid4
 
 from PIL import Image  # pypdfium2 udostępnia bitmapę jako obraz Pillow
 from pypdfium2 import PdfDocument, PdfiumError
@@ -24,6 +28,9 @@ STATIC = Path(__file__).with_name("static")
 ASSETS = {"/": ("index.html", "text/html"), "/panel.css": ("panel.css", "text/css"),
           "/panel.js": ("panel.js", "text/javascript")}
 MAX_REQUEST = 16_384
+MAX_UPLOAD = 32 * 1024 * 1024
+DEMO_MARKER = ".operator-panel-demo"
+ROOT = Path(__file__).resolve().parents[1]
 PDF_LOCK = Lock()
 
 
@@ -135,6 +142,70 @@ class Panel:
                                      "accepted" if action == "accept" else "corrected", **correction)
 
 
+class DemoWorkspace:
+    """Jeden odrębny przebieg CLI na każdy nowy PDF."""
+
+    def __init__(self, workspace, config, ocr_data):
+        if workspace.is_symlink():
+            raise ValueError("Katalog demonstracyjny nie może być dowiązaniem.")
+        self.root = workspace.resolve()
+        self.config = config.resolve()
+        self.ocr_data = ocr_data.resolve() if ocr_data else None
+        if self.ocr_data and not (self.ocr_data / "pol.traineddata").is_file():
+            raise ValueError("Katalog --ocr-data musi zawierać pol.traineddata.")
+        marker = self.root / DEMO_MARKER
+        try:
+            self.root.mkdir(mode=0o700)
+        except FileExistsError:
+            if marker.is_symlink() or not marker.is_file():
+                raise ValueError("Podaj nowy katalog demonstracyjny lub katalog utworzony wcześniej przez panel.")
+        else:
+            marker.touch(mode=0o600, exist_ok=False)
+        self.processing = Lock()
+
+    def get_panel(self, run_id):
+        if not isinstance(run_id, str) or not re.fullmatch(r"[0-9a-f]{32}", run_id):
+            raise PanelError(HTTPStatus.NOT_FOUND, "Nie ma takiego przebiegu demonstracyjnego.")
+        run = self.root / run_id
+        source, output, reports = run / "input", run / "output", run / "diagnostics"
+        diagnostic = reports / "run.json"
+        if (not diagnostic.is_file() or any(path.resolve() != path
+                                             for path in (run, source, output, reports, diagnostic))):
+            raise PanelError(HTTPStatus.NOT_FOUND, "Nie ma gotowego przebiegu demonstracyjnego.")
+        return Panel(source, output, diagnostic, self.config)
+
+    def upload(self, data):
+        if not self.processing.acquire(blocking=False):
+            raise PanelError(HTTPStatus.CONFLICT, "Trwa przetwarzanie innego PDF-u. Spróbuj ponownie po jego zakończeniu.")
+        try:
+            return self.extract(data)
+        finally:
+            self.processing.release()
+
+    def extract(self, data):
+        run_id = uuid4().hex
+        run = self.root / run_id
+        run.mkdir(mode=0o700)
+        source = run / "input"
+        source.mkdir()
+        (source / "dokument.pdf").write_bytes(data)
+        command = [sys.executable, "-B", "-m", "odwolania2json", "--input", str(source),
+                   "--output", str(run / "output"), "--diagnostics", str(run / "diagnostics" / "run.json"),
+                   "--config", str(self.config)]
+        if self.ocr_data:
+            command.extend(("--ocr-data", str(self.ocr_data)))
+        try:
+            result = subprocess.run(command, cwd=ROOT, env={**os.environ, "OMP_THREAD_LIMIT": "1"},
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL, timeout=180)
+        except subprocess.TimeoutExpired as exc:
+            raise PanelError(HTTPStatus.SERVICE_UNAVAILABLE, "Ekstrakcja przekroczyła limit 180 sekund.") from exc
+        if result.returncode not in (0, 1):
+            raise PanelError(HTTPStatus.SERVICE_UNAVAILABLE,
+                             "Lokalny ekstraktor nie ukończył przebiegu. Sprawdź konfigurację i OCR.")
+        return {"run": run_id, "read_error": result.returncode == 1}
+
+
 def render_page(data, number):
     """Renderuje obraz strony, pomijając interaktywne elementy PDF."""
     try:
@@ -206,17 +277,28 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, sqlite3.Error):
             self.reply(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "Pliki przebiegu lub dziennik są niedostępne."})
 
+    def review_panel(self, query):
+        if self.server.demo is None:
+            return self.server.panel
+        run_id, = query.get("run", [None])
+        return self.server.demo.get_panel(run_id)
+
     def get(self):
         address = self.request_address()
         if address.path in ASSETS:
             filename, content_type = ASSETS[address.path]
             self.send(HTTPStatus.OK, (STATIC / filename).read_bytes(), content_type)
             return
-        panel = self.server.panel
+        demo = self.server.demo
+        if address.path == "/api/mode":
+            self.reply(HTTPStatus.OK, {"upload_enabled": demo is not None, "max_upload_bytes": MAX_UPLOAD,
+                                       "ocr_enabled": bool(demo and demo.ocr_data)})
+            return
+        query = parse_qs(address.query, strict_parsing=True, max_num_fields=4)
         if address.path == "/api/documents":
-            result = panel.documents()
+            result = [] if demo and "run" not in query else self.review_panel(query).documents()
         elif address.path in ("/api/document", "/api/page"):
-            query = parse_qs(address.query, strict_parsing=True, max_num_fields=3)
+            panel = self.review_panel(query)
             name, = query.get("name", [])
             if address.path == "/api/document":
                 result = panel.document(name)
@@ -228,34 +310,64 @@ class Handler(BaseHTTPRequestHandler):
             raise PanelError(HTTPStatus.NOT_FOUND, "Nie ma takiej strony panelu.")
         self.reply(HTTPStatus.OK, result)
 
+    def body(self, maximum, *, oversized=HTTPStatus.BAD_REQUEST):
+        size = int(self.headers.get("Content-Length", "0"))
+        if size <= 0:
+            raise ValueError("Żądanie nie zawiera danych.")
+        if size > maximum:
+            raise PanelError(oversized, "Przekroczono dopuszczalny rozmiar żądania.")
+        data = self.rfile.read(size)
+        if len(data) != size:
+            raise ValueError("Żądanie zawiera niekompletne dane.")
+        return data
+
     def post(self):
         address = self.request_address(write=True)
+        content_type = self.headers.get_content_type()
+        if address.path == "/api/upload" and self.server.demo:
+            if content_type != "application/pdf":
+                raise PanelError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Wybierz plik PDF.")
+            data = self.body(MAX_UPLOAD, oversized=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            result = self.server.demo.upload(data)
+            self.reply(HTTPStatus.CREATED, result)
+            return
         if address.path != "/api/decision":
             raise PanelError(HTTPStatus.NOT_FOUND, "Nie ma takiej akcji panelu.")
-        if self.headers.get_content_type() != "application/json":
+        if content_type != "application/json":
             raise PanelError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Decyzja wymaga danych JSON.")
-        size = int(self.headers.get("Content-Length", "0"))
-        if not 0 < size <= MAX_REQUEST:
-            raise PanelError(HTTPStatus.BAD_REQUEST, "Nieprawidłowa długość danych decyzji.")
-        payload = json.loads(self.rfile.read(size))
+        payload = json.loads(self.body(MAX_REQUEST))
         if not isinstance(payload, dict):
             raise ValueError("Dane decyzji muszą być obiektem JSON.")
         json.dumps(payload, allow_nan=False)
-        self.reply(HTTPStatus.OK, self.server.panel.decide(payload))
+        query = parse_qs(address.query, strict_parsing=True, max_num_fields=1) if self.server.demo else {}
+        self.reply(HTTPStatus.OK, self.review_panel(query).decide(payload))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=Path("input"), help="katalog PDF-ów")
-    parser.add_argument("--output", type=Path, default=Path("output"), help="katalog surowych wyników")
-    parser.add_argument("--diagnostics", type=Path, default=Path("diagnostics/last-run.json"))
+    parser.add_argument("--input", type=Path, help="katalog PDF-ów")
+    parser.add_argument("--output", type=Path, help="katalog surowych wyników")
+    parser.add_argument("--diagnostics", type=Path, help="plik raportu z istniejącej ekstrakcji")
+    parser.add_argument("--demo-workspace", type=Path, help="oddzielny katalog dla nowych PDF-ów w panelu")
+    parser.add_argument("--ocr-data", type=Path, help="katalog pol.traineddata dla nowych PDF-ów")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
+    if args.demo_workspace and any((args.input, args.output, args.diagnostics)):
+        parser.error("--demo-workspace jest osobnym trybem i nie przyjmuje --input, --output ani --diagnostics.")
+    if args.ocr_data and not args.demo_workspace:
+        parser.error("--ocr-data dotyczy nowych plików w trybie --demo-workspace.")
     try:
-        panel = Panel(args.input, args.output, args.diagnostics, args.config)
+        demo = None
+        panel = None
+        if args.demo_workspace:
+            demo = DemoWorkspace(args.demo_workspace, args.config, args.ocr_data)
+        else:
+            panel = Panel(args.input or Path("input"), args.output or Path("output"),
+                          args.diagnostics or Path("diagnostics/last-run.json"), args.config)
         with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
             server.panel = panel
+            server.demo = demo
             print(f"Panel dostępny na http://127.0.0.1:{server.server_port}", flush=True)
             server.serve_forever()
     except KeyboardInterrupt:

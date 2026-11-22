@@ -55,6 +55,38 @@ summary { min-height: 2.75rem; align-content: center; font-weight: 600; }
 .masthead button { background: transparent; border-color: #86a2ad; color: white; }
 .masthead button:hover:not(:disabled) { background: #29495b; }
 .masthead button:focus-visible { outline-color: #9ed6c5; }
+.upload-panel {
+  padding: .75rem clamp(.85rem, 2.5vw, 2rem);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.upload-panel form {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) minmax(15rem, 34rem) auto;
+  align-items: center;
+  gap: .55rem 1rem;
+}
+.upload-panel label { font-weight: 700; }
+.upload-panel p { font-size: .87rem; overflow-wrap: anywhere; }
+.upload-panel input[type=file] {
+  min-width: 0;
+  width: 100%;
+  padding: .12rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+.upload-panel input::file-selector-button {
+  min-height: 2.75rem;
+  margin-inline-end: .45rem;
+  padding: .45rem .65rem;
+  border: 1px solid #9fb1bf;
+  border-radius: .3rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+#upload-status { margin-top: .45rem; }
 .workspace { display: grid; grid-template-columns: minmax(14.5rem, 18.5rem) minmax(0, 1fr); min-height: calc(100vh - 4.25rem); }
 .queue { min-width: 0; background: var(--paper); border-right: 1px solid var(--line); }
 .queue-header { padding: 1.25rem 1rem .1rem; }
@@ -152,6 +184,7 @@ summary { min-height: 2.75rem; align-content: center; font-weight: 600; }
   .case-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 38rem) {
+  .upload-panel form { grid-template-columns: minmax(0, 1fr); justify-items: start; }
   .masthead { flex-wrap: wrap; gap: .2rem .65rem; }
   .masthead h1 { flex: 1 1 100%; order: 1; }
   .masthead button { margin-left: auto; }

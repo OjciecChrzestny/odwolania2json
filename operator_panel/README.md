@@ -1,8 +1,29 @@
 # Lokalny panel kontroli
 
-Panel otwiera wyniki ostatniej ekstrakcji. Lewa kolumna pokazuje dokumenty i powody kontroli. Po wyborze dokumentu można przejść na wskazaną fizyczną stronę PDF-u, rozwinąć tekst strony, sprawdzić pole z dowodem i zapisać decyzję.
+Panel przetwarza własny PDF w trybie pokazowym i pozwala także otwierać istniejące wyniki. Lewa kolumna pokazuje dokumenty i powody kontroli. Po wyborze dokumentu można przejść na wskazaną fizyczną stronę PDF-u, rozwinąć tekst strony, sprawdzić pole z dowodem i zapisać decyzję.
 
-## Uruchomienie na VPS
+## Własny PDF w przeglądarce
+
+Z katalogu repozytorium, w aktywnym środowisku Pythona z zależnościami panelu:
+
+```sh
+python -m pip install -r operator_panel/requirements.txt
+RUN=$(mktemp -d)
+python -m operator_panel --demo-workspace "$RUN/przebiegi" --port 8765
+```
+
+Z polskim OCR zainstaluj dodatkowo `requirements-ocr.txt` i podaj katalog zawierający `pol.traineddata`:
+
+```sh
+python -m pip install -r requirements-ocr.txt
+python -m operator_panel --demo-workspace "$RUN/przebiegi" --ocr-data "$TESSDATA" --port 8765
+```
+
+Połącz się przez tunel opisany niżej. W panelu wybierz **Wgraj własny PDF**, a potem **Przetwórz PDF**. Po zakończeniu panel otwiera surowy wynik, stronę i kontrolę. Zobaczysz 0 B dla dokumentu spoza klas albo komunikat odczytu, gdy PDF jest uszkodzony.
+
+Tryb demo uruchamia lokalnie zwykłe `python -m odwolania2json` dla jednego PDF-u do 32 MiB. Każde uruchomienie zapisuje plik jako `dokument.pdf` w nowym przebiegu z własnymi katalogami `input/`, `output/` i `diagnostics/`. Identyfikator przebiegu jest w adresie panelu. Zachowaj adres i katalog, aby wrócić do wyniku i decyzji po restarcie. Przebiegi pozostają na dysku, dopóki operator ich nie usunie. Wskaż nowy katalog lub wcześniej utworzony przez panel. `--demo-workspace` ma własne ścieżki i można go uruchomić niezależnie od trybu istniejących raportów.
+
+## Przegląd istniejących raportów na VPS
 
 Z katalogu repozytorium. Użyj Pythona 3.13 i przygotuj osobny katalog przebiegu.
 
@@ -65,4 +86,4 @@ trial=$(mktemp -d)
 python -B -m operator_panel.acceptance "$trial/run"
 ```
 
-Skrypt zapisuje zrzuty widoku 1440×900 i 375×812 oraz raport `result.json`. Oczekiwane wyniki to 3 zgodne SHA-256 surowych wyników, negatyw 0 B, 2 decyzje po restarcie i HTTP 409 przy zapisie starej decyzji.
+Skrypt zapisuje zrzuty widoku 1440×900 i 375×812 oraz raport `result.json`. Dla istniejącego raportu oczekuj 3 zgodnych SHA-256, negatywu 0 B, 2 decyzji po restarcie i HTTP 409 przy zapisie starej decyzji. W trybie demo Chromium wgrywa nowy przelew, negatyw i uszkodzony PDF oraz sprawdza także zachowanie surowego wyniku po decyzji. Aby dodać próbę rzeczywistego polskiego OCR, przekaż `--ocr-data "$TESSDATA"` do polecenia odbioru.
