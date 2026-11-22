@@ -248,6 +248,40 @@ def check_empty_and_long(browser, folder):
         page.close()
 
 
+def check_page_reasons(browser, folder):
+    sheet = folder / "sheet.pdf"
+    write_pdf(sheet, RECEIPT)
+    source = folder / "input" / "osiem-stron.pdf"
+    source.parent.mkdir()
+    with PdfWriter() as pdf:
+        for _ in range(8):
+            pdf.append(sheet)
+        pdf.write(source)
+    extract(folder, expected=0)
+    report_path = folder / "diagnostics" / "run.json"
+    report = json.loads(report_path.read_bytes())
+    # Odwzoruj trzy stany raportu, zachowując rzeczywiste strony PDF-u do podglądu.
+    labels = [
+        (6, "native_read_failed", "Nie udało się odczytać warstwy tekstowej strony PDF-u."),
+        (7, "ocr_interrupted", "Przerwano lokalny OCR tej strony."),
+        (8, "ocr_page_budget", "Wyczerpano limit stron lokalnego OCR. Stronę można otworzyć do ręcznej kontroli."),
+    ]
+    for number, reason, _ in labels:
+        report["documents"][0]["pages"][number - 1].update(status="unassessed", reason=reason)
+    report_path.write_text(json.dumps(report))
+    with panel(folder) as url:
+        for width, height in ((1440, 900), (375, 812)):
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.goto(url)
+            expect(page.locator("#doc-title")).to_have_text(source.name)
+            for number, _, label in labels:
+                page.select_option("#page", str(number))
+                expect(page.locator("#page-state")).to_have_text("Niezbadana · " + label)
+                expect(page.locator("#page-image")).to_have_attribute("alt", f"Fizyczna strona {number} z 8 pliku PDF")
+            assert page.evaluate("document.documentElement.scrollWidth === innerWidth")
+            page.close()
+
+
 def upload(page, workspace, source):
     previous = page.url
     page.get_by_role("button", name="Wgraj własny PDF", exact=True).set_input_files(source)
@@ -367,12 +401,13 @@ def main():
         initial, old = check_desktop(browser, folder, evidence)
         digest = check_resume(browser, folder, evidence, old, initial)
         check_empty_and_long(browser, evidence / "empty-and-long")
+        check_page_reasons(browser, evidence / "page-reasons")
         upload_result = check_upload(browser, evidence, args.ocr_data)
         result = {"chromium": browser.version, "viewports": ["1440x900", "375x812"], "output_sha256": initial,
                   "negative_bytes": 0, "decisions_after_restart": 2, "stale_write_status": 409,
                   "journal_sha256_after_both_extractions": digest, "upload": upload_result,
                   "checked": ["keyboard", "no_quote", "read_error", "empty", "long_label", "safe_text",
-                              "traversal", "symlink", "origin", "host", "physical_page_2", "zoom", "stale_preview"]}
+                              "traversal", "symlink", "origin", "host", "physical_page_2", "zoom", "stale_preview", "page_reasons_6_of_6"]}
         text = json.dumps(result, indent=2) + "\n"
         (evidence / "result.json").write_text(text)
         print(text, end="")

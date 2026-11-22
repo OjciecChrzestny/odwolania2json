@@ -12,6 +12,11 @@ const classes = {
 const pageStates = {
   readable: "Czytelna", partial: "Częściowo czytelna", unreadable: "Nieczytelna", unassessed: "Niezbadana",
 };
+const pageReasons = {
+  ocr_page_budget: "Wyczerpano limit stron lokalnego OCR. Stronę można otworzyć do ręcznej kontroli.",
+  native_read_failed: "Nie udało się odczytać warstwy tekstowej strony PDF-u.",
+  ocr_interrupted: "Przerwano lokalny OCR tej strony.",
+};
 const reasons = {
   account_role_conflict: "Sprzeczna rola rachunku",
   account_role_unconfirmed: "Rola rachunku wymaga potwierdzenia",
@@ -176,7 +181,7 @@ async function openPage(number) {
   el("page").value = String(number);
   const observation = current?.pages.find((page) => page.page === number);
   const status = observation ? pageStates[observation.status] || observation.status : "Niezbadana";
-  const reason = observation ? reasons[observation.reason] || observation.reason : "";
+  const reason = observation ? pageReasons[observation.reason] || reasons[observation.reason] || observation.reason : "";
   text("page-state", [status, reason].filter(Boolean).join(" · "));
   const image = el("page-image");
   image.hidden = true;
