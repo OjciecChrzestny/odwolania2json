@@ -1,5 +1,6 @@
 """Powiązanie podpisów z deklaracją reprezentacji i stopką mocodawcy."""
 from collections import defaultdict
+from contextlib import closing
 from dataclasses import dataclass
 import re
 
@@ -39,6 +40,7 @@ class FooterRow:
     top: int
     left: int
     bottom: int
+    right: int
     text: str
 
     @property
@@ -53,19 +55,20 @@ def _layout_rows(tsv):
         if len(columns) != 12 or columns[0] != "5" or not columns[11].strip():
             continue
         try:
-            left, top, height = map(int, (columns[6], columns[7], columns[9]))
+            left, top, width, height = map(int, columns[6:10])
         except ValueError:
             return []
-        lines[tuple(columns[2:5])].append((left, top, height, columns[11]))
+        lines[tuple(columns[2:5])].append((left, top, width, height, columns[11]))
 
     rows = []
     for tokens in lines.values():
         left = min(token[0] for token in tokens)
         top = min(token[1] for token in tokens)
-        bottom = max(y + height for _, y, height, _ in tokens)
-        ordered = sorted(tokens, key=lambda token: (token[0], token[1], token[3]))
-        text = " ".join(token[3] for token in ordered)
-        rows.append(FooterRow(top, left, bottom, text))
+        bottom = max(y + height for _, y, _, height, _ in tokens)
+        right = max(x + width for x, _, width, _, _ in tokens)
+        ordered = sorted(tokens, key=lambda token: (token[0], token[1], token[4]))
+        text = " ".join(token[4] for token in ordered)
+        rows.append(FooterRow(top, left, bottom, right, text))
     return sorted(rows, key=lambda row: (row.top, row.left))
 
 
@@ -123,13 +126,86 @@ def _unconfirmed_signature_slots(heading, captions):
     )
 
 
-def _confirmed_footer_names(heading, footer, names):
+def _horizontal_run(pixels, start, end):
+    run_start = None
+    longest = (start, start)
+    for x in range(start, end + 1):
+        if x < end and pixels[x] < 165:
+            if run_start is None:
+                run_start = x
+        elif run_start is not None:
+            if x - run_start > longest[1] - longest[0]:
+                longest = (run_start, x)
+            run_start = None
+    return longest
+
+
+def _signature_guide(bitmap, pixels, box):
+    left, top, right, bottom, height = box
+    left, right = max(0, left), min(bitmap.width, right)
+    top, bottom = max(0, top), min(bitmap.height, bottom)
+    if height < 4 or right - left < 3 * height or bottom - top <= height:
+        return False, False
+    # Linia formularza jest długa i pozioma. Grafika oceniana jest osobno nad nią.
+    guide = None
+    for y in range(top, bottom):
+        base = y * bitmap.stride
+        first, last = _horizontal_run(pixels, base + left, base + right)
+        if last - first >= 3 * height:
+            guide = (y, first - base, last - base)
+    if guide is None:
+        return False, False
+
+    y, left, right = guide
+    x_inner = range(left + height // 4, right - height // 4)
+    points = []
+    for row in range(max(top, y - 3 * height), y - max(2, height // 8)):
+        base = row * bitmap.stride
+        # Pomiń pozostałe linie formularza, także poziomą ramkę rubryki.
+        first, last = _horizontal_run(pixels, base + left, base + right)
+        if last - first < 3 * height:
+            points.extend((x, row) for x in x_inner if pixels[base + x] < 165)
+    if len(points) < max(12, height * height // 16):
+        return True, False
+    xs, ys = zip(*points)
+    return True, max(xs) - min(xs) >= height // 2 and max(ys) - min(ys) >= height // 3
+
+
+def read_signature_guides(document_type, path, orientation, boxes):
+    """Obejrzyj fizyczną rubrykę, w tych samych współrzędnych co podstawowy OCR."""
+    try:
+        with closing(document_type(path)) as pdf, closing(pdf[0]) as page:
+            scale = min(2.5, 2200 / max(page.get_size()))
+            with closing(page.render(scale=scale, rotation=orientation, grayscale=True)) as bitmap:
+                pixels = bytes(bitmap.buffer)
+                return [_signature_guide(bitmap, pixels, box) for box in boxes]
+    except (OSError, RuntimeError, ValueError):
+        return []
+
+
+def _signed_guides(heading, captions, names, scan):
+    if scan is None or len(names) != len(captions) or any(not single for _, single, _, _ in captions):
+        return None
+    rows = [row for row, _, _, _ in captions]
+    boxes = [
+        (row.left - row.height // 2, previous.bottom + row.height // 4,
+         row.right + 2 * row.height, row.top - row.height // 8, row.height)
+        for previous, row in zip([heading, *rows], rows)
+    ]
+    marks = scan(boxes)
+    if len(marks) != len(names) or not any(has_guide for has_guide, _ in marks):
+        return None
+    return {name for name, (has_guide, has_mark) in zip(names, marks) if has_guide and has_mark}
+
+
+def _confirmed_footer_names(heading, footer, names, scan=None):
     if NO_SIGNATURE.search("\n".join(row.text for row in footer)):
         return set()
     alternatives = "|".join(r"\s+".join(map(re.escape, name.split())) for name in sorted(names, key=len, reverse=True))
     entry = re.compile(rf"(?<![\w’'-])(?P<name>{alternatives})(?![\w’'-])"
                        rf"(?:\s*[–—-]\s*(?P<office>(?i:{OFFICE})))?")
     confirmed = set()
+    in_footer_order = []
     has_office = False
     captions = []
     graphics = []
@@ -151,8 +227,14 @@ def _confirmed_footer_names(heading, footer, names):
             if name in confirmed:
                 return set()
             confirmed.add(name)
+            in_footer_order.append(name)
             has_office = has_office or bool(match["office"])
-    return confirmed if has_office and not _unconfirmed_signature_slots(heading, captions) else set()
+    if not has_office or confirmed != set(names):
+        return set()
+    verified = _signed_guides(heading, captions, in_footer_order, scan)
+    if verified is not None:
+        return verified
+    return confirmed if not _unconfirmed_signature_slots(heading, captions) else set()
 
 def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
     """Uzupełnij puste listy na podstawie odczytu i układu tej samej strony OCR."""
@@ -187,11 +269,14 @@ def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
             break
         footer.append(row)
 
-    if _confirmed_footer_names(layout[anchors[0]], footer, names) != set(names):
+    after_grant = signing.text[grant.end():]
+    if ATTRIBUTED_CERTIFICATE.search(after_grant):
         return
-
+    confirmed = _confirmed_footer_names(
+        layout[anchors[0]], footer, names, result.document.signature_guides
+    )
     for owner, declared in enumerate(declarations):
-        for index, name in enumerate(declared):
+        for index, name in enumerate(name for name in declared if name in confirmed):
             principals[owner]["podpisujacy"].append({})
             # TSV nie mapuje prostokątów na znaki w spłaszczonym tekście.
             result.put(("mocodawca", owner, "podpisujacy", index, "imie_nazwisko"),
