@@ -168,7 +168,11 @@ def transfer_from_alternate_page(document, classes, views):
             alternative = Document.from_pages([clean_page(reading), *pages[1:]])
             name, signals = classify(alternative, classes)
             if name == "przelew":
-                return alternative, name, signals
+                # The primary TSV belongs to the replaced reading, while page
+                # quality and the callable describe the original physical PDF.
+                selected = replace(document, text=alternative.text, starts=alternative.starts,
+                                   ocr_layout_tsv=None)
+                return selected, name, signals
     return document, "negative", []
 
 
