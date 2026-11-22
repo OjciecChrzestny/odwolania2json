@@ -13,6 +13,7 @@ from .legal import BUILDERS as LEGAL_BUILDERS
 from .model import Document, Extraction, FLAGS, classify, cover_limit, excluded_heading, schema_errors
 from .ocr import LocalOCR
 from .operations import apply_fields
+from .podpisy import read_signature_guides
 from .transfer import primary_number_fallback, transfer
 from .transfer_reference import apply_scan_reference
 from .transfer_title import TITLE, apply_scan_title
@@ -147,6 +148,10 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
                        ocr_layout_tsv=single_page_layout)
     if orientations:
         document = replace(document, bank_scan=partial(ocr.transfer_views, path, tuple(orientations)))
+    if single_page_layout and orientations:
+        document = replace(document, signature_guides=partial(
+            read_signature_guides, ocr.document_type, path, orientations[0][1]
+        ))
     return document, ocr_pages
 
 

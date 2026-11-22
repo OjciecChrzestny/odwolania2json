@@ -1,5 +1,6 @@
 """Dwa źródła podpisu, przypisanie mocodawcy i zachowanie dowodu."""
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -11,7 +12,7 @@ from odwolania2json.extract import extract, read_pdf
 from odwolania2json.legal import Fragment, principal_blocks
 from odwolania2json.model import Document, Extraction, load_classes
 from odwolania2json.ocr import LocalOCR
-from odwolania2json.podpisy import SIGNATURE_RULE, add_confirmed_signatures
+from odwolania2json.podpisy import SIGNATURE_RULE, _signature_guide, add_confirmed_signatures
 
 HEADER = """PEŁNOMOCNICTWO
 Przykładowy Podmiot sp. z o.o., ul. Przykładowa 1, udziela pełnomocnictwa:
@@ -160,6 +161,39 @@ class RoleRecoveryTest(unittest.TestCase):
         updates, evidence = apply_signatures(doc, obj, config, footer_tsv(fully_marked))
         self.assertEqual(updates, {0: ["Roman Bór", "Emilia Ptak"]})
         self.assertTrue(all(field["page"] == 1 for field in evidence.values()))
+
+    def test_individual_form_evidence_uses_footer_positions_and_declaration_order(self):
+        footer = "Za Mocodawcę:\n\n\nEmilia Ptak — Członek Zarządu\n\n\nRoman Bór — Prezes Zarządu"
+        doc = Document.from_pages([PREAMBLE + footer])
+        obj, _ = extract(doc, self.classes)
+        config = self.classes["pelnomocnictwo"]
+        for observations, names in (
+            ([(True, False), (True, True)], ["Roman Bór"]),
+            ([(True, True), (True, True)], ["Roman Bór", "Emilia Ptak"]),
+            ([(True, False), (True, False)], []),
+        ):
+            with self.subTest(observations=observations):
+                def scan(boxes):
+                    self.assertLess(boxes[0][1], boxes[1][1])
+                    return observations
+
+                scan_doc = replace(doc, signature_guides=scan)
+                updates, evidence = apply_signatures(scan_doc, obj, config, footer_tsv(footer))
+                self.assertEqual(updates, {0: names} if names else {})
+                self.assertEqual(len(evidence), len(names))
+                self.assertTrue(all(field["page"] == 1 for field in evidence.values()))
+
+    def test_a_horizontal_rule_is_not_ink_above_a_signature_guide(self):
+        bitmap = SimpleNamespace(width=110, height=100, stride=110)
+        pixels = bytearray([255]) * (bitmap.width * bitmap.height)
+        for x in range(10, 100):
+            pixels[80 * bitmap.stride + x] = 0
+        box = (5, 10, 105, 89, 20)
+        self.assertEqual(_signature_guide(bitmap, pixels, box), (True, False))
+        for row in range(43, 69):
+            x = row - 24
+            pixels[row * bitmap.stride + x:row * bitmap.stride + x + 3] = bytes(3)
+        self.assertEqual(_signature_guide(bitmap, pixels, box), (True, True))
 
     def test_frozen_independent_negatives(self):
         for case, (body, kind, counsel, signatures) in NEGATIVES.items():
