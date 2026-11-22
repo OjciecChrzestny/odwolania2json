@@ -8,8 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from pypdf import PdfReader
-
 from pokaz import HERE, ROOT, prepare, write_new_notice
 
 DEVELOPMENT = ROOT / "evaluation/development-40.json"
@@ -111,6 +109,8 @@ def synthetic(input_dir, output, records, expected, extended):
     print(f"{output.name} | {negatives}/{len(classes)} wyników 0 B", flush=True)
     if not extended:
         return digests
+
+    from pypdf import PdfReader
 
     verified_fields = 0
     for name, spec in expected.items():

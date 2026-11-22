@@ -4,7 +4,7 @@ Próba używa publicznego CLI i osobnego profilu. Do kopii trzech klas konkursow
 
 ## Klasa dokumentu i miejsce posiedzenia na jednym obrazie
 
-Uruchom na Linuksie z katalogu głównego pakietu. Potrzebujesz gotowego lokalnego obrazu CLI, Dockera oraz Pythona z zależnościami z `requirements.txt`. Polecenie przygotuje własne katalogi i wykona cztery przebiegi z tym samym identyfikatorem obrazu.
+Uruchom na Linuksie z katalogu głównego pakietu. Potrzebujesz gotowego lokalnego obrazu CLI, Dockera oraz Pythona z zależnościami z `requirements.txt`. Samodzielną próbę na własnym PDF-ie z systemowym Pythonem opisano niżej. Polecenie przygotuje własne katalogi i wykona cztery przebiegi z tym samym identyfikatorem obrazu.
 
 ```sh
 DEMO=demo/rozszerzalnosc
@@ -31,18 +31,37 @@ python "$DEMO/pokaz.py" zrodlo "$WORK/input/p01.pdf" \
 
 Nagłówek i sygnatura uruchamiają rozpoznanie klasy. Reguły zapisują tekst pod kropkowanymi ścieżkami obiektu, schemat sprawdza wartości i zachowuje `null` przy braku sali. W `p03` inny nagłówek chroni przed rozpoznaniem mimo tych samych etykiet i wartości. Ta konfiguracja używa istniejącego typu `text`. Nowy typ skalarny lub budowa nowej listy z powtarzanych dopasowań wymagają obsługi w kodzie.
 
-**Własny PDF.** Uruchom pokaz z nowym katalogiem i wskaż własny plik z warstwą tekstową.
+### Własny PDF bez instalowania pakietów na hoście
+
+Przy gotowym obrazie na hoście wystarczą Docker, powłoka i biblioteka standardowa Pythona 3.12. Katalog roboczy powstaje poza kodem projektu.
 
 ```sh
+DEMO=demo/rozszerzalnosc
 WORK="$(mktemp -d)/pokaz-wlasny"
-python "$DEMO/obiekt.py" --image "$IMAGE" --work "$WORK" --pdf "/ścieżka do/własnego.pdf"
+IMAGE=odwolania2json-jury:final-20261122
+CLI_USER="$(id -u):$(id -g)"
+# Dla Dockera rootless ustaw CLI_USER=0:0.
+python3 -S -B "$DEMO/obiekt.py" --image "$IMAGE" --user "$CLI_USER" \
+  --work "$WORK" --tylko-pdf --pdf "/ścieżka do/własnego.pdf"
 cat "$WORK/juror-obiekt/output/p04.json"
 wc -c "$WORK/juror-konkurs/output/p04.json" "$WORK/juror-powrot/output/p04.json"
 ```
 
-Skrypt zapisuje kopię jako `p04.pdf` i wypisuje klasę oraz rozmiar JSON-u w każdym przebiegu. Po powrocie do trzech klas porównuje bajty trzech wbudowanych wyników z pierwszym przebiegiem. Jeśli własny PDF pasuje do klasy zawiadomienia, jego wynik w obu przebiegach konkursowych ma 0 B. Szczegóły źródła pól znajdziesz w `$WORK/juror-obiekt/diagnostics/last-run.json`.
+`--tylko-pdf` uruchamia cztery profile na tej samej kopii wejścia `p04.pdf` i pomija generowanie przykładów. Skrypt wypisuje klasę i rozmiar JSON-u dla każdego profilu oraz sprawdza bajty przed i po powrocie. PDF rozpoznawany wyłącznie przez dodaną klasę ma 0 B w obu przebiegach konkursowych. W przykładzie bez oznaczonej sali w obiekcie zostaje `"sala": null`. Diagnostyka jest w `$WORK/juror-obiekt/diagnostics/last-run.json`.
 
-W obsługiwanym układzie nagłówek „ZAWIADOMIENIE” i wiersz „Sygnatura:” albo „Sygnatura akt:” występują na jednej z dwóch pierwszych stron. Termin i miejsce mają osobne wiersze, np. „Termin posiedzenia:”, „Budynek:” i opcjonalnie „Sala:”.
+Żeby wypisać tekst ze stron wskazanych przez diagnostykę, uruchom pomocnik z `pypdf` z tego samego obrazu. Montowane pliki i katalogi są tylko do odczytu.
+
+```sh
+docker run --rm --pull=never --network=none --read-only --user "$CLI_USER" \
+  --cap-drop=ALL --security-opt=no-new-privileges \
+  --volume "$PWD/$DEMO:/app/demo/rozszerzalnosc:ro" \
+  --volume "$WORK/input-jurora:/work/input:ro" \
+  --volume "$WORK/juror-obiekt/diagnostics:/work/diagnostics:ro" \
+  --entrypoint python "$(cat "$WORK/obraz.txt")" -B /app/demo/rozszerzalnosc/pokaz.py \
+  zrodlo /work/input/p04.pdf /work/diagnostics/last-run.json
+```
+
+Obsługiwany układ ma nagłówek „ZAWIADOMIENIE” i etykietę sygnatury na jednej z dwóch pierwszych stron. Termin i miejsce mają osobne wiersze, np. „Termin posiedzenia:”, „Budynek:” i opcjonalnie „Sala:”. Aby ręcznie zmienić wzorce, skopiuj trzy wbudowane klasy do osobnego katalogu, dodaj `zawiadomienie.json` i dopisz reguły obiektu w jego kopii. W zwykłym `docker run` z instrukcji uruchomienia zamontuj ten katalog jako `/work/klasy:ro` i dopisz `--config /work/klasy` po nazwie obrazu. Wbudowany profil wybierzesz ponownie, pomijając ten montaż i parametr.
 
 **Regresja konkursowa.** Dodaj `--dataset "$UZP_DATA"` dla przypiętych danych DEV z sekcji odbioru poniżej. Skrypt porównuje 11/11 ścieżek i SHA-256 wyników, w tym trzy klasy konkursowe i osiem negatywów po 0 B. Miernik porównuje również 35 trafień względem etykiet DEV. Etykiety pozostają na hoście.
 
