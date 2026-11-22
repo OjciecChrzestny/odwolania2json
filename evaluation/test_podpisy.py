@@ -1,10 +1,16 @@
 """Dwa źródła podpisu, przypisanie mocodawcy i zachowanie dowodu."""
 from copy import deepcopy
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 import unittest
 
-from odwolania2json.extract import extract
+from pypdf import PdfWriter
+
+from odwolania2json.extract import extract, read_pdf
 from odwolania2json.legal import Fragment, principal_blocks
 from odwolania2json.model import Document, Extraction, load_classes
+from odwolania2json.ocr import LocalOCR
 from odwolania2json.podpisy import SIGNATURE_RULE, add_confirmed_signatures
 
 HEADER = """PEŁNOMOCNICTWO
@@ -188,6 +194,98 @@ class RoleRecoveryTest(unittest.TestCase):
             self.assertEqual(evidence[f"mocodawca.0.podpisujacy.{index}.imie_nazwisko"], expected)
         self.assertEqual(apply_signatures(document, value, self.classes["pelnomocnictwo"], None), ({}, {}))
 
+
+
+class MockPage:
+    def get_size(self):
+        return 595, 842
+
+    def render(self, *, rotation, **_options):
+        return SimpleNamespace(buffer=bytes([rotation // 90]), width=1, height=1,
+                               n_channels=1, stride=1, close=lambda: None)
+
+    def close(self):
+        pass
+
+
+class MockPdf:
+    def __init__(self, _path):
+        pass
+
+    def __getitem__(self, _page):
+        return MockPage()
+
+    def close(self):
+        pass
+
+
+class MockOcr:
+    def __init__(self, attempts, *, skip_layout=False, short_last=False):
+        self.attempts = attempts
+        self.skip_layout = skip_layout
+        self.short_last = short_last
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_error):
+        pass
+
+    def SetVariable(self, *_parameters):
+        pass
+
+    def SetImageBytes(self, pixels, *_dimensions):
+        self.rotation = pixels[0]
+
+    def GetUTF8Text(self):
+        self.attempts.append(("text", self.rotation))
+        if self.short_last:
+            return PREAMBLE if self.rotation == 0 else "skan"
+        return PREAMBLE if self.rotation == 1 else "skan"
+
+    def MeanTextConf(self):
+        if self.short_last:
+            return 54
+        return 95 if self.rotation == 1 else 30
+
+    def GetTSVText(self, _page):
+        self.attempts.append(("tsv", self.rotation))
+        if self.skip_layout:
+            raise RuntimeError("test: usterka pustej warstwy")
+        return footer_tsv(f"wybrany {self.rotation}")
+
+
+class OcrLayoutTransportTest(unittest.TestCase):
+    def test_retains_layout_from_selected_orientation_without_an_extra_read(self):
+        with TemporaryDirectory() as folder:
+            pdf = Path(folder) / "scan.pdf"
+            writer = PdfWriter()
+            writer.add_blank_page(width=595, height=842)
+            writer.write(pdf)
+            attempts = []
+            ocr = LocalOCR(MockPdf, lambda **_: MockOcr(attempts), Path(folder))
+            document, ocr_pages = read_pdf(pdf, ocr)
+            self.assertEqual(ocr_pages, [1])
+            self.assertEqual(document.ocr_layout_tsv, footer_tsv("wybrany 1"))
+            self.assertEqual(attempts, [("text", 0), ("tsv", 0), ("text", 1), ("tsv", 1)])
+
+            attempts.clear()
+            legacy = list(ocr.oriented_pages(pdf, 1))
+            self.assertEqual(legacy, [(0, PREAMBLE, 90)])
+            self.assertEqual(attempts, [("text", 0), ("text", 1)])
+
+            attempts.clear()
+            broken_layout = LocalOCR(MockPdf, lambda **_: MockOcr(attempts, skip_layout=True), Path(folder))
+            without_layout, ocr_pages = read_pdf(pdf, broken_layout)
+            self.assertEqual(ocr_pages, [1])
+            self.assertIsNone(without_layout.ocr_layout_tsv)
+            self.assertEqual(without_layout.text, document.text)
+
+            attempts.clear()
+            fallback = LocalOCR(MockPdf, lambda **_: MockOcr(attempts, short_last=True), Path(folder))
+            fallback_doc, _ = read_pdf(pdf, fallback)
+            self.assertEqual(fallback_doc.ocr_layout_tsv, footer_tsv("wybrany 0"))
+            self.assertEqual(attempts, [("text", 0), ("tsv", 0), ("text", 1), ("text", 3), ("text", 2)])
 
 
 if __name__ == "__main__":

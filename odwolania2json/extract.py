@@ -74,9 +74,13 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
 
         ocr_pages, orientations = [], []
         scanned_indices = set()
+        single_page_layout = None
         scanner = ocr.oriented_pages if isinstance(ocr, LocalOCR) else ocr
+        if isinstance(ocr, LocalOCR) and count == 1:
+            scanner = partial(scanner, capture_layout=True)
 
         def read_scan(stop, *, start=None):
+            nonlocal single_page_layout
             first = 0 if start is None else start
             allowed_stop = min(stop, first + ocr_page_budget - len(scanned_indices))
             for index in range(allowed_stop, stop):
@@ -101,6 +105,8 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
                         ocr_pages.append(index + 1)
                         if angle:
                             orientations.append((index, angle[0]))
+                            if isinstance(ocr, LocalOCR) and count == 1 and len(angle) == 2:
+                                single_page_layout = angle[1]
             except PAGE_READ_ERRORS:
                 missing_reason = "ocr_interrupted"
                 # Opening-page OCR and explicitly bounded reads retain their error contract.
@@ -135,7 +141,8 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
         exc.scan_quality = quality_report(observations, read_error)
         raise
 
-    document = replace(Document.from_pages(pages), scan_quality=quality_report(observations))
+    document = replace(Document.from_pages(pages), scan_quality=quality_report(observations),
+                       ocr_layout_tsv=single_page_layout)
     if orientations:
         document = replace(document, bank_scan=partial(ocr.transfer_views, path, tuple(orientations)))
     return document, ocr_pages
