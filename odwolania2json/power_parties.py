@@ -5,7 +5,7 @@ import re
 
 from .model import FLAGS, empty
 from .operations import normalize
-from .podpisy import NAME, WORD
+from .podpisy import NAME, QUOTATION, WORD
 
 
 NUMBERED_COUNSEL = re.compile(
@@ -25,10 +25,6 @@ SOLO_BUSINESS = re.compile(
 
 
 
-QUOTATION = re.compile(
-    r'„(?:[^”]*”|[^”\f]*)|“(?:[^”]*”|[^”\f]*)|«(?:[^»]*»|[^»\f]*)'
-    r'|(?<!\w)"(?:[^"]*"|[^"\f]*)'
-)
 CITATION_INTRO = re.compile(
     r"^[ \t]*(?:(?:poniżej[ \t]+)?(?:cytuj(?:ę|emy)|przytaczam(?:y)?)\b"
     r"|cytat[ \t]*:)[^\n\f]*",

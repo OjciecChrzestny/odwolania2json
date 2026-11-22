@@ -116,6 +116,31 @@ niniejszym udzielam pełnomocnictwa:
             self.assertEqual(data["mocodawca"][0]["podpisujacy"], [])
 
 
+    def test_attributed_certificate_does_not_sign_current_appointment(self):
+        intro = HEADER.replace("niniejszym udziela", "reprezentowana przez: Ewa Próbna — Prezes Zarządu,\n"
+                               "niniejszym udziela") + APPOINTMENTS
+        certificate = "Dokument podpisany przez Ewa Próbna\nData: 2032.03.15 11:08:04\n"
+        for marker in ("Wydruk przykładu z innej sprawy", "Odpis z odrębnego dokumentu",
+                       "Wydruk\nprzykładu", "Przykładowa stopka"):
+            for include_in_text, include_in_layout in ((True, True), (True, False), (False, True)):
+                with self.subTest(marker=marker, text=include_in_text, layout=include_in_layout):
+                    observation = marker + "\n" + certificate
+                    doc = Document.from_pages([intro + (observation if include_in_text else certificate)])
+                    doc = replace(doc, ocr_layout_tsv=footer_tsv(observation if include_in_layout else certificate))
+                    data, evidence = extract(doc, load_classes())
+                    self.assertEqual(data["mocodawca"][0]["podpisujacy"], [])
+                    self.assertEqual(len(data["pelnomocnicy"]), 2)
+                    self.assertFalse(any(".podpisujacy." in key for key in evidence["fields"]))
+
+    def test_quoted_certificate_with_no_label_is_excluded(self):
+        intro = HEADER.replace("niniejszym udziela", "reprezentowana przez: Ewa Próbna — Prezes Zarządu,\n"
+                               "niniejszym udziela") + APPOINTMENTS
+        certificate = "Dokument podpisany przez Ewa Próbna\nData: 2032.03.15 11:08:04\n"
+        doc = Document.from_pages([intro + "„\n" + certificate + "”"])
+        data, evidence = extract(replace(doc, ocr_layout_tsv=footer_tsv(certificate)), load_classes())
+        self.assertEqual(data["mocodawca"][0]["podpisujacy"], [])
+        self.assertFalse(any(".podpisujacy." in key for key in evidence["fields"]))
+
     def test_legal_form_corrects_zeros_only_in_ocr_company_suffix(self):
         text = HEADER.replace("Północy S.A.", "Północy Sp. z 0.0.") + APPOINTMENTS
         doc = Document.from_pages([text])
