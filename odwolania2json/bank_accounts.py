@@ -26,7 +26,11 @@ CREDIT = re.compile(r"\b(?:przychodz[ae]c[ay]|uznanie|incoming transfer)\b")
 RUN = re.compile(r"(?<![\w*])(?:PL[ \t]*)?([0-9]+(?:[ \t]+[0-9]+)*)(?![\w*])", re.I)
 
 OWN_ACCOUNT_SECTION = re.compile(r"^dane (?:o |do |dotyczace )?rachunku(?: bankowego)?[ \t:|.]*$")
-COUNTERPARTY_ACCOUNT = re.compile(r"^rachunek kontrahenta\b")
+FOREIGN_ACCOUNT_SECTION = re.compile(
+    r"^(?:dane (?:do|dla|dotyczace) zwrotu|rachunek do zwrotu|sekcja zwrotu"
+    r"|kopia (?:dla|do)|kopie otrzymuje|rozdzielnik)\b"
+)
+TITLE_LINE = re.compile(r"^(?:tytul|title|tytulem)\b")
 SOURCE_ACCOUNT = re.compile(r"^przelew z rachunku(?:[ :|/-]+szczegoly (?:transakcji|operacji))?[ :|.-]*$")
 NUMBER_FIELD = re.compile(r"^(?:numer|nr) rachunku[ \t:|]+(?P<literal>(?:pl[ \t]*)?[0-9][0-9 \t]*)$")
 WRAP_START = re.compile(r"PL ?([0-9]{2}(?: [0-9]{4}){1,5})", re.I)
@@ -97,21 +101,34 @@ def column_at(words, offset):
     return None
 
 
-def account_layout(rows, positions, *, generic_owner=False):
+def account_layout(rows, positions, *, generic_owner=False, require_counterparty_section=False):
     """Yield role sections and their column boundary when both sides are supported."""
     folded = [fold(row) for row in rows]
-    page = "\n".join(folded)
+    direction_rows = (
+        [line for line in folded if not TITLE_LINE.search(line.strip(" \t|"))]
+        if require_counterparty_section else folded
+    )
+    page = "\n".join(direction_rows)
     debit, credit = bool(DEBIT.search(page)), bool(CREDIT.search(page))
     owner = (PAYER if debit else PAYEE) if debit != credit else None
     active, divider, expiry = [], None, -1
+    counterparty_section = False
     for i, line in enumerate(folded):
         if STOP.search(line.strip(" \t|")) or i > expiry:
             active, divider = [], None
+            counterparty_section = False
         marks = headings(line)
         if not marks and generic_owner and owner and OWN_ACCOUNT_SECTION.fullmatch(line.strip()):
             marks = [("owner", 0, len(line))]
         if marks:
-            active = [direct_role(label, owner) for label, _, _ in marks]
+            neutral_marks = [line[start:end] for label, start, end in marks if label == "other"]
+            counterparty_section = bool(neutral_marks) and (counterparty_section or
+                                      any(mark.startswith("dane ") for mark in neutral_marks))
+            active = [
+                direct_role(label, owner)
+                if label != "other" or not require_counterparty_section or counterparty_section else None
+                for label, _, _ in marks
+            ]
             expiry = i + 5
             divider = None
             if positions and len(active) == 2 and set(active) == {PAYER, PAYEE}:
@@ -167,39 +184,6 @@ def source_account_fields(rows, folded):
             yield from number_forms(raw[match.start("literal"):])
 
 
-def counterparty_account(rows, folded):
-    """Bind an explicit counterparty account beside one uniquely identified side."""
-    if DEBIT.search("\n".join(folded)) or CREDIT.search("\n".join(folded)):
-        return None
-    explicit = []
-    other = []
-    for i, line in enumerate(folded):
-        marks = headings(line)
-        if len(marks) != 1:
-            continue
-        label, start, end = marks[0]
-        anchor = line[start:end]
-        forms = list(number_forms(rows[i][end:]))
-        if label in ("payer", "payee"):
-            if not forms and anchor.startswith("dane ") and i + 1 < len(rows):
-                following = folded[i + 1].strip(" \t|")
-                if not STOP.search(following) and not headings(following):
-                    forms = list(number_forms(rows[i + 1]))
-            if len(forms) == 1 and ("rachun" in anchor or anchor.startswith("dane ")):
-                explicit.append((i, direct_role(label, None), forms[0][0]))
-        elif label == "other" and len(forms) == 1 and COUNTERPARTY_ACCOUNT.match(line.strip()):
-            other.append((i, forms[0]))
-    if len(explicit) != 1 or len(other) != 1:
-        return None
-    first, role, digits = explicit[0]
-    second, counterparty = other[0]
-    if not 0 < second - first <= 5 or digits == counterparty[0]:
-        return None
-    if any(STOP.search(line.strip(" \t|")) for line in folded[first + 1:second]):
-        return None
-    return PAYEE if role == PAYER else PAYER, counterparty
-
-
 class AccountObservations(dict):
     """Keep the existing role-to-digits mapping and add spelling evidence."""
 
@@ -215,7 +199,13 @@ def account_observations(rows, positions=None):
     # A generic account section identifies the account of the statement owner
     # only when a separate counterparty section and an explicit direction coexist.
     folded = [fold(row) for row in rows]
-    generic_owner = any(mark[0] == "other" for row in folded for mark in headings(row))
+    boundary = next((i for i, line in enumerate(folded)
+                     if FOREIGN_ACCOUNT_SECTION.search(line.lstrip(" \t|:.-"))), len(rows))
+    rows, folded = rows[:boundary], folded[:boundary]
+    if positions is not None:
+        positions = positions[:boundary]
+    generic_owner = any(label == "other" and line[start:end].startswith("dane ")
+                        for line in folded for label, start, end in headings(line))
 
     def observe(role, values):
         for value, has_prefix in values:
@@ -223,7 +213,8 @@ def account_observations(rows, positions=None):
             if has_prefix:
                 prefixed.add((role, value))
 
-    for i, marks, active, divider in account_layout(rows, positions, generic_owner=generic_owner):
+    layout = account_layout(rows, positions, generic_owner=generic_owner, require_counterparty_section=True)
+    for i, marks, active, divider in layout:
         row = rows[i]
         if len(marks) == 2:
             # A line can have explicit labels and values in both cells.
@@ -263,10 +254,6 @@ def account_observations(rows, positions=None):
                     for role, form in zip(active, pair):
                         observe(role, (form,))
     observe(PAYER, source_account_fields(rows, folded))
-    counterparty = counterparty_account(rows, folded)
-    if counterparty:
-        role, form = counterparty
-        observe(role, (form,))
     return AccountObservations(observed, prefixed)
 
 

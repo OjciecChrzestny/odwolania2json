@@ -93,12 +93,24 @@ class ScanNRBRolesTest(TestCase):
                     Word(250, 10, 226, 16, OTHER)),)
         self.assertEqual(self.extracted(crowded), (None, None))
 
-    def test_counterparty_requires_one_nearby_explicit_account(self):
+    def test_neutral_counterparty_requires_direction_and_its_own_section(self):
         lines = ("Rachunek zleceniodawcy " + LEFT, "Nazwa zleceniodawcy przykład",
                  "Dane kontrahenta", "Rachunek kontrahenta " + RIGHT)
-        self.assertEqual(account_observations(lines), {PAYER: {LEFT}, PAYEE: {RIGHT}})
-        self.assertEqual(account_observations(("Rachunek odbiorcy " + RIGHT, *lines)), {PAYER: {LEFT}, PAYEE: {RIGHT}})
-        self.assertNotIn(PAYEE, account_observations((lines[0], "Tytuł przelewu", *lines[2:])))
+        self.assertEqual(account_observations(lines), {PAYER: {LEFT}})
+        self.assertEqual(account_observations(("Przelew wychodzący", *lines)),
+                         {PAYER: {LEFT}, PAYEE: {RIGHT}})
+        self.assertEqual(account_observations(("Przelew wychodzący", lines[0], lines[-1])),
+                         {PAYER: {LEFT}})
+        self.assertEqual(account_observations((*lines, "Tytuł: przelew wychodzący")), {PAYER: {LEFT}})
+
+    def test_refund_and_copy_blocks_do_not_supply_counterparty_even_with_direction(self):
+        for heading in ("Dane do zwrotu opłaty", "Kopia dla podmiotu rozliczającego"):
+            with self.subTest(heading=heading):
+                lines = ("Przelew wychodzący", "Rachunek nadawcy " + LEFT, heading,
+                         "Dane kontrahenta", "Rachunek kontrahenta PL" + OTHER)
+                self.assertEqual(account_observations(lines), {PAYER: {LEFT}})
+                rows = tuple((Word(20, i * 25, 230, 16, line),) for i, line in enumerate(lines))
+                self.assertEqual(self.extracted(rows), (LEFT, None))
 
     def test_cross_role_single_view_spill_does_not_override_agreement(self):
         exact = columns(LEFT, RIGHT, payer_on_left=True)
@@ -115,10 +127,12 @@ class ScanNRBRolesTest(TestCase):
         self.assertEqual(account_observations((heading, "Numer rachunku VAT " + OTHER)), {})
         self.assertEqual(account_observations((heading, "Data operacji", "Numer rachunku " + OTHER)), {})
 
-    def test_explicit_payer_section_can_anchor_nearby_counterparty(self):
+    def test_explicit_payer_section_does_not_infer_undirected_counterparty(self):
         lines = ("Dane zleceniodawcy", "Numer rachunku " + LEFT,
                  "Nazwa zleceniodawcy przykład", "Dane kontrahenta", "Rachunek kontrahenta " + RIGHT)
-        self.assertEqual(account_observations(lines), {PAYER: {LEFT}, PAYEE: {RIGHT}})
+        self.assertEqual(account_observations(lines), {PAYER: {LEFT}})
+        self.assertEqual(account_observations(("Przelew wychodzący", *lines)),
+                         {PAYER: {LEFT}, PAYEE: {RIGHT}})
 
     def test_literal_pl_survives_legacy_digits_when_only_primary_scan_exists(self):
         original = Document.from_pages(["\n".join((
