@@ -12,7 +12,8 @@ from tempfile import NamedTemporaryFile
 
 from pypdf.errors import PyPdfError
 
-from .extract import DEFAULT_OCR_PAGE_BUDGET, read_pdf
+from .appeal_procedure import read_pdf_with_title_evidence
+from .extract import DEFAULT_OCR_PAGE_BUDGET
 from .filing_reason import filing_extractor, source_clause
 from .filing_subject import filing_subject_extractor
 from .model import DEFAULT_CONFIG, load_classes
@@ -68,7 +69,7 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
             read_document=None, extract_document=_DEFAULT_EXTRACT_DOCUMENT, ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET,
             negative_verifier=None):
     if read_document is None:
-        read_document = partial(read_pdf, ocr_page_budget=ocr_page_budget)
+        read_document = partial(read_pdf_with_title_evidence, ocr_page_budget=ocr_page_budget)
     input_dir.mkdir(parents=True, exist_ok=True)
     pdfs = sorted(path for path in input_dir.rglob("*")
                   if path.suffix.lower() == ".pdf" and path.is_file())
