@@ -2,6 +2,7 @@
 import re
 from dataclasses import dataclass
 
+from .appeal_procedure import add_filing_date, add_procedure_fields
 from .model import FLAGS, empty
 from .operations import DATE, apply_fields, normalize
 from .podpisy import add_confirmed_signatures, add_electronic_signature
@@ -415,8 +416,11 @@ def appeal(result, config, *, capture_decision=False):
 
     refine_appeal_parties(result, config, cover)
     fields(result, config["header_fields"], cover)
+    add_procedure_fields(result, cover)
     body = document.after(patterns["header"])
-    return challenged_action(result, config, body, capture_decision=capture_decision)
+    details = challenged_action(result, config, body, capture_decision=capture_decision)
+    add_filing_date(result, body, titled=body.offset > 0)
+    return details
 
 
 BUILDERS = {"power_of_attorney": power_of_attorney, "appeal": appeal}
