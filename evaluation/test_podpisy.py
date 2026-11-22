@@ -165,6 +165,38 @@ class RoleRecoveryTest(unittest.TestCase):
                 _, _, updates = self.check(PREAMBLE + footer, footer)
                 self.assertEqual(updates, {})
 
+    def test_explicit_absence_vetoes_even_matching_signature_shaped_rows(self):
+        people = "Roman Bór — Prezes Zarządu\nEmilia Ptak — Członek Zarządu"
+        for message in ("Nie podpisano.", "Brak podpisów w chwili przekazania.",
+                        "Nie złożono żadnego podpisu.", "Brak\npodpisu"):
+            for block in (message + "\n" + people, people + "\n" + message):
+                with self.subTest(message=message, block=block):
+                    footer = "Za Mocodawcę:\n" + block
+                    _, _, updates = self.check(PREAMBLE + footer, footer)
+                    self.assertEqual(updates, {})
+
+    def test_other_roles_or_free_prose_do_not_extend_the_local_signature_block(self):
+        people = "Roman Bór — Prezes Zarządu\nEmilia Ptak — Członek Zarządu"
+        for role in ("Osoby uprawnione do złożenia podpisu:", "Wykaz osób upoważnionych:",
+                     "Odbiór dokumentu potwierdzili:", "Podpis odbiorcy:",
+                     "Lista uczestników spotkania:", "W dalszej części podano skład zarządu."):
+            with self.subTest(role=role):
+                footer = f"Za Mocodawcę:\n{role}\n{people}"
+                _, _, updates = self.check(PREAMBLE + footer, footer)
+                self.assertEqual(updates, {})
+
+        for people in ("Roman Bór oraz Emilia Ptak.", "Roman Bór\nEmilia Ptak",
+                       "Roman Bór — Prezes Zarządu, który potwierdził odbiór\nEmilia Ptak — Członek Zarządu"):
+            with self.subTest(people=people):
+                footer = "Za Mocodawcę:\n" + people
+                _, _, updates = self.check(PREAMBLE + footer, footer)
+                self.assertEqual(updates, {})
+
+    def test_graphic_fragments_and_one_unlabelled_row_can_belong_to_the_same_block(self):
+        footer = "Za Mocodawcę:\n_ | —\nRoman Bór =\nEmilia Ptak — Członek Zarządu"
+        _, _, updates = self.check(CONSORTIUM + footer, footer)
+        self.assertEqual(updates, {0: ["Roman Bór"], 1: ["Emilia Ptak"]})
+
     def test_two_principals_with_same_representative_are_ambiguous(self):
         body = CONSORTIUM.replace("Emilia Ptak — Członek Zarządu", "Roman Bór — Prezes Zarządu")
         footer = "Za Mocodawcę:\nRoman Bór — Prezes Zarządu"

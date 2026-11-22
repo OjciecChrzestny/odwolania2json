@@ -14,10 +14,21 @@ REPRESENTATION = re.compile(r"\breprezentowan(?:a|y|e|ą|i)[\s_]+przez\s*:", FLA
 PRINCIPAL_SIGNATURES = re.compile(r"\AZa\s+Mocodawcę\s*:?\s*\Z", FLAGS)
 NEXT_SECTION = re.compile(
     r"\A(?:NIP|KRS|REGON|Data|Świadek|Świadkowie|Pełnomocnik|Sprawdzenie|W imieniu|"
-    r"Załącznik|Podpis osoby|Osoba poświadczająca|Kopia|Poświadczenie)\b|"
-    r"\A(?:Pełnomocnictwo\s+przyjmuj|Dokument\s+podpisany)",
+    r"Załącznik|Podpis osoby|Osoba poświadczająca|Kopia|Poświadczenie|Wykaz|Lista|"
+    r"Osoby|Uprawnieni|Upoważnieni|Odbiór|Odbiorca|Odebrano|Potwierdzenie|Doręczenie|"
+    r"Potwierdzili|Potwierdził|Potwierdziła|Przekazanie)\b|"
+    r"\A(?:Pełnomocnictwo\s+przyjmuj|Dokument\s+podpisany|Podpis\s+odbiorcy)",
     FLAGS,
 )
+NO_SIGNATURE = re.compile(
+    r"\b(?:nie\s+podpisano|nie\s+został[oa]?\s+podpisan[yae]|niepodpisan[yae]|"
+    r"(?:brak|bez|nie\s+ma|brakuje)\s+(?:(?:obu|wszystkich|wymagan\w+)\s+)?podpis(?:u|ów)|"
+    r"nie\s+złożono\s+(?:żadnego\s+)?podpis(?:u|ów)|podpis(?:u|ów)\s+nie\s+złożono)\b",
+    FLAGS,
+)
+ROW_GAP = re.compile(r"[\s.,;:=_–—-]*")
+WORD_FRAGMENT = re.compile(r"[^\W\d_]+")
+GRAPHIC_MARK = re.compile(r"[\d_/|<>=–—-]")
 SIGNATURE_RULE = "podpis_za_mocodawce_i_deklaracja_reprezentacji"
 
 
@@ -49,9 +60,53 @@ def _representatives(text):
     return [normalize(match["name"], "text") for match in ENTRY.finditer(text, label.end())]
 
 
-def _contains_name(name, line):
-    literal = r"\s+".join(map(re.escape, name.split()))
-    return re.search(rf"(?<![\w’'-]){literal}(?![\w’'-])", line) is not None
+def _signature_row(line, entry):
+    matches = list(entry.finditer(line))
+    if not matches:
+        return []
+    cursor = 0
+    for match in matches:
+        if not ROW_GAP.fullmatch(line[cursor:match.start()]):
+            return []
+        cursor = match.end()
+    if not ROW_GAP.fullmatch(line[cursor:]):
+        return []
+    if len(matches) > 1 and any(not match["office"] for match in matches):
+        return []
+    return matches
+
+
+def _is_graphic_fragment(line):
+    # Tesseract może sczytać kreski i kilka izolowanych znaków z odręcznej parafy.
+    words = WORD_FRAGMENT.findall(line)
+    return not words or (
+        len(words) <= 2 and all(len(word) <= 4 for word in words) and GRAPHIC_MARK.search(line) is not None
+    )
+
+
+def _confirmed_footer_names(footer, names):
+    if NO_SIGNATURE.search("\n".join(footer)):
+        return set()
+    alternatives = "|".join(r"\s+".join(map(re.escape, name.split())) for name in sorted(names, key=len, reverse=True))
+    entry = re.compile(rf"(?<![\w’'-])(?P<name>{alternatives})(?![\w’'-])"
+                       rf"(?:\s*[–—-]\s*(?P<office>(?i:{OFFICE})))?")
+    confirmed = set()
+    has_office = False
+    for line in footer:
+        matches = _signature_row(line, entry)
+        if not matches:
+            if ENTRY.search(line):
+                return set()
+            if _is_graphic_fragment(line):
+                continue
+            break
+        for match in matches:
+            name = normalize(match["name"], "text")
+            if name in confirmed:
+                return set()
+            confirmed.add(name)
+            has_office = has_office or bool(match["office"])
+    return confirmed if has_office else set()
 
 
 def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
@@ -87,8 +142,7 @@ def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
             break
         footer.append(line)
 
-    typed_names = {normalize(match["name"], "text") for line in footer for match in ENTRY.finditer(line)}
-    if typed_names.difference(names) or not all(any(_contains_name(name, line) for line in footer) for name in names):
+    if _confirmed_footer_names(footer, names) != set(names):
         return
 
     for owner, declared in enumerate(declarations):
