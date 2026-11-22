@@ -1,4 +1,13 @@
-# Odbiór prezentacji na VPS
+# Archiwalne próby prezentacji na VPS
+
+## Archiwalne PDF-y
+
+Poniższe pliki dokumentują wcześniejszą rewizję A3 `5fa11680eac824896839ef4b7f281e1f54b3ed68`. Parametry OCR, metryki i konfiguracja na stronach odnoszą się do tamtej próby.
+
+- [Archiwalna prezentacja A3](archiwum/prezentacja-a3-5fa11680eac8.pdf)
+- [Archiwalne ekrany rezerwowe A3](archiwum/ekrany-rezerwowe-a3-5fa11680eac8.pdf)
+
+[Polecenia do wygenerowania aktualnych materiałów](SCENARIUSZ.md#uruchomienie-na-vps).
 
 ## Próba A3 po połączeniu prac
 
@@ -13,7 +22,7 @@ Z czystego klonu rewizji `5fa11680eac824896839ef4b7f281e1f54b3ed68` na VPS uruch
 
 Na slajdzie jakości 0,9963 dotyczy A3 na 128 rozwojowych PDF-ach. Wynik 0,9822 pochodzi z wcześniejszego testu końcowego A2 na 31 PDF-ach. A2 pominął pełnomocnictwo, więc miernik oznaczył ten przebieg jako nieważny. Dziesięć spraw odłożonych dla A3 czeka na odrębny test. [Odbiór A3](../../docs/historia/RAPORT_A3.md)
 
-Wyniki próby i czasy są na VPS w `~/uzp-parallel/main-proof/5fa11680eac8/judge/`. [Instrukcja powtórzenia z czystej kopii](SCENARIUSZ.md#próba-na-żywo)
+Wyniki próby i czasy są na VPS w `~/uzp-parallel/main-proof/5fa11680eac8/judge/`. [Instrukcja powtórzenia z czystej kopii](SCENARIUSZ.md#uruchomienie-na-vps)
 
 ## Archiwalna próba A2
 

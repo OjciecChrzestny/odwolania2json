@@ -155,6 +155,6 @@ W README UZP sprawdzonym 21 listopada 2026 r. wymagane są komponenty open sourc
 
 - Czysty start na własnym wejściu, plik wynikowy i przejście do wskazanej strony źródłowej według instrukcji powyżej.
 - Dodanie klasy z jednym plikiem JSON, dwa rozpoznane przykłady oraz pismo obce dające 0 B. [Próba rozszerzenia](../../demo/rozszerzalnosc/README.md)
-- [Prezentacja](prezentacja.pdf) · [Scenariusz](SCENARIUSZ.md) · [Ekrany rezerwowe](ekrany-rezerwowe.pdf)
+- [Scenariusz i polecenia do wygenerowania aktualnej prezentacji oraz ekranów rezerwowych](SCENARIUSZ.md#uruchomienie-na-vps).
 
 Metryki zgłoszenia wymagają potwierdzenia na jednym kandydacie wydania. Dotychczasowe raporty opisują własne próby na wskazanych w nich rewizjach i zbiorach. [Rozwój A3](../../docs/historia/RAPORT_A3.md) · [Historyczna próba A3 na skanach](../../docs/historia/RAPORT_KONCOWY_A3.md) · [Historyczna zgodność Compose](../compose/RAPORT.md)
