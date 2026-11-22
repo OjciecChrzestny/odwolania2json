@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from .model import FLAGS, empty
 from .operations import DATE, apply_fields, normalize
+from .podpisy import add_confirmed_signatures
 
 
 @dataclass(frozen=True)
@@ -174,6 +175,7 @@ def power_of_attorney(result, config):
     signers = list(signatures(document, patterns))
     for block in blocks:
         add_principal(result, config, block, signers, len(blocks) > 1)
+    add_confirmed_signatures(result, config, document, blocks, result.document.ocr_layout_tsv)
 
     appointment = document.before(patterns["acceptance"])
     grant = appointment.find(patterns["grant"])
