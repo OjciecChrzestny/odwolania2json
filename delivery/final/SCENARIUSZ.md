@@ -48,7 +48,7 @@ W pokazie na żywo wybierz nowy katalog i wywołaj kolejno te same polecenia z e
 
 ### Wynik jakości jednego kandydata
 
-Koordynator może przekazać za pomocą `--jakosc PLIK` w etapie `calosc` albo `klasa` podsumowanie własnego pomiaru dla dokładnie tego SHA. Plik JSON zawiera `sha`, `zbior` (`rozwojowy` lub `niezalezny`), `sha256_manifestu`, `liczba_pdf`, `tp`, `fp`, `fn`, `valid_run` i `valid_contract`. Koordynator weryfikuje pochodzenie liczników i manifestu w oryginalnym raporcie przed przekazaniem podsumowania. Skrypt sprawdza SHA i format, oblicza F1 z liczników i oznacza nieważny pomiar jako diagnostyczny. Bez pliku slajd pokazuje brak pomiaru tej rewizji. [Historyczne wyniki A3 wraz z ograniczeniami](../../RAPORT_KONCOWY_A3.md)
+Koordynator może przekazać za pomocą `--jakosc PLIK` w etapie `calosc` albo `klasa` podsumowanie własnego pomiaru dla dokładnie tego SHA. Plik JSON zawiera `sha`, `zbior` (`rozwojowy` lub `niezalezny`), `sha256_manifestu`, `liczba_pdf`, `tp`, `fp`, `fn`, `valid_run` i `valid_contract`. Koordynator weryfikuje pochodzenie liczników i manifestu w oryginalnym raporcie przed przekazaniem podsumowania. Skrypt sprawdza SHA i format, oblicza F1 z liczników i oznacza nieważny pomiar jako diagnostyczny. Bez pliku slajd pokazuje brak pomiaru tej rewizji. [Historyczne wyniki A3 wraz z ograniczeniami](../../docs/historia/RAPORT_KONCOWY_A3.md)
 
 ### Plan na brak sieci albo awarię
 

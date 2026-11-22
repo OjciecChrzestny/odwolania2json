@@ -116,7 +116,7 @@ Jeśli `show` zwróci identyfikator, porównaj wynik ze źródłem i skopiuj `re
 
 ## Skąd bierze się wynik
 
-1. `extract.py` odczytuje przez pypdf maksymalnie sześć pierwszych stron. Jeśli włączono OCR, `ocr.py` renderuje wybrane strony przez PDFium i rozpoznaje polski tekst przez Tesseract.
+1. `extract.py` odczytuje przez pypdf warstwę tekstową ze wszystkich stron. Włączone OCR domyślnie próbuje rozpoznać tekst na najwyżej sześciu różnych stronach. `ocr.py` renderuje wybrane strony przez PDFium i rozpoznaje polski tekst przez Tesseract.
 2. `model.py` wczytuje definicje klas. `odwolanie.json` odpowiada odwołaniom KIO, `pelnomocnictwo.json` pełnomocnictwom, a `przelew.json` potwierdzeniom przelewu. Punktowane sygnały z treści i progi wyłaniają jedną klasę. Brak rozpoznania lub remis daje dokument obcy. Nazwy PDF-ów służą do wyznaczenia ścieżki wynikowej.
 3. Reguły pól i operacje w `operations.py` normalizują wartości, a schemat określa klucze, typy i pola dopuszczające `null`. Logika dokumentów prawnych jest w `legal.py`. Dane przelewów korzystają też z `transfer.py` i reguł dla skanów i rachunków.
 4. `python -m odwolania2json` zapisuje wyniki zgodnie z drzewem wejścia. Osobny plik diagnostyczny wskazuje status, klasę oraz podstawę wydobycia pola na poziomie strony i reguły.
@@ -159,4 +159,4 @@ W README UZP sprawdzonym 21 listopada 2026 r. wymagane są komponenty open sourc
 - Dodanie klasy z jednym plikiem JSON, dwa rozpoznane przykłady oraz pismo obce dające 0 B. [Próba rozszerzenia](../../demo/rozszerzalnosc/README.md)
 - [Prezentacja](prezentacja.pdf) · [Scenariusz](SCENARIUSZ.md) · [Ekrany rezerwowe](ekrany-rezerwowe.pdf)
 
-Metryki zgłoszenia wymagają potwierdzenia na jednym kandydacie wydania. Dotychczasowe raporty opisują własne próby na wskazanych w nich rewizjach i zbiorach. [Rozwój A3](../../RAPORT_A3.md) · [Historyczna próba A3 na skanach](../../RAPORT_KONCOWY_A3.md) · [Historyczna zgodność Compose](../compose/RAPORT.md)
+Metryki zgłoszenia wymagają potwierdzenia na jednym kandydacie wydania. Dotychczasowe raporty opisują własne próby na wskazanych w nich rewizjach i zbiorach. [Rozwój A3](../../docs/historia/RAPORT_A3.md) · [Historyczna próba A3 na skanach](../../docs/historia/RAPORT_KONCOWY_A3.md) · [Historyczna zgodność Compose](../compose/RAPORT.md)
