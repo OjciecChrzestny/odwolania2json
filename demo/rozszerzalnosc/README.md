@@ -9,11 +9,11 @@ Uruchom na Linuksie z katalogu głównego pakietu. Potrzebujesz gotowego lokalne
 ```sh
 DEMO=demo/rozszerzalnosc
 WORK="$(mktemp -d)/pokaz-obiektu"
-IMAGE=odwolania2json-jury:6eb211c39c6c
+IMAGE=odwolania2json-jury:final-20261122
 python "$DEMO/obiekt.py" --image "$IMAGE" --work "$WORK"
 ```
 
-Przy Dockerze rootless dodaj `--user 0:0`. Ustaw `IMAGE` na lokalny tag lub identyfikator gotowego obrazu dostarczonego z wydaniem. `obraz.txt` zapisuje identyfikator użyty we wszystkich przebiegach. Kontenery pracują offline, a profil i PDF-y są montowane tylko do odczytu.
+Przy Dockerze rootless dodaj `--user 0:0`. Tag z przykładu wskazuje gotowy obraz wydania. Możesz też przekazać jego pełne ID przez `--image`. Odczytasz je poleceniem `docker image inspect --format '{{.Id}}' "$IMAGE"`. `obraz.txt` zapisuje ID użyte we wszystkich przebiegach. Kontenery pracują offline, a profil i PDF-y są montowane tylko do odczytu.
 
 | Przebieg | Operacja w katalogu `$WORK/klasy` | Wynik |
 | --- | --- | --- |
@@ -31,7 +31,18 @@ python "$DEMO/pokaz.py" zrodlo "$WORK/input/p01.pdf" \
 
 Nagłówek i sygnatura uruchamiają rozpoznanie klasy. Reguły zapisują tekst pod kropkowanymi ścieżkami obiektu, schemat sprawdza wartości i zachowuje `null` przy braku sali. W `p03` inny nagłówek chroni przed rozpoznaniem mimo tych samych etykiet i wartości. Ta konfiguracja używa istniejącego typu `text`. Nowy typ skalarny lub budowa nowej listy z powtarzanych dopasowań wymagają obsługi w kodzie.
 
-**Własny PDF.** Przy kolejnym uruchomieniu wskaż nowy `--work` i dodaj `--pdf "/ścieżka do/własnego.pdf"`. Skrypt nadaje wejściu neutralną nazwę `p04.pdf`, sprawdza wszystkie trzy przykłady wbudowane i zapisuje osobne wyniki w `juror-*/output/p04.json`. W obsługiwanym układzie nagłówek „ZAWIADOMIENIE” i wiersz „Sygnatura:” albo „Sygnatura akt:” występują na jednej z dwóch pierwszych stron. Termin i miejsce mają osobne wiersze, np. „Termin posiedzenia:”, „Budynek:” i opcjonalnie „Sala:”. Własny dokument sprawdzasz wobec własnych oczekiwań, otwierając JSON i strony wskazane w diagnostyce.
+**Własny PDF.** Uruchom pokaz z nowym katalogiem i wskaż własny plik z warstwą tekstową.
+
+```sh
+WORK="$(mktemp -d)/pokaz-wlasny"
+python "$DEMO/obiekt.py" --image "$IMAGE" --work "$WORK" --pdf "/ścieżka do/własnego.pdf"
+cat "$WORK/juror-obiekt/output/p04.json"
+wc -c "$WORK/juror-konkurs/output/p04.json" "$WORK/juror-powrot/output/p04.json"
+```
+
+Skrypt zapisuje kopię jako `p04.pdf` i wypisuje klasę oraz rozmiar JSON-u w każdym przebiegu. Po powrocie do trzech klas porównuje bajty trzech wbudowanych wyników z pierwszym przebiegiem. Jeśli własny PDF pasuje do klasy zawiadomienia, jego wynik w obu przebiegach konkursowych ma 0 B. Szczegóły źródła pól znajdziesz w `$WORK/juror-obiekt/diagnostics/last-run.json`.
+
+W obsługiwanym układzie nagłówek „ZAWIADOMIENIE” i wiersz „Sygnatura:” albo „Sygnatura akt:” występują na jednej z dwóch pierwszych stron. Termin i miejsce mają osobne wiersze, np. „Termin posiedzenia:”, „Budynek:” i opcjonalnie „Sala:”.
 
 **Regresja konkursowa.** Dodaj `--dataset "$UZP_DATA"` dla przypiętych danych DEV z sekcji odbioru poniżej. Skrypt porównuje 11/11 ścieżek i SHA-256 wyników, w tym trzy klasy konkursowe i osiem negatywów po 0 B. Miernik porównuje również 35 trafień względem etykiet DEV. Etykiety pozostają na hoście.
 
