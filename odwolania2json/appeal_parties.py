@@ -259,7 +259,7 @@ def _counsel(block, marker):
     person_scope = scope.slice(profession.end()) if profession else scope
     person = PERSON.match(person_scope.text)
     if not person or NOT_PERSON.search(person["name"]):
-        return {}
+        return {}, None
     person_value = person_scope.group(person, "name")
     remainder = _trim(person_scope.slice(person.end()))
     firm = None
