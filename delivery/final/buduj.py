@@ -170,9 +170,9 @@ def present(path, work, receipt):
 
     start(pdf, "Aneks / Implementacja", receipt)
     title(pdf, "Ekstrakcja lokalna, bez API")
-    block(pdf, 55, 197, ["Python i pypdf odczytują warstwę tekstową.",
+    block(pdf, 55, 197, ["pypdf odczytuje warstwę tekstową ze wszystkich stron.",
                         "OCR skanów używa pypdfium2 / PDFium i tesserocr / Tesseract.",
-                        "Reguły czytają do sześciu pierwszych stron PDF-u.",
+                        "OCR domyślnie obejmuje najwyżej sześć różnych stron.",
                         "Docker Compose uruchamia ten sam interfejs CLI."],
           23, 47, "Lato", INK)
     link(pdf, 55, 436, "Wymagania UZP", UZP)
