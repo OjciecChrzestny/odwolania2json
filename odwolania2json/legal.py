@@ -401,6 +401,9 @@ def appeal(result, config, *, capture_decision=False):
         key = "Zamawiajacy" if role["role"].casefold() == "zamawiający" else "Odwolujacy"
         block = cover.slice(role.end(), end).before(patterns["role_end"])
         add_party(result, config, key, role, block, buyers > 1)
+    from .appeal_parties import refine_appeal_parties
+
+    refine_appeal_parties(result, config, cover)
     fields(result, config["header_fields"], cover)
     body = document.after(patterns["header"])
     return challenged_action(result, config, body, capture_decision=capture_decision)
