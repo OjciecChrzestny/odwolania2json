@@ -109,7 +109,7 @@ LOWER_INITIAL = re.compile(rf"\A(?P<first>[^\W\d_]+)[ \t]+(?P<last>{WORD})\Z")
 def _continue_aligned_names(result, config, scope, lines, observations):
     """Zachowaj kolejność prostej listy przy utracie wielkiej litery przez OCR."""
     existing = result.data["pelnomocnicy"]
-    if len(existing) < 2 or len(lines) != len(existing) + 1 or "\f" in scope.text:
+    if len(existing) < 2 or len(lines) != len(existing) + 1:
         return
     body = [line[0].strip() for line in lines]
     if body[:-1] != [person["imie_nazwisko"] for person in existing]:
@@ -123,7 +123,7 @@ def _continue_aligned_names(result, config, scope, lines, observations):
     first_words = [position[0][0] for position in selected]
     xs, tops = ([word[i] for word in first_words] for i in (0, 1))
     height = max(word[3] for word in first_words)
-    if max(xs) - min(xs) > height or any(not 0 < b-a <= 3*height for a,b in zip(tops, tops[1:])):
+    if max(xs) - min(xs) > height or any(not 0 < b - a <= 3 * height for a, b in zip(tops, tops[1:])):
         return
     name = body[-1][0].upper() + body[-1][1:]
     if name in body[:-1]:
@@ -140,12 +140,15 @@ def complete_declared_counsel(result, config, appointment):
     grant = appointment.find(patterns["grant"])
     if not grant or not grant[0].rstrip().endswith(":"):
         return
-    scope = appointment.slice(grant.end()).before(patterns["counsel_end"])
+    after_grant = appointment.slice(grant.end())
+    boundary = after_grant.find(patterns["counsel_end"])
+    scope = after_grant.slice(0, boundary.start()) if boundary else after_grant
     scope = scope.slice(0, scope.text.find("\f")) if "\f" in scope.text else scope
     lines = [line for line in re.finditer(r"[^\n]+", scope.text) if line[0].strip()]
     observations = _ocr_rows(result.document.ocr_layout_tsv)
     if result.data["pelnomocnicy"]:
-        _continue_aligned_names(result, config, scope, lines, observations)
+        if boundary and re.match(r"do\s+(?:reprezentowania|reprezentacji)\b", boundary[0], FLAGS):
+            _continue_aligned_names(result, config, scope, lines, observations)
         return
     entries = []
     for line in lines:

@@ -78,10 +78,6 @@ niniejszym udzielam pełnomocnictwa:
         proof = evidence["fields"]["mocodawca.0.podpisujacy.0.imie_nazwisko"]
         self.assertEqual((proof["page"], proof["source"], proof["snippet"]), (1, "ocr", "Ewa Próbna"))
 
-        missed_letter = cert.replace("podpisany", "podpiany")
-        document = Document.from_pages([intro + missed_letter])
-        value, _ = extract(replace(document, ocr_layout_tsv=footer_tsv(missed_letter)), load_classes())
-        self.assertEqual(value["mocodawca"][0]["podpisujacy"], [{"imie_nazwisko": "Ewa Próbna"}])
 
         for alternate in (cert.replace("Ewa Próbna", "Daniel Testowy"), cert.replace(" 11:08:04", ""),
                           "Poświadczenie kopii:\n" + cert, "Odbiór dokumentu:\n" + cert,
@@ -131,6 +127,9 @@ niniejszym udzielam pełnomocnictwa:
         broken_layout = footer_tsv(lines).replace("\t3\t1\t30\t90", "\t3\t1\t90\t90")
         data, _ = extract(replace(doc, ocr_layout_tsv=broken_layout), load_classes())
         self.assertEqual(data["pelnomocnicy"], before["pelnomocnicy"])
+        missing_scope = Document.from_pages([HEADER + lines + "\nZakres: składanie pism."])
+        val, _ = extract(replace(missing_scope, ocr_layout_tsv=footer_tsv(lines)), load_classes())
+        self.assertEqual(val["pelnomocnicy"], before["pelnomocnicy"])
 
 
 if __name__ == "__main__":

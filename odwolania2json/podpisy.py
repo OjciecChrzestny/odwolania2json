@@ -154,7 +154,7 @@ def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
 
 
 ELECTRONIC_SIGNATURE = re.compile(
-    rf"^[ \t]*Dokument[ \t]+podpis?any[ \t]+przez[ \t]*:?[ \t]*(?P<name>{NAME})[ \t]*$",
+    rf"^[ \t]*Dokument[ \t]+podpisany[ \t]+przez[ \t]*:?[ \t]*(?P<name>{NAME})[ \t]*$",
     FLAGS,
 )
 ELECTRONIC_TIME = re.compile(r"\AData(?:[ \t]+podpisu)?[ \t]*:[ \t]*[^\n]*\d{1,2}:\d{2}\b", FLAGS)
