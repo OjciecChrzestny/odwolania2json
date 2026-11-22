@@ -1,0 +1,24 @@
+{
+  "schema": {
+    "miejsce_posiedzenia": {
+      "budynek": "text?",
+      "sala": "text?"
+    }
+  },
+  "fields": {
+    "miejsce_posiedzenia.budynek": [
+      {
+        "name": "wiersz_budynek",
+        "pattern": "^[ \\t]*Budynek:[ \\t]*([^\\n\\r]+?)[ \\t]*$",
+        "operation": "text"
+      }
+    ],
+    "miejsce_posiedzenia.sala": [
+      {
+        "name": "wiersz_sala",
+        "pattern": "^[ \\t]*Sala:[ \\t]*([^\\n\\r]+?)[ \\t]*$",
+        "operation": "text"
+      }
+    ]
+  }
+}

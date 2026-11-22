@@ -2,6 +2,39 @@
 
 Próba używa publicznego CLI i osobnego profilu. Do kopii trzech klas konkursowych juror dodaje jeden plik, [zawiadomienie.json](zawiadomienie.json). Plik opisuje sygnały rozpoznania, schemat JSON i reguły odczytu dwóch pól. Po usunięciu tego pliku kopia profilu znowu zawiera dokładnie trzy klasy konkursowe.
 
+## Klasa dokumentu i miejsce posiedzenia na jednym obrazie
+
+Uruchom na Linuksie z katalogu głównego pakietu. Potrzebujesz gotowego lokalnego obrazu CLI, Dockera oraz Pythona z zależnościami z `requirements.txt`. Polecenie przygotuje własne katalogi i wykona cztery przebiegi z tym samym identyfikatorem obrazu.
+
+```sh
+DEMO=demo/rozszerzalnosc
+WORK="$(mktemp -d)/pokaz-obiektu"
+IMAGE=odwolania2json-jury:6eb211c39c6c
+python "$DEMO/obiekt.py" --image "$IMAGE" --work "$WORK"
+```
+
+Przy Dockerze rootless dodaj `--user 0:0`. Ustaw `IMAGE` na lokalny tag lub identyfikator gotowego obrazu dostarczonego z wydaniem. `obraz.txt` zapisuje identyfikator użyty we wszystkich przebiegach. Kontenery pracują offline, a profil i PDF-y są montowane tylko do odczytu.
+
+| Przebieg | Operacja w katalogu `$WORK/klasy` | Wynik |
+| --- | --- | --- |
+| `konkurs` | Uruchom profil wbudowany | Wszystkie trzy PDF-y dają 0 B. |
+| `klasa` | Dodaj [zawiadomienie.json](zawiadomienie.json) do kopii trzech klas | `p01` i `p02` mają sygnaturę i termin. `p03` ma 0 B. |
+| `obiekt` | Dopisz [miejsce_posiedzenia.json](miejsce_posiedzenia.json) do sekcji `schema` i `fields` zawiadomienia | `p01` daje budynek `Alfa` i salę `207`. `p02` daje budynek `Alfa` i `sala: null`. `p03` ma 0 B. |
+| `powrot` | Usuń `zawiadomienie.json` z kopii profilu | Wszystkie trzy wyniki są identyczne bajtowo z pierwszym przebiegiem. |
+
+Otwórz `$WORK/roznica-obiektu.diff` i `$WORK/obiekt/output/p01.json`. Diagnostyka wskazuje stronę 2, na której `wiersz_budynek` i `wiersz_sala` znajdują oba pola.
+
+```sh
+python "$DEMO/pokaz.py" zrodlo "$WORK/input/p01.pdf" \
+  "$WORK/obiekt/diagnostics/last-run.json"
+```
+
+Nagłówek i sygnatura uruchamiają rozpoznanie klasy. Reguły zapisują tekst pod kropkowanymi ścieżkami obiektu, schemat sprawdza wartości i zachowuje `null` przy braku sali. W `p03` inny nagłówek chroni przed rozpoznaniem mimo tych samych etykiet i wartości. Ta konfiguracja używa istniejącego typu `text`. Nowy typ skalarny lub budowa nowej listy z powtarzanych dopasowań wymagają obsługi w kodzie.
+
+**Własny PDF.** Przy kolejnym uruchomieniu wskaż nowy `--work` i dodaj `--pdf "/ścieżka do/własnego.pdf"`. Skrypt nadaje wejściu neutralną nazwę `p04.pdf`, sprawdza wszystkie trzy przykłady wbudowane i zapisuje osobne wyniki w `juror-*/output/p04.json`. W obsługiwanym układzie nagłówek „ZAWIADOMIENIE” i wiersz „Sygnatura:” albo „Sygnatura akt:” występują na jednej z dwóch pierwszych stron. Termin i miejsce mają osobne wiersze, np. „Termin posiedzenia:”, „Budynek:” i opcjonalnie „Sala:”. Własny dokument sprawdzasz wobec własnych oczekiwań, otwierając JSON i strony wskazane w diagnostyce.
+
+**Regresja konkursowa.** Dodaj `--dataset "$UZP_DATA"` dla przypiętych danych DEV z sekcji odbioru poniżej. Skrypt porównuje 11/11 ścieżek i SHA-256 wyników, w tym trzy klasy konkursowe i osiem negatywów po 0 B. Miernik porównuje również 35 trafień względem etykiet DEV. Etykiety pozostają na hoście.
+
 ## Próba jurora
 
 Uruchom z katalogu głównego czystej kopii projektu. Potrzebujesz Pythona 3.13+ i zależności z `requirements.txt`. Przed uruchomieniem zapisz stan kodu według sekcji „Kontrola kodu podczas próby”.
