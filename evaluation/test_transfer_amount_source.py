@@ -35,7 +35,7 @@ class TransferAmountSourceTest(TestCase):
     def unresolved(self, result, value):
         amount, proof, review = result
         self.assertEqual(amount, value)
-        self.assertEqual((proof["kind"], proof["precision"], proof["page"]), ("conflict", "unavailable", None))
+        self.assertEqual((proof.get("kind"), proof["precision"], proof["page"]), ("conflict", "unavailable", None))
         self.assertFalse({"snippet", "span", "context"} & proof.keys())
         self.assertEqual(review["status"], "review_required")
         self.assertIn({"code": "field_evidence_conflict", "field": AMOUNT}, review["reasons"])
@@ -78,6 +78,18 @@ class TransferAmountSourceTest(TestCase):
         other = "Kwota: 72,42 PLN"
         uncertain = "Operacja OP-7391\nNumer operacji: ARCH-15\nKwota: 72,42 PLN\nPrzelew wychodzący"
         self.unresolved(self.extract(COVER, other, uncertain), 72.42)
+
+    def test_single_amount_with_contradictory_operation_ids_is_provisional(self):
+        for heading, explicit in (("OP-7391", "ARCH-15"), ("ARCH-15", "OP-7391")):
+            with self.subTest(heading=heading, explicit=explicit):
+                block = (f"Operacja {heading}\nNumer operacji: {explicit}\n"
+                         "Kwota: 72,42 PLN\nPrzelew wychodzący")
+                self.unresolved(self.extract(COVER, block), 72.42)
+
+    def test_conflicting_ids_next_to_only_amount_without_a_unique_cover_id(self):
+        cover = "POTWIERDZENIE PRZELEWU\nData operacji: 2026-03-12"
+        block = "Operacja ARCH-15\nNumer operacji: OP-7391\nKwota: 72,42 PLN\nPrzelew wychodzący"
+        self.unresolved(self.extract(cover, block), 72.42)
 
     def test_column_value_can_be_bound_to_the_current_section(self):
         old = "Numer transakcji: ARCH-15\nKwota: 72,42 PLN"

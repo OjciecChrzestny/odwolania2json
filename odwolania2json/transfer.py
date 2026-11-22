@@ -293,10 +293,10 @@ def resolve_amount_evidence(result, config, pages):
     if not observations:
         return
     if len(observations) == 1:
-        # Preserve the original rule and exact span for a sole eligible source,
-        # unless its own block explicitly points to another known operation.
-        _, match, references = observations[0]
-        if not anchored or match or not references or target in references:
+        # A unique amount retains its span only when its block has no
+        # contradictory operation IDs, even if one of them matches the cover.
+        _, _, references = observations[0]
+        if len(references) <= 1 and (not anchored or not references or target in references):
             return
     linked = [amount for amount, match, _ in observations if match]
     if anchored and len(linked) == 1:
