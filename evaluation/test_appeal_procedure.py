@@ -1,6 +1,7 @@
 from dataclasses import replace
 import unittest
 
+from odwolania2json.appeal_procedure import DocumentWithVerifiedTitle, observed_title, reconcile_title
 from odwolania2json.extract import extract
 from odwolania2json.model import Document, load_classes
 
@@ -192,3 +193,40 @@ class AppealProcedureTests(unittest.TestCase):
         )
         self.assertEqual(output["ZamowieniePubliczne"]["tytul"], "Kioski Czytelnicze — etap II")
         self.assertEqual(evidence["ZamowieniePubliczne.tytul"]["page"], 2)
+
+    def test_another_title_reading_uses_same_reference_and_physical_page(self):
+        text = (
+            COVER + "\nDotyczy: zamówienia pn. „Budowa Czytelni”, nr referencyjny: NP/54/26\n"
+            "Wnoszę odwołanie wobec zmiany SWZ."
+        )
+        doc = Document.from_pages([text])
+        original = observed_title(doc.text.partition("\f")[0])
+        alternate = observed_title("pn. „Budowa czytelni”, nr referencyjny: NP/\n54/26")
+        proposal = reconcile_title(original, alternate)
+        verified = DocumentWithVerifiedTitle(
+            doc.text, doc.starts, verified_title=proposal, original_title=original[0],
+            procedure_reference=original[1], title_offset=original[2],
+        )
+        output, diagnostic = extract(verified, self.classes)
+        self.assertEqual(output["ZamowieniePubliczne"]["tytul"], "Budowa czytelni")
+        self.assertEqual(diagnostic["fields"]["ZamowieniePubliczne.tytul"]["page"], 1)
+        self.assertEqual(diagnostic["fields"]["ZamowieniePubliczne.tytul"]["source"], "ocr")
+
+    def test_title_completion_uses_a_literal_observation_and_checks_reference(self):
+        original = ("Montaż z budową wiaty", "NP/54/26", 0)
+        alternate = ("Montaż z rozbudową wiaty", "MP/54/26", 0)
+        self.assertIsNone(reconcile_title(original, alternate))
+        self.assertEqual(reconcile_title(original, alternate, lambda: alternate), alternate[0])
+        different_job = (alternate[0], "MP/56/26", 0)
+        self.assertIsNone(reconcile_title(original, different_job, lambda: different_job))
+        changed_title = ("Konserwacja wiaty", original[1], 0)
+        self.assertIsNone(reconcile_title(original, changed_title))
+        altered_punctuation = ("Montaż z budową, wiaty", original[1], 0)
+        self.assertIsNone(reconcile_title(original, altered_punctuation))
+
+    def test_two_quoted_procedure_titles_in_one_reading_are_not_a_single_source(self):
+        text = (
+            "Dotyczy zamówienia pn. „Budowa czytelni próbnej”, nr referencyjny: NP/54/26\n"
+            "Przytoczenie z pisma w sprawie pn. „Remont prawdziwej czytelni”, nr referencyjny: NP/55/26"
+        )
+        self.assertIsNone(observed_title(text))
