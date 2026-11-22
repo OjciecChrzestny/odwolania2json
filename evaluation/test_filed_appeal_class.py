@@ -80,3 +80,41 @@ class FiledAppealClassTest(unittest.TestCase):
         self.assert_negative(f"ODPOWIEDŹ NA ODWOŁANIE\n{LEGACY_CUES}\n{CASE}\n{FILING}")
         self.assert_negative(f"{ADDRESSEE}\n{CASE}\nWnoszę o oddalenie odwołania.")
         self.assert_negative(f"{ADDRESSEE}\n{CASE}\nSkładam wniosek o zmianę warunków zamówienia.")
+
+    def test_representation_clause_is_compatible_with_recipient_on_second_page(self):
+        first = "\n".join((
+            "Zamawiający: Przykładowa jednostka",
+            "Działając w imieniu Wykonawcy (dalej: „Wykonawca”), na podstawie",
+            "przepisów ustawy Prawo zamówień publicznych (dalej: „ustawa”),",
+            "na udzielone umocowanie powołując się, wnoszę odwołanie wobec:",
+            "1. czynności podjętej w postępowaniu.",
+        ))
+        data, report = self.parse(first, "Krajowa Izba Odwoławcza")
+        self.assertIn("OdwolanieKIO", data)
+        self.assertEqual(report["class"], "odwolanie")
+        self.assertEqual({signal["rule"]: signal["page"] for signal in report["signals"]}, {
+            "adresat_kio": 2,
+            "strony_w_nagłówku": 1,
+            "własne_wniesienie_przy_oznaczonej_stronie": 1,
+        })
+        self.assert_negative(first)
+        self.assert_negative(first.replace("Zamawiający: Przykładowa jednostka", ""), "Krajowa Izba Odwoławcza")
+
+    def test_explicit_quotation_block_supplies_neither_strength_of_filing(self):
+        context = f"NOTATKA SŁUŻBOWA\n{ADDRESSEE}\n{CASE}"
+        self.assert_negative(f"{context}\nTreść przytoczonego pisma wykonawcy:\n{FILING}")
+        context_with_party = f"Krajowa Izba Odwoławcza\nZamawiający: Jednostka Przykładowa\n{CASE}"
+        self.assert_negative(f"{context_with_party}\nTreść przytoczonego pisma:\nWnoszę odwołanie.")
+        self.assert_negative(f"INSTRUKCJA WNOSZENIA ODWOŁANIA\n{LEGACY_CUES}\n{CASE}\n{FILING}")
+
+    def test_response_by_contracting_authority_is_negative(self):
+        text = "\n".join((
+            "ODPOWIEDŹ ZAMAWIAJĄCEGO NA ODWOŁANIE", LEGACY_CUES, CASE,
+            "Poniżej przytaczamy pierwsze zdanie otrzymanego pisma:", FILING,
+            "Wnosimy o oddalenie przytoczonego odwołania.",
+        ))
+        self.assert_negative(text)
+
+    def test_generic_procedural_title_allows_own_filing(self):
+        self.assert_filed([f"PISMO PROCESOWE\n{LEGACY_CUES}\n{CASE}\n{FILING}"], 1)
+        self.assert_negative(f"PISMO PROCESOWE\n{ADDRESSEE}\n{CASE}\nWnoszę o oddalenie odwołania.")
