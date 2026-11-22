@@ -1,6 +1,8 @@
 services:
   cli:
-    build: .
+    build:
+      context: .
+      target: jury
     network_mode: none
     read_only: true
     user: "${ODW_UID:-1000}:${ODW_GID:-1000}"

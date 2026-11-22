@@ -1,8 +1,12 @@
 # Odwołania2JSON
 
-Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przelewów. Dla dokumentów obcych zapisuje plik 0 B. Wariant A3 stosuje reguły i lokalny polski OCR na CPU. Przetwarzanie działa bez sieci, GPU i klucza API.
+Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przelewów. Dla dokumentów obcych zapisuje plik 0 B. Wariant A3 stosuje reguły i lokalny polski OCR na CPU. Profil regułowy działa bez sieci, GPU i klucza API.
 
-[Instrukcja jurora od czystej kopii z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md)
+## Uruchomienie na VM oceny
+
+W `/opt/solution` użyj [polecenia z RUN.md](RUN.md). Obraz `jury` przygotowuje się przed oceną. Polecenie uruchamia jednorazowy kontener offline, zapisuje wyniki w `output/` i trzyma stan oraz diagnostykę w `.jury/`.
+
+[Próba jurora z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md)
 
 ## Instalacja i własne PDF-y
 
@@ -60,11 +64,9 @@ OMP_THREAD_LIMIT=1 python -m odwolania2json --ocr-data "$TESSDATA"
 
 A3 odczytuje przez OCR wybrane strony, gdy brakuje czytelnej warstwy tekstowej. Odczyt używa pypdf, a OCR korzysta z PDFium przez pypdfium2 i z Tesseract przez tesserocr. [Pochodzenie i licencje komponentów](delivery/final/INSTRUKCJA-JURORA.md#komponenty-zewnętrzne)
 
-Opcjonalną weryfikację przelewu przez Scaleway można uruchomić z kopii źródeł. [Polecenie, wyniki jakości, czas i koszt próby](experiments/transfer_api/RAPORT_KLASYFIKACJA.md)
-
 ## Docker Compose
 
-Wymagany jest Docker Engine z kontenerami linuksowymi, Compose v2 i BuildKit. Budowa obrazu pobiera zależności. Kontener uruchamia A3 z polskim OCR i ma wyłączoną sieć. W trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed uruchomieniem kontenera.
+Wymagany jest Docker Engine z kontenerami linuksowymi, Compose v2 i BuildKit. Budowa obrazu pobiera zależności. Compose buduje profil `jury` z polskim OCR i uruchamia go z wyłączoną siecią. W trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed uruchomieniem kontenera.
 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
@@ -76,13 +78,23 @@ docker compose run --rm --pull never -e OMP_THREAD_LIMIT=1 cli
 
 [Compose z własnymi katalogami oraz instrukcja dla Windows](delivery/compose/README.md)
 
+## Opcjonalny obraz z adapterami
+
+Zadania z adapterami można spakować osobno. Obraz zawiera kod weryfikacji przelewów, adaptery B/C i kod odczytu pól przelewu. Punkt wejścia i lokalna ekstrakcja zachowują dotychczasowe działanie.
+
+```sh
+docker build --target adapters --tag odwolania2json:adapters .
+```
+
+Budowa obejmuje wyłącznie potrzebne moduły i zależności. Dane, pliki referencyjne i `.env` są poza obrazem. Użyj tego celu po wyborze adaptera i uzgodnieniu konfiguracji sieciowej. Komenda oceny w `RUN.md` uruchamia profil offline. [Weryfikator przelewów i pomiary](experiments/transfer_api/RAPORT_KLASYFIKACJA.md) · [Adaptery B/C](experiments/abc/README.md)
+
 ## Reguły i rozszerzanie
 
 Domyślne konfiguracje to `odwolanie.json`, `pelnomocnictwo.json` i `przelew.json`. Definicje klas zawierają punktowane sygnały, próg rozpoznania, schemat, wzorce pól i operacje normalizacji. Brak kandydata spełniającego próg lub remis daje wynik dokumentu obcego. Pierwsza reguła pola, która daje poprawną wartość, wygrywa. Do prostych klas wystarczy własny plik JSON z unikatową nazwą `class`, listą `signals`, progiem `threshold`, obiektem `schema` i mapą `fields`. Reguła pola używa pierwszej grupy przechwytującej i opcjonalnej operacji, np. `date` z symbolem `<DATE>`. Pole opisane jako `date?` przyjmuje datę ISO lub `null`. Przykład niezależnej klasy z dwoma polami jest w `ExtensionTest`. [Katalog konfiguracji klas](odwolania2json/classes)
 
 Sygnał klasy może mieć opcjonalną mapę `requires`. Każdy nazwany wzorzec z mapy musi pasować na tej samej stronie co wzorzec główny. Diagnostyka zapisuje nazwy spełnionych warunków w `criteria`. W klasie przelewu ustawienie `retry_ocr` przy sygnale nagłówka pozwala ponownie odczytać układ pierwszej strony skanu. Oba odczyty obowiązują te same kryteria rozpoznania.
 
-Opcja `--config KATALOG` wybiera cały katalog klas. Skopiuj do niego klasy UZP, jeśli mają działać obok nowej. Sekcje prawne korzystają dodatkowo ze wspólnych operacji na fragmentach tekstu i konfigurowalnych wzorców ról. Słownik powodów odwołania jest przypięty w konfiguracji. Gdy brak wiarygodnej daty pierwszej czynności, wynikiem jest `null`. Gdy żadna reguła nie przypisze rodzaju czynności, konfiguracja wymusza ID 11, a diagnostyka oznacza `first_allegation.fallback=true`. Odczyt obejmuje maksymalnie sześć pierwszych stron.
+Opcja `--config KATALOG` wybiera cały katalog klas. Skopiuj do niego klasy UZP, jeśli mają działać obok nowej. Sekcje prawne korzystają dodatkowo ze wspólnych operacji na fragmentach tekstu i konfigurowalnych wzorców ról. Słownik powodów odwołania jest przypięty w konfiguracji. Gdy brak wiarygodnej daty pierwszej czynności, wynikiem jest `null`. Gdy żadna reguła nie przypisze rodzaju czynności, konfiguracja wymusza ID 11, a diagnostyka oznacza `first_allegation.fallback=true`.
 
 Pokaz dodania klasy `zawiadomienie` obejmuje dwa syntetyczne PDF-y, negatyw oraz sposób wskazania strony i reguły dla pola. Profil demonstracyjny dodaje jeden plik JSON. [Próba jurora i odbiór rozszerzenia](demo/rozszerzalnosc/README.md)
 
@@ -105,16 +117,8 @@ python evaluation/accept_development.py "$UZP_DATA" runs/odbior-a
 
 Odbiór przelewu porównuje wszystkie pola z rozwojową referencją dopiero po uruchomieniu publicznego CLI. Kolejna próba obejmuje pełną sprawę, wieloosobowe pełnomocnictwo, dokument obcy, powtórne uruchomienie, zmianę ścieżek i usuwanie starych wyników. Polecenie wymaga nowej ścieżki przebiegu.
 
-## Wybór kandydata i pomiary
+## Dowody i materiały
 
-A3 uzyskał mikro-F1 0,9963 na 128 rozwojowych PDF-ach, z prawidłowym przebiegiem i 40/40 poprawnych ID. Wszystkie pliki wynikowe miały te same bajty co w A2. Dwie zmiany nazw i katalogów dla każdego wejścia dały 256/256 zgodnych wyników i rekordów diagnostyki z pominięciem ścieżki. To wynik historyczny na zbiorze rozwojowym. Odrębna historyczna próba A3 na skanach ujawniła błędy klasyfikacji przelewów. [Odbiór A3](docs/historia/RAPORT_A3.md) · [Raport historycznej próby na skanach](docs/historia/RAPORT_KONCOWY_A3.md)
-
-Wcześniejsza walidacja A dała mikro-F1 0,9878 z `valid_run=false`. Warianty B i C to oddzielne eksperymenty z wyborem ID pierwszego zarzutu, sprawdzone na atrapach z zablokowanym TCP. Domyślne CLI i obraz Compose pracują bez API. [Aktualne warunki UZP dla wariantu z API](delivery/final/INSTRUKCJA-JURORA.md#warunki-użycia-api) · [Raport A](docs/historia/RAPORT_A.md) · [Eksperyment B/C](experiments/abc/README.md) · [Plan i podział danych](docs/historia/PLAN.md)
-
-[Odbiór historycznego RC1](docs/historia/RAPORT_RC1.md)
-
-## Materiały przekazania
-
-[Instrukcja jurora](delivery/final/INSTRUKCJA-JURORA.md) · [Prezentacja PDF](delivery/final/prezentacja.pdf) · [Ekrany rezerwowe](delivery/final/ekrany-rezerwowe.pdf) · [Scenariusz finału](delivery/final/SCENARIUSZ.md) · [Raport próby](delivery/final/RAPORT-PROBY.md)
-
-Jeden wewnętrzny pomiar końcowy objął 31 PDF-ów na zamrożonym A2 z lokalnym OCR. Miernik zwrócił 0,9821958457 mikro-F1 oraz `valid_run=false` po sklasyfikowaniu jednego pełnomocnictwa jako dokumentu obcego. [Raport końcowy](docs/historia/RAPORT_KONCOWY.md)
+- [Próba jurora](delivery/final/INSTRUKCJA-JURORA.md) i [scenariusz finału](delivery/final/SCENARIUSZ.md).
+- [Odbiór Compose](delivery/compose/README.md) i [próba dodania klasy](demo/rozszerzalnosc/README.md).
+- [Historia i dotychczasowe pomiary](docs/historia/README.md). Wyniki odnoszą się do wskazanych rewizji i zbiorów.
