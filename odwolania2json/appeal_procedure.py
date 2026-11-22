@@ -1,8 +1,11 @@
 """Extract procedural fields from explicit evidence in an appeal."""
 
 import re
+import unicodedata
+from contextlib import closing
+from dataclasses import dataclass
 
-from .model import FLAGS
+from .model import Document, FLAGS, classify
 from .operations import DATE, MONTHS, normalize
 
 
@@ -274,3 +277,118 @@ def add_joint_buyer_lead(result, cover):
     for position in range(len(buyers)):
         result.put(("Zamawiajacy", position, "prowadzacy_postepowanie"), int(position == index),
                    cover.offset + offset, "prowadzący_wskazany_pod_współzamawiającym")
+
+
+# Keep the title tied to the reference in the same header line block, in both reads.
+CITED_TITLE = re.compile(
+    r'\b(?:pn\.|pod[ \t]+nazwą)[ \t\n]*[„“"](?P<title>[^„“”"\f]{6,300})[”"]'
+    r'[ \t\n]*[,;]?[ \t\n]*(?:nr|numer|znak)[ \t]+(?:referencyjny|postępowania)'
+    r'[ \t]*[:.]?[ \t\n]*(?P<ref>[A-Z0-9]+(?:[ \t\n]*[./_-][ \t\n]*[A-Z0-9]+)*)', FLAGS,
+)
+
+
+@dataclass(frozen=True)
+class DocumentWithVerifiedTitle(Document):
+    verified_title: str | None = None
+    original_title: str | None = None
+    procedure_reference: str | None = None
+    title_offset: int = 0
+
+
+def observed_title(text):
+    matches = list(CITED_TITLE.finditer(text))
+    if len(matches) != 1:
+        return None
+    match = matches[0]
+    return normalize(match["title"], "text"), normalize(match["ref"], "compact"), match.start("title")
+
+
+def compatible_titles(original, candidate):
+    if original.casefold() == candidate.casefold():
+        return True
+    words = original.split()
+    proposed = candidate.split()
+    if len(words) != len(proposed):
+        return False
+    changes = [(before, after) for before, after in zip(words, proposed) if before != after]
+    if len(changes) != 1:
+        return False
+    clipped, full = changes[0]
+    return (len(full) > len(clipped) >= 4 and clipped.isalpha() and full.isalpha()
+            and (full.startswith(clipped) or full.endswith(clipped)))
+
+
+def reconcile_title(original, alternate, confirm=None):
+    before, reference, _ = original
+    if alternate is None:
+        return None
+    proposal, alternate_reference, _ = alternate
+    if proposal == before or not compatible_titles(before, proposal):
+        return None
+    if reference == alternate_reference:
+        return proposal
+
+    numbers = re.findall(r"[0-9]+", reference)
+    if len(numbers) < 2 or numbers != re.findall(r"[0-9]+", alternate_reference):
+        return None
+    corroboration = confirm() if confirm is not None else None
+    if (corroboration is not None and proposal == corroboration[0]
+            and numbers == re.findall(r"[0-9]+", corroboration[1])):
+        return proposal
+    return None
+
+
+def _rerender_opening(ocr, page, factor):
+    scale = min(factor, 3000 / max(page.get_size()))
+    with (closing(page.render(scale=scale, grayscale=True)) as bitmap,
+          ocr.api_type(path=str(ocr.data), lang="pol", psm=3) as api):
+        api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height,
+                          bitmap.n_channels, bitmap.stride)
+        return observed_title(unicodedata.normalize("NFC", api.GetUTF8Text()))
+
+
+def verify_cover_title(path, document, pages, ocr, classes):
+    """Read one scanned cover again, with the original reference as an anchor."""
+    from .extract import PAGE_READ_ERRORS
+    from .ocr import LocalOCR
+
+    if not isinstance(ocr, LocalOCR) or classes is None or 1 not in pages:
+        return document
+    name, _ = classify(document, classes)
+    if classes.get(name, {}).get("builder") != "appeal":
+        return document
+    original = observed_title(document.text.partition("\f")[0][:5500])
+    if original is None:
+        return document
+    try:
+        with closing(ocr.document_type(path)) as pdf, closing(pdf[0]) as page:
+            alternate = _rerender_opening(ocr, page, 3.0)
+            verified = reconcile_title(original, alternate, lambda: _rerender_opening(ocr, page, 3.15))
+    except PAGE_READ_ERRORS:
+        return document
+    if verified is None:
+        return document
+    title, reference, offset = original
+    return DocumentWithVerifiedTitle(
+        document.text, document.starts, document.bank_scan, document.scan_quality, document.ocr_layout_tsv,
+        verified_title=verified, original_title=title, procedure_reference=reference, title_offset=offset,
+    )
+
+
+def read_pdf_with_title_evidence(path, ocr=None, *, classes=None, ocr_page_budget=6):
+    """Optional process(read_document=...) callback."""
+    from .extract import read_pdf
+
+    document, pages = read_pdf(path, ocr, classes=classes, ocr_page_budget=ocr_page_budget)
+    return verify_cover_title(path, document, pages, ocr, classes), pages
+
+
+def apply_verified_cover_title(result):
+    document = result.document
+    if not isinstance(document, DocumentWithVerifiedTitle):
+        return
+    procedure = result.data["ZamowieniePubliczne"]
+    if (procedure["tytul"] == document.original_title
+            and procedure["numer_postepowania"] == document.procedure_reference):
+        result.put(("ZamowieniePubliczne", "tytul"), document.verified_title, document.title_offset,
+                   "tytuł_z_ponownego_odczytu_strony_z_oznaczeniem", source="ocr")

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from .appeal_procedure import (
     add_damaged_dateline, add_filing_date, add_joint_buyer_lead, add_procedure_fields,
+    apply_verified_cover_title,
 )
 from .model import FLAGS, empty
 from .operations import DATE, apply_fields, normalize
@@ -421,6 +422,7 @@ def appeal(result, config, *, capture_decision=False):
     add_joint_buyer_lead(result, cover)
     fields(result, config["header_fields"], cover)
     add_procedure_fields(result, cover)
+    apply_verified_cover_title(result)
     body = document.after(patterns["header"])
     details = challenged_action(result, config, body, capture_decision=capture_decision)
     add_filing_date(result, body, titled=body.offset > 0)
