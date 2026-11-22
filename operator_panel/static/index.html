@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kontrola dokumentów · Odwołania2JSON</title>
+  <link rel="stylesheet" href="/panel.css">
+  <script src="/panel.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#document">Przejdź do dokumentu</a>
+  <header class="masthead">
+    <span class="brand">Odwołania<span>2JSON</span></span>
+    <span class="header-divider" aria-hidden="true"></span>
+    <h1>Kontrola dokumentów</h1>
+    <button id="refresh" class="quiet" type="button">Odśwież</button>
+  </header>
+  <div class="workspace">
+    <nav class="queue" aria-labelledby="queue-title">
+      <header class="queue-header">
+        <h2 id="queue-title">Kolejka</h2>
+        <span id="queue-count" class="muted" aria-live="polite"></span>
+      </header>
+      <label class="filter"><input id="pending" type="checkbox"> Tylko do kontroli</label>
+      <p class="queue-empty" id="queue-empty" hidden></p>
+      <ul id="queue"></ul>
+    </nav>
+    <main class="case" id="document" tabindex="-1">
+      <p id="notice" class="notice" role="status" tabindex="-1" hidden></p>
+      <div id="empty" class="empty">Wczytywanie kolejki…</div>
+      <article id="case" hidden>
+        <header class="case-header">
+          <div class="case-title">
+            <p id="case-class" class="muted"></p>
+            <h2 id="doc-title" tabindex="-1"></h2>
+          </div>
+          <span id="case-status" class="state"></span>
+        </header>
+        <div class="case-grid">
+          <section class="source" aria-labelledby="source-title">
+            <header class="source-head">
+              <h3 id="source-title">Dokument źródłowy</h3>
+              <label for="page">Strona PDF</label>
+              <select id="page"></select>
+              <button type="button" id="zoom" aria-pressed="false" hidden>Powiększ stronę</button>
+            </header>
+            <div class="page-state" id="page-state"></div>
+            <div class="page-wrap" id="page-wrap" aria-busy="false" aria-label="Obraz fizycznej strony PDF-u">
+              <p id="page-message"></p>
+              <img id="page-image" alt="" hidden>
+            </div>
+            <details id="page-text-wrap">
+              <summary>Tekst strony</summary>
+              <pre id="page-text"></pre>
+            </details>
+          </section>
+          <section class="inspector" aria-labelledby="review-title">
+            <h3 id="review-title">Dowód i decyzja</h3>
+            <details id="reasons-wrap" class="reasons">
+              <summary id="reasons-title">Powody kontroli</summary>
+              <ul id="reasons"></ul>
+            </details>
+            <div id="field-wrap" hidden>
+              <label class="label" for="field">Pole wyniku</label>
+              <select id="field"></select>
+              <div class="field-value">
+                <span class="muted">Wartość w surowym JSON-ie</span>
+                <code id="value"></code>
+              </div>
+              <div class="evidence" id="evidence">
+                <p id="evidence-meta"></p>
+                <blockquote id="snippet" hidden></blockquote>
+                <p class="muted" id="evidence-note"></p>
+                <button class="quiet" type="button" id="go-evidence" hidden>Otwórz stronę dowodu</button>
+              </div>
+            </div>
+            <section id="audit" class="audit" aria-label="Zapisana decyzja" hidden>
+              <h4 id="audit-title" tabindex="-1"></h4>
+              <p id="audit-change"></p>
+              <time id="audit-time"></time>
+              <details class="audit-ids">
+                <summary>Identyfikatory zapisu</summary>
+                <dl id="audit-ids"></dl>
+              </details>
+            </section>
+            <div id="actions" hidden>
+              <button class="primary" id="accept" type="button">Akceptuj wynik</button>
+              <details id="correct-wrap">
+                <summary>Skoryguj wybrane pole</summary>
+                <form id="correction">
+                  <label class="label" for="new-value">Nowa wartość</label>
+                  <input id="new-value" type="text" autocomplete="off" aria-describedby="correction-hint">
+                  <p id="correction-hint" class="muted"></p>
+                  <label class="nullable" id="null-wrap"><input type="checkbox" id="set-null"> Ustaw null</label>
+                  <button class="primary" id="correct" type="submit">Zapisz korektę</button>
+                </form>
+              </details>
+            </div>
+            <p id="read-error" class="error" hidden></p>
+            <details class="raw" id="raw-wrap">
+              <summary>Surowy wynik UZP</summary>
+              <pre id="raw"></pre>
+            </details>
+          </section>
+        </div>
+      </article>
+    </main>
+  </div>
+</body>
+</html>
