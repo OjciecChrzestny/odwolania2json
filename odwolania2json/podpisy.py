@@ -165,6 +165,24 @@ OTHER_CERTIFICATE_ROLE = re.compile(
 )
 
 
+QUOTATION = re.compile(
+    r'„(?:[^”]*”|[^”\f]*)|“(?:[^”]*”|[^”\f]*)|«(?:[^»]*»|[^»\f]*)'
+    r'|(?<!\w)"(?:[^"]*"|[^"\f]*)'
+)
+
+QUOTE_END = {"„": "”", "“": "”", "«": "»", '"': '"'}
+
+
+ATTRIBUTED_CERTIFICATE = re.compile(
+    r"^[ \t]*(?:(?:wydruk|fragment|odpis|zrzut)[ \t\n]+"
+    r"(?:przykładu|wzoru|z[ \t\n]+(?:(?:innej|obcej|odrębnej)[ \t\n]+sprawy"
+    r"|(?:innego|obcego|odrębnego)[ \t\n]+(?:postępowania|dokumentu)))\b"
+    r"|(?:przykład|wzór)[ \t]*[:–—-]"
+    r"|przykładow(?:y|a|e)[ \t\n]+(?:podpis|stopka|potwierdzenie)\b)",
+    FLAGS,
+)
+
+
 def add_electronic_signature(result, config, document, blocks):
     """Połącz oznaczone potwierdzenie podpisu z jedynym zadeklarowanym reprezentantem."""
     source = result.document
@@ -184,14 +202,25 @@ def add_electronic_signature(result, config, document, blocks):
     if len(certificates) != 1 or NO_SIGNATURE.search(footer.text):
         return
     certificate = certificates[0]
-    if OTHER_CERTIFICATE_ROLE.search(footer.text[:certificate.start()]):
+    if any(
+        quote.start() <= certificate.start("name") < quote.end()
+        and quote[0][-1] == QUOTE_END[quote[0][0]]
+        for quote in QUOTATION.finditer(footer.text)
+    ):
+        return
+    preceding = footer.text[:certificate.start()]
+    if OTHER_CERTIFICATE_ROLE.search(preceding) or ATTRIBUTED_CERTIFICATE.search(preceding):
         return
 
     layout = _layout_lines(source.ocr_layout_tsv)
-    evidence = [(value, layout[index + 1]) for index, line in enumerate(layout[:-1])
+    evidence = [(index, value) for index, line in enumerate(layout[:-1])
                 if (value := ELECTRONIC_SIGNATURE.fullmatch(line))]
+    if len(evidence) != 1:
+        return
+    index, aligned = evidence[0]
     name = normalize(certificate["name"], "text")
-    if len(evidence) != 1 or normalize(evidence[0][0]["name"], "text") != name or not ELECTRONIC_TIME.match(evidence[0][1]):
+    if (normalize(aligned["name"], "text") != name or not ELECTRONIC_TIME.match(layout[index + 1])
+            or ATTRIBUTED_CERTIFICATE.search("\n".join(layout[:index]))):
         return
 
     data = principal["data"]
