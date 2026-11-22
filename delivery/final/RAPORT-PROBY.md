@@ -2,10 +2,10 @@
 
 ## Archiwalne PDF-y
 
-Poniższe pliki dokumentują wcześniejszą rewizję A3 `5fa11680eac824896839ef4b7f281e1f54b3ed68`. Parametry OCR, metryki i konfiguracja na stronach odnoszą się do tamtej próby.
+Poniższe pliki dokumentują próbę A3 na rewizji `5fa11680eac824896839ef4b7f281e1f54b3ed68`. Parametry OCR, metryki i konfiguracja na stronach odnoszą się do tej próby. Odsyłacze otwierają zachowane pliki w historii Git pod `ec654135812a8579829d7258e78eda5ab8438108`.
 
-- [Archiwalna prezentacja A3](archiwum/prezentacja-a3-5fa11680eac8.pdf)
-- [Archiwalne ekrany rezerwowe A3](archiwum/ekrany-rezerwowe-a3-5fa11680eac8.pdf)
+- [Archiwalna prezentacja A3 · prezentacja.pdf](https://github.com/OjciecChrzestny/odwolania2json/blob/ec654135812a8579829d7258e78eda5ab8438108/delivery/final/prezentacja.pdf)
+- [Archiwalne ekrany rezerwowe A3 · ekrany-rezerwowe.pdf](https://github.com/OjciecChrzestny/odwolania2json/blob/ec654135812a8579829d7258e78eda5ab8438108/delivery/final/ekrany-rezerwowe.pdf)
 
 [Polecenia do wygenerowania aktualnych materiałów](SCENARIUSZ.md#uruchomienie-na-vps).
 
