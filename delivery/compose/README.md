@@ -1,6 +1,6 @@
 # Odwołania2JSON przez Docker Compose
 
-Wymagany jest uruchomiony Docker Engine obsługujący kontenery Linux oraz Docker Compose v2 z BuildKit. Budowa pobiera obraz Pythona, koła z przypiętymi zależnościami oraz `pol.traineddata` weryfikowany przez SHA-256. Przetwarzanie działa lokalnie na CPU. Usługa uruchamia publiczne CLI z włączonym polskim OCR i z trybem sieci `none`. [Dokumentacja Docker Compose](https://docs.docker.com/reference/compose-file/services/#network_mode)
+Wymagany jest uruchomiony Docker Engine obsługujący kontenery Linux i Docker Compose v2. Compose uruchamia lokalny obraz `odwolania2json-jury:final-20261122`. Przed użyciem wczytaj obraz przygotowany z zatwierdzonego SHA zgodnie z [RUN.md](../../RUN.md#przygotowanie-obrazu-przed-oceną). Przetwarzanie działa lokalnie na CPU. Usługa uruchamia publiczne CLI z włączonym polskim OCR i z trybem sieci `none`. [Dokumentacja Docker Compose](https://docs.docker.com/reference/compose-file/services/#network_mode)
 
 ## Uprawnienia na Linuxie
 
@@ -13,7 +13,6 @@ W świeżej kopii repozytorium na Linuxie utwórz katalogi, a do `input/` wstaw 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
 export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
-docker compose build cli
 docker compose run --rm cli
 find output -type f
 ```
@@ -23,7 +22,6 @@ Na Windows z Docker Desktop w trybie Linux, w PowerShell:
 ```powershell
 New-Item -ItemType Directory -Force -Path input,output,diagnostics,.output.odwolania2json | Out-Null
 # Wstaw PDF-y do input.
-docker compose build cli
 docker compose run --rm cli
 Get-ChildItem output -Recurse -File
 ```
@@ -34,7 +32,7 @@ Wejście `input/sprawa/pismo.pdf` daje `output/sprawa/pismo.json`. Dokument obcy
 
 Użyj trzech odrębnych katalogów na hoście. Compose składa ścieżkę wyjścia z katalogu nadrzędnego (`ODW_OUTPUT_PARENT`) i nazwy katalogu (`ODW_OUTPUT_NAME`). Ewidencję zapisuje obok wyjścia w `.<nazwa>.odwolania2json/`, zgodnie z natywnym CLI. Zostaw ewidencję na miejscu między uruchomieniami. Gdy usuniesz wejściowy PDF i ponownie uruchomisz usługę, CLI usunie odpowiadający mu poprzedni wynik. Plik ręcznie dodany do drzewa wyników pozostanie na miejscu.
 
-Linux, po zbudowaniu obrazu:
+Linux, po przygotowaniu obrazu:
 
 ```sh
 export ODW_INPUT_DIR="$HOME/PDF jurora"
@@ -48,7 +46,7 @@ docker compose run --rm cli
 find "$OUT" -type f
 ```
 
-Windows, po zbudowaniu obrazu:
+Windows, po przygotowaniu obrazu:
 
 ```powershell
 $env:ODW_INPUT_DIR = Join-Path $HOME 'PDF jurora'
@@ -68,6 +66,15 @@ Get-ChildItem -LiteralPath $outDir -Recurse -File
 ```
 
 W nowej powłoce usługa wraca do domyślnych ścieżek. Aby zacząć nowy przebieg, wybierz nowe wyjście i katalog diagnostyki.
+
+## Własna budowa do prób
+
+Do sprawdzenia lokalnej zmiany użyj osobnego tagu. Polecenie Compose skorzysta z niego dzięki `ODW_JURY_IMAGE`.
+
+```sh
+export ODW_JURY_IMAGE=odwolania2json-jury:lokalna-proba
+docker build --target jury --tag "$ODW_JURY_IMAGE" .
+```
 
 ## Porównanie z natywnym CLI
 

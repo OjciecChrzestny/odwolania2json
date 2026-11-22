@@ -11,6 +11,7 @@ import sys
 from importlib.metadata import version
 from pathlib import Path
 from time import perf_counter
+from uuid import uuid4
 
 from evaluation.score import checked_file
 
@@ -121,7 +122,11 @@ def compose(work):
         uid, gid = (0, 0) if "name=rootless" in security_options else (os.getuid(), os.getgid())
         env.update(ODW_UID=str(uid), ODW_GID=str(gid))
         print(f"Użytkownik kontenera: {uid}:{gid}", flush=True)
-    run(*COMPOSE, "build", "cli", env=env)
+    revision = git_head(ROOT)
+    image = f"odwolania2json-compose-verify:{uuid4().hex}"
+    env["ODW_JURY_IMAGE"] = image
+    run("docker", "build", "--target", "jury", "--tag", image,
+        "--label", f"org.opencontainers.image.revision={revision}", ".", env=env)
 
     for directory in ("input", "output", ".output.odwolania2json", "diagnostics"):
         (ROOT / directory).mkdir()

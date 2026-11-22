@@ -1,8 +1,7 @@
 services:
   cli:
-    build:
-      context: .
-      target: jury
+    image: "${ODW_JURY_IMAGE:-odwolania2json-jury:final-20261122}"
+    pull_policy: never
     network_mode: none
     read_only: true
     user: "${ODW_UID:-1000}:${ODW_GID:-1000}"
