@@ -60,6 +60,8 @@ OMP_THREAD_LIMIT=1 python -m odwolania2json --ocr-data "$TESSDATA"
 
 A3 odczytuje przez OCR wybrane strony, gdy brakuje czytelnej warstwy tekstowej. Odczyt używa pypdf, a OCR korzysta z PDFium przez pypdfium2 i z Tesseract przez tesserocr. [Pochodzenie i licencje komponentów](delivery/final/INSTRUKCJA-JURORA.md#komponenty-zewnętrzne)
 
+Opcjonalną weryfikację przelewu przez Scaleway można uruchomić z kopii źródeł. [Polecenie, wyniki jakości, czas i koszt próby](experiments/transfer_api/RAPORT_KLASYFIKACJA.md)
+
 ## Docker Compose
 
 Wymagany jest Docker Engine z kontenerami linuksowymi, Compose v2 i BuildKit. Budowa obrazu pobiera zależności. Kontener uruchamia A3 z polskim OCR i ma wyłączoną sieć. W trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed uruchomieniem kontenera.
