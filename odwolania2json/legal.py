@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from .model import FLAGS, empty
 from .operations import DATE, apply_fields, normalize
 from .podpisy import add_confirmed_signatures, add_electronic_signature
-from .power_parties import add_numbered_counsel, refine_company_form, refine_declared_grantor
+from .power_parties import complete_declared_counsel, refine_company_form, refine_declared_grantor
 
 
 @dataclass(frozen=True)
@@ -201,7 +201,7 @@ def power_of_attorney(result, config):
                        "imię_w_sekcji_umocowania")
             fields(result, config["counsel_fields"], details, path)
         break
-    add_numbered_counsel(result, config, appointment)
+    complete_declared_counsel(result, config, appointment)
     return {}
 
 
