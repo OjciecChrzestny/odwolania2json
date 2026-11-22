@@ -77,6 +77,32 @@ UNPAIRED_TITLE = re.compile(
 )
 
 
+HEADER_END = re.compile(
+    r"^[ \t?.·|–—-]*(?:Prezes[ \t]+Krajowej|Krajowa[ \t]+Izba|"
+    r"Odwołując(?:y|a)|Zamawiający|ODWOŁANIE)\b", FLAGS,
+)
+DATELINE = re.compile(
+    rf"^[ \t]*(?:[?.·|–—-][ \t]+)?(?P<city>(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż’'-]+"
+    r"(?:[ \t]+(?:(?:nad|pod|w|z)[ \t]+)?[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż’'-]+){0,2}))"
+    rf"(?:[ \t]*,[ \t]*|[ \t]+)(?:dnia[ \t]+)?(?P<date>{DATE})[ \t]*(?:r\.|roku)?[ \t]*$", FLAGS,
+)
+NOT_CITY = re.compile(
+    r"^(?:data|dnia|dotyczy|nadano|odebrano|otrzymano|podpisano|potwierdzono|"
+    r"sporządzono|termin|wniesiono|wpłynęło|wydruk|wysłano|złożono)\b", FLAGS,
+)
+JOINT_BUYERS = re.compile(
+    r"^[ \t]*(?:Zamawiający[ \t]*:[ \t\n]*)?Zamawiający[ \t]+wspólnie[ \t]+"
+    r"udzielający[ \t]+zamówienia[ \t]*:[ \t]*$", FLAGS,
+)
+BUYER_END = re.compile(
+    r"^[ \t]*(?:Dotyczy|Do[ \t]+wiadomości|Odwołujący|Odwołanie)\b", FLAGS,
+)
+BUYER_ITEM = re.compile(r"^[ \t]*(?P<number>[1-9]\d?)[.)][ \t]+", FLAGS)
+LEAD_SUFFIX = re.compile(
+    r"^[ \t]*[–—-][ \t]+(?P<label>Zamawiający[ \t]+prowadzący[ \t]+postępowanie)"
+    r"[ \t]*\n[ \t]*\n[ \t\n]*\Z", FLAGS,
+)
+
 def filing_scope(text, *, titled=False):
     zone = ZONE_END.search(text)
     if zone:
@@ -192,3 +218,59 @@ def add_procedure_fields(result, cover):
         if len(candidates) == 1:
             value, offset = next(iter(candidates.items()))
             result.put(("ZamowieniePubliczne", name), value, cover.offset + offset, rule)
+
+
+def add_damaged_dateline(result, first_page):
+    appeal = result.data["OdwolanieKIO"]
+    if appeal["data"] is not None and appeal["miejscowosc"] is not None:
+        return
+    end = HEADER_END.search(first_page.text)
+    header = first_page.text[:end.start()] if end else ""
+    candidates = [
+        match for match in DATELINE.finditer(header)
+        if not NOT_CITY.match(match["city"]) and normalize(match["date"], "date")
+    ]
+    if len(candidates) != 1:
+        return
+    match = candidates[0]
+    date = normalize(match["date"], "date")
+    if appeal["data"] not in (None, date):
+        return
+    for name, group, value in (("data", "date", date), ("miejscowosc", "city", normalize(match["city"], "text"))):
+        if appeal[name] is None:
+            result.put(("OdwolanieKIO", name), value, first_page.offset + match.start(group),
+                       "datownik_przed_adresatem")
+
+
+def add_joint_buyer_lead(result, cover):
+    buyers = result.data["Zamawiajacy"]
+    if len(buyers) < 2 or any(
+        not row["nazwa"] or row["prowadzacy_postepowanie"] is not None for row in buyers
+    ):
+        return
+    header = JOINT_BUYERS.search(cover.text)
+    if header is None:
+        return
+    end = BUYER_END.search(cover.text, header.end())
+    scope = cover.text[header.end():end.start() if end else len(cover.text)]
+    if "\f" in scope:
+        scope = scope.partition("\f")[0]
+    items = list(BUYER_ITEM.finditer(scope))
+    if [int(item["number"]) for item in items] != list(range(1, len(buyers) + 1)):
+        return
+    offsets = [item.start() for item in items[1:]] + [len(scope)]
+    leader = []
+    for index, (item, stop, buyer) in enumerate(zip(items, offsets, buyers)):
+        block = scope[item.end():stop]
+        name = normalize(block.split("\n", 1)[0].rstrip(" ,;"), "text")
+        if name != buyer["nazwa"]:
+            return
+        evidence = LEAD_SUFFIX.search(block)
+        if evidence:
+            leader.append((index, header.end() + item.end() + evidence.start("label")))
+    if len(leader) != 1:
+        return
+    index, offset = leader[0]
+    for position in range(len(buyers)):
+        result.put(("Zamawiajacy", position, "prowadzacy_postepowanie"), int(position == index),
+                   cover.offset + offset, "prowadzący_wskazany_pod_współzamawiającym")

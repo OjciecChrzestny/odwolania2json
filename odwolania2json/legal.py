@@ -2,7 +2,9 @@
 import re
 from dataclasses import dataclass
 
-from .appeal_procedure import add_filing_date, add_procedure_fields
+from .appeal_procedure import (
+    add_damaged_dateline, add_filing_date, add_joint_buyer_lead, add_procedure_fields,
+)
 from .model import FLAGS, empty
 from .operations import DATE, apply_fields, normalize
 from .podpisy import add_confirmed_signatures, add_electronic_signature
@@ -405,6 +407,7 @@ def appeal(result, config, *, capture_decision=False):
         if "city" in date.groupdict():
             put_match(result, ("OdwolanieKIO", "miejscowosc"), first_page, date, "city",
                       "miejscowość_przy_dacie")
+    add_damaged_dateline(result, first_page)
     roles = list(re.finditer(patterns["role"], cover.text, FLAGS))
     buyers = sum(match["role"].casefold() == "zamawiający" for match in roles)
     for index, role in enumerate(roles):
@@ -415,6 +418,7 @@ def appeal(result, config, *, capture_decision=False):
     from .appeal_parties import refine_appeal_parties
 
     refine_appeal_parties(result, config, cover)
+    add_joint_buyer_lead(result, cover)
     fields(result, config["header_fields"], cover)
     add_procedure_fields(result, cover)
     body = document.after(patterns["header"])

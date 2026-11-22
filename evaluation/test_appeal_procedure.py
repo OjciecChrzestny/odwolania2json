@@ -1,3 +1,4 @@
+from dataclasses import replace
 import unittest
 
 from odwolania2json.extract import extract
@@ -140,3 +141,54 @@ class AppealProcedureTests(unittest.TestCase):
         )
         self.assertEqual(output["OdwolanieKIO"]["czynnosc_dzien"], "2026-06-11")
         self.assertEqual(proof["OdwolanieKIO.czynnosc_dzien"]["page"], 3)
+
+    def test_dateline_before_addressee_handles_ocr_prefix_and_compact_suffix(self):
+        letter = COVER.split("\n", 1)[1]
+        for line in ("? Nowe Miasteczko, 17.06.2026 r.", "Nowe Miasteczko 17.06.2026r."):
+            with self.subTest(line=line):
+                text = f"{line}\n{letter}\nWnoszę odwołanie od modyfikacji SWZ z dnia 4 czerwca 2026 r."
+                output, evidence = extract(Document.from_pages([text]), self.classes)
+                appeal = output["OdwolanieKIO"]
+                self.assertEqual((appeal["data"], appeal["miejscowosc"]), ("2026-06-17", "Nowe Miasteczko"))
+                self.assertEqual(appeal["czynnosc_dzien"], "2026-06-04")
+                for field in ("data", "miejscowosc"):
+                    self.assertEqual(evidence["fields"][f"OdwolanieKIO.{field}"]["page"], 1)
+
+    def test_dateline_does_not_use_the_deadline_or_addressee_city(self):
+        letter = COVER.split("\n", 1)[1].replace(
+            "Krajowa Izba Odwoławcza", "Krajowa Izba Odwoławcza\n? Nowe Miasteczko 17.06.2026r."
+        )
+        text = f"Termin 17.06.2026r.\n{letter}\nWnoszę odwołanie od modyfikacji SWZ."
+        output, _ = extract(Document.from_pages([text]), self.classes)
+        self.assertIsNone(output["OdwolanieKIO"]["data"])
+        self.assertIsNone(output["OdwolanieKIO"]["miejscowosc"])
+
+    def test_lead_buyer_marker_applies_to_the_preceding_named_member(self):
+        def joint_appeal(marker):
+            text = (
+                "Łomża, 18 czerwca 2026 r.\nKrajowa Izba Odwoławcza\n"
+                "Odwołujący: Fikcyjna firma, KRS 0000789012\n"
+                "Zamawiający: Zamawiający wspólnie udzielający zamówienia:\n"
+                "1) Zarząd Fikcyjnych Dróg\nNIP: 0000065432\n"
+                f"{marker}\n\n"
+                "2) Zakład Dróg Próbnych\nREGON: 123456789\n\n"
+                "Dotyczy: zamówienia pod nazwą „Remont drogi próbnej”\n"
+                "ODWOŁANIE\nWnoszę odwołanie od wykluczenia wykonawcy."
+            )
+            doc = replace(Document.from_pages([text]), scan_quality={"pages": [{"page": 1, "source": "ocr"}]})
+            return extract(doc, self.classes)
+
+        output, diagnostic = joint_appeal("— Zamawiający prowadzący postępowanie")
+        self.assertEqual([row["prowadzacy_postepowanie"] for row in output["Zamawiajacy"]], [1, 0])
+        for index in (0, 1):
+            self.assertEqual(diagnostic["fields"][f"Zamawiajacy.{index}.prowadzacy_postepowanie"]["page"], 1)
+        output, _ = joint_appeal("— Zamawiający prowadzący postępowanie:")
+        self.assertTrue(all(row["prowadzacy_postepowanie"] is None for row in output["Zamawiajacy"]))
+
+    def test_procedure_title_keeps_the_spelling_of_the_observed_quotation(self):
+        output, evidence = self.get_appeal(
+            "Postępowanie o udzielenie zamówienia pod nazwą „Kioski Czytelnicze — etap II”.",
+            "Wnoszę odwołanie od odrzucenia oferty."
+        )
+        self.assertEqual(output["ZamowieniePubliczne"]["tytul"], "Kioski Czytelnicze — etap II")
+        self.assertEqual(evidence["ZamowieniePubliczne.tytul"]["page"], 2)
