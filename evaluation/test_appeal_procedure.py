@@ -212,17 +212,24 @@ class AppealProcedureTests(unittest.TestCase):
         self.assertEqual(diagnostic["fields"]["ZamowieniePubliczne.tytul"]["page"], 1)
         self.assertEqual(diagnostic["fields"]["ZamowieniePubliczne.tytul"]["source"], "ocr")
 
-    def test_title_completion_uses_a_literal_observation_and_checks_reference(self):
+    def test_title_completion_requires_the_full_procedure_reference(self):
         original = ("Montaż z budową wiaty", "NP/54/26", 0)
-        alternate = ("Montaż z rozbudową wiaty", "MP/54/26", 0)
-        self.assertIsNone(reconcile_title(original, alternate))
-        self.assertEqual(reconcile_title(original, alternate, lambda: alternate), alternate[0])
-        different_job = (alternate[0], "MP/56/26", 0)
-        self.assertIsNone(reconcile_title(original, different_job, lambda: different_job))
+        complete = "Montaż z rozbudową wiaty"
+        same = (complete, "NP/54/26", 0)
+        self.assertEqual(reconcile_title(original, same), complete)
+        for other_reference in ("MP/54/26", "NP/56/26", "NP-54/26"):
+            with self.subTest(reference=other_reference):
+                self.assertIsNone(reconcile_title(original, (complete, other_reference, 0)))
         changed_title = ("Konserwacja wiaty", original[1], 0)
         self.assertIsNone(reconcile_title(original, changed_title))
         altered_punctuation = ("Montaż z budową, wiaty", original[1], 0)
         self.assertIsNone(reconcile_title(original, altered_punctuation))
+
+    def test_title_reference_cannot_be_an_unparsed_prefix(self):
+        for ending in ("+A", "/ŁÓDŹ", " typ B", "\n/ŁÓDŹ"):
+            with self.subTest(ending=ending):
+                header = f'pn. „Budowa czytelni próbnej”, nr referencyjny: NW/54/26{ending}'
+                self.assertIsNone(observed_title(header))
 
     def test_two_quoted_procedure_titles_in_one_reading_are_not_a_single_source(self):
         text = (
