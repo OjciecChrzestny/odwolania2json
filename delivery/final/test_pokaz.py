@@ -2,6 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from pypdf import PdfReader
+from reportlab.pdfgen.canvas import Canvas
+
+from buduj import H, W, quality_slide, register_fonts
 from proba import checked_stage, quality_report, stage_files, write_json
 
 
@@ -30,6 +34,33 @@ class ProbaTest(unittest.TestCase):
         write_json(path, self.quality)
         with self.assertRaisesRegex(ValueError, "SHA pomiaru jakości"):
             quality_report(path, "e" * 40)
+
+    def test_tuning_scans_and_development_regression_have_separate_labels(self):
+        primary = self.work / "skany-test-generatora.json"
+        separate = self.work / "regresja-test-generatora.json"
+        write_json(primary, {**self.quality, "zbior": "znane_skany_strojeniowe",
+                             "liczba_pdf": 30, "test_generatora": True})
+        write_json(separate, {**self.quality, "zbior": "rozwojowy", "liczba_pdf": 128})
+        receipt = {"rewizja": {"sha": self.sha}, "jakosc": quality_report(primary, self.sha)}
+        register_fonts()
+        for with_regression in (False, True):
+            with self.subTest(with_regression=with_regression):
+                destination = self.work / f"slajd-{with_regression}.pdf"
+                pdf = Canvas(str(destination), pagesize=(W, H))
+                updated = dict(receipt)
+                if with_regression:
+                    updated["jakosc_regresji"] = quality_report(separate, self.sha)
+                quality_slide(pdf, updated)
+                pdf.save()
+                text = PdfReader(destination).pages[0].extract_text()
+                self.assertIn("Znane publiczne skany użyte do strojenia · PDF-y: 30", text)
+                self.assertIn("Wynik na zbiorze jury pozostaje nieznany.", text)
+                self.assertIn("TEST GENERATORA", text)
+                if with_regression:
+                    self.assertIn("Regresja rozwojowa · 128 PDF-ów", text)
+                else:
+                    self.assertIn("Regresja rozwojowa ma osobny pomiar.", text)
+                    self.assertNotIn("128 PDF-ów", text)
 
     def test_stage_rejects_changed_output_and_mixed_runtime(self):
         stage = "przelew"
