@@ -69,3 +69,30 @@ class ConservativeBookedTransferTest(TestCase):
         ):
             with self.subTest(pages=len(document.starts)):
                 self.assertEqual(classify(document, self.classes)[0], "negative")
+
+    def test_example_or_quoted_context_before_table_cannot_promote_it(self):
+        for intro in (
+            "INSTRUKCJA OBSŁUGI ROZLICZEŃ",
+            "Materiały szkoleniowe",
+            "Poniżej zamieszczono przykładową tabelę:",
+            "Treść: przytoczone potwierdzenie",
+            "Źródło: cytat z dokumentu innego podmiotu",
+            "Fragment z instrukcji:",
+            "Nie stanowi potwierdzenia wykonania.",
+            "„",
+            "TRAINING MATERIAL",
+        ):
+            with self.subTest(intro=intro):
+                output, trace = extract(Document.from_pages([intro + "\n" + COMMON]), self.classes)
+                self.assertIsNone(output)
+                self.assertEqual(trace["class"], "negative")
+
+    def test_unrelated_memo_and_later_explanatory_footer_are_not_table_context(self):
+        for page in (
+            "Tytuł: Instrukcja obsługi rozliczeń\n" + COMMON,
+            COMMON + "\nPrzykład oznaczenia referencji w załączonej pomocy.",
+        ):
+            with self.subTest(page=page):
+                self.assertEqual(classify(Document.from_pages([page]), self.classes)[0], "przelew")
+        separate = Document.from_pages([COMMON, "Instrukcja obsługi usługi"])
+        self.assertEqual(classify(separate, self.classes)[0], "przelew")
