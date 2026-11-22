@@ -12,7 +12,8 @@ from tempfile import NamedTemporaryFile
 
 from pypdf.errors import PyPdfError
 
-from .extract import DEFAULT_OCR_PAGE_BUDGET, extract, read_pdf
+from .extract import DEFAULT_OCR_PAGE_BUDGET, read_pdf
+from .filing_reason import filing_extractor
 from .model import DEFAULT_CONFIG, load_classes
 from .ocr import prepare_ocr
 from .review import (REPORT_VERSION, config_digest, digest, extractor_revision, journal_path,
@@ -60,7 +61,7 @@ def output_lock(output_dir):
 
 
 def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
-            read_document=None, extract_document=extract, ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET,
+            read_document=None, extract_document=filing_extractor("rule"), ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET,
             negative_verifier=None):
     if read_document is None:
         read_document = partial(read_pdf, ocr_page_budget=ocr_page_budget)
