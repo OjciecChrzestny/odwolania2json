@@ -20,23 +20,16 @@ printf '%s  %s\n' c4476cdbc0e33d898d32345122b7be1cbf85ace15f920f06c7714756e1ef79
   "$TESSDATA/pol.traineddata" | sha256sum -c -
 ```
 
-## Własny PDF i lokalna ekstrakcja
+## Własny PDF w przeglądarce
 
-W tej samej powłoce ustaw `PDF` na bezwzględną ścieżkę do własnego pliku. Do próby na syntetycznym skanie możesz użyć `PDF="$PWD/delivery/compose/skan-syntetyczny.pdf"`.
+W tej samej powłoce uruchom tryb demonstracyjny:
 
 ```sh
-: "${PDF:?Ustaw PDF na bezwzględną ścieżkę do pliku}"
-IN="$PANEL_RUN/input"
-OUT="$PANEL_RUN/output"
-DIAG="$PANEL_RUN/diagnostics/last-run.json"
-mkdir -p "$IN/sprawa"
-cp -- "$PDF" "$IN/sprawa/wlasny.pdf"
-OMP_THREAD_LIMIT=1 "$PY" -m odwolania2json --input "$IN" --output "$OUT" \
-  --diagnostics "$DIAG" --ocr-data "$TESSDATA"
-"$PY" -m operator_panel --input "$IN" --output "$OUT" --diagnostics "$DIAG" --port 8765
+OMP_THREAD_LIMIT=1 "$PY" -m operator_panel --demo-workspace "$PANEL_RUN/przebiegi" \
+  --ocr-data "$TESSDATA" --port 8765
 ```
 
-Panel uruchom także, jeśli ekstraktor zakończył partię kodem 1. Czytelne wyniki pozostają dostępne. Każda próba ma własne wejście, wyjście, diagnostykę i dziennik. Do demonstracji użyj katalogów z tego przykładu.
+Po otwarciu tunelu wybierz **Wgraj własny PDF**, a następnie **Przetwórz PDF**. Panel obsługuje jeden plik do 32 MiB na próbę. Każdy upload uruchamia lokalne CLI z polskim OCR i zapisuje osobny przebieg w `$PANEL_RUN/przebiegi/<id>/`, z własnymi katalogami `input/`, `output/` i `diagnostics/`. Panel otwiera wynik i jego dowody po przetworzeniu. Do próby można wgrać syntetyczny plik `delivery/compose/skan-syntetyczny.pdf`.
 
 ## Tunel i decyzja
 
@@ -46,6 +39,6 @@ Na komputerze oceniającego, w osobnym terminalu, otwórz tunel do hosta, na kt�
 ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8765:127.0.0.1:8765 hacknation
 ```
 
-Otwórz `http://127.0.0.1:8765`. Wybierz `sprawa/wlasny.pdf`, wskaż pole i otwórz fizyczną stronę z dowodem. Dla syntetycznego skanu można sprawdzić kwotę 123,45 na stronie 1. Porównaj wynik ze stroną, a potem zapisz akceptację lub korektę. Decyzja trafia do `diagnostics/last-run.decisions.sqlite3` obok raportu. Surowy JSON nadal zawiera wynik ekstrakcji.
+Otwórz `http://127.0.0.1:8765`. Wybierz przetworzony `dokument.pdf`, wskaż pole i otwórz fizyczną stronę z dowodem. Dla syntetycznego skanu można sprawdzić kwotę 123,45 na stronie 1. Porównaj wynik ze stroną, a potem zapisz akceptację lub korektę. Decyzja trafia do `diagnostics/run.decisions.sqlite3` obok raportu. Surowy JSON nadal zawiera wynik ekstrakcji.
 
 [CLI jurora](../RUN.md) · [Próba dodania klasy](../demo/rozszerzalnosc/README.md)
