@@ -87,7 +87,9 @@ async function api(path, query = {}, options) {
   if (runId && !["mode", "upload"].includes(path)) url.searchParams.set("run", runId);
   const response = await fetch(url, options);
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Nie udało się wczytać danych panelu.");
+  if (!response.ok) {
+    throw Object.assign(new Error(data.error || "Nie udało się wczytać danych panelu."), { status: response.status });
+  }
   return data;
 }
 
@@ -134,9 +136,47 @@ function proofFor(path) {
   return Array.isArray(evidence) ? evidence.find((item) => item.page) || evidence[0] : evidence;
 }
 
+function fieldOptionLabel(path) {
+  const source = current.eligible_fields?.[path];
+  if (source === "text") {
+    return path + (current.text_evidence_measurement?.strong ? " · mocny dowód tekstowy" : " · dowód tekstowy");
+  }
+  return source === "ocr" ? path + " · cytat OCR" : path;
+}
+
+function renderEvidenceQuality(field) {
+  const quality = el("field-evidence-quality");
+  quality.hidden = !field && current?.review_status !== "stale";
+  if (quality.hidden) return;
+  const source = field && current.eligible_fields?.[field.path];
+  if (source === "text") {
+    const measurement = current.text_evidence_measurement;
+    const label = measurement?.strong
+      ? "Mocne powiązanie z tekstem PDF-u."
+      : "Dowód z tekstu PDF-u — do weryfikacji.";
+    const observation = measurement
+      ? " Zgodnych oznaczeń w próbie kontrolnej: " + measurement.correct + "/" + measurement.total + "."
+      : "";
+    quality.textContent = label + " Cytat ze strony " + proofFor(field.path).page +
+      " odpowiada zapisowi w JSON-ie." + observation;
+  } else if (source === "ocr") {
+    quality.textContent = "Cytat z OCR — do weryfikacji. Strona " + proofFor(field.path).page + ".";
+  } else {
+    quality.textContent = "Brak mocnego powiązania z dowodem — pole do weryfikacji.";
+  }
+}
+
+function invalidateEvidenceQuality() {
+  if (!current) return;
+  current.eligible_fields = {};
+  for (const option of el("field").options) option.textContent = fieldOptionLabel(option.value);
+  renderEvidenceQuality(selectedField());
+}
+
 function renderField() {
   const field = selectedField();
   if (!field) return;
+  renderEvidenceQuality(field);
   const proof = proofFor(field.path);
   text("value", JSON.stringify(field.value));
   const source = { text: "Tekst PDF-u", ocr: "OCR" }[proof?.source];
@@ -213,7 +253,10 @@ async function openPage(number) {
     el("page-text-wrap").hidden = false;
     el("page-message").hidden = true;
   } catch (error) {
-    if (request === pageRequest) text("page-message", error.message);
+    if (request === pageRequest) {
+      if (error.status === 409) invalidateEvidenceQuality();
+      text("page-message", error.message);
+    }
   } finally {
     if (request === pageRequest) el("page-wrap").setAttribute("aria-busy", "false");
   }
@@ -251,12 +294,14 @@ function renderDocument(preferredField) {
   fields = current.result === null ? [] : flatten(current.result, current.schema);
   const initialField = fields.find((field) => field.path === preferredField) ||
     fields.find((field) => proofFor(field.path)?.precision === "snippet") || fields[0];
-  el("field").replaceChildren(...fields.map(({ path }) => new Option(path, path)));
+  el("field").replaceChildren(...fields.map(({ path }) => new Option(fieldOptionLabel(path), path)));
   el("field-wrap").hidden = !initialField;
   el("correct-wrap").hidden = !initialField;
   if (initialField) {
     el("field").value = initialField.path;
     renderField();
+  } else {
+    renderEvidenceQuality(null);
   }
   renderAudit(current.decision);
   el("actions").hidden = current.review_status !== "review_required" || !current.review_id;
@@ -301,6 +346,7 @@ async function openDocument(name, { focus = false, preferredField = null } = {})
 
 async function refresh() {
   message("");
+  invalidateEvidenceQuality();
   queue = await api("documents");
   const previous = current?.input;
   const name = queue.find((item) => item.input === previous)?.input ||
@@ -353,6 +399,7 @@ async function decide(action) {
     }
     message("Zapisano decyzję w dzienniku.");
   } catch (error) {
+    if (error.status === 409 && current?.input === name) invalidateEvidenceQuality();
     showError(error);
   } finally {
     saving = false;

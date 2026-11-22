@@ -1,6 +1,7 @@
 """Lokalny panel kontroli i demonstracyjnego przetwarzania PDF-ów."""
 import argparse
 import json
+import math
 import os
 import re
 import sqlite3
@@ -19,10 +20,12 @@ from uuid import uuid4
 from PIL import Image  # pypdfium2 udostępnia bitmapę jako obraz Pillow
 from pypdfium2 import PdfDocument, PdfiumError
 
-from odwolania2json.__main__ import output_lock, overlaps, state_directory
+from odwolania2json.__main__ import json_bytes, output_lock, overlaps, state_directory
+from odwolania2json.field_evidence import _transfer_rules
 from odwolania2json.model import DEFAULT_CONFIG, load_classes
-from odwolania2json.review import (config_digest, digest, inspect, journal_path, open_journal,
-                                   read_report, report_path, save_decision)
+from odwolania2json.operations import normalize
+from odwolania2json.review import (IDENTITY, REPORT_VERSION, config_digest, digest, inspect, journal_path,
+                                   open_journal, read_report, report_path, save_decision)
 
 STATIC = Path(__file__).with_name("static")
 ASSETS = {"/": ("index.html", "text/html"), "/panel.css": ("panel.css", "text/css"),
@@ -32,6 +35,123 @@ MAX_UPLOAD = 32 * 1024 * 1024
 DEMO_MARKER = ".operator-panel-demo"
 ROOT = Path(__file__).resolve().parents[1]
 PDF_LOCK = Lock()
+
+
+# Profil zamrożony w PROTOKOL.json. Rewizje obejmują kod ekstrakcji, pełną
+# konfigurację, pracę bez weryfikatora zewnętrznego i domyślny limit stron OCR.
+FIELD_CONFIG_SHA256 = "aaa89fd8fd3be3ddb2e8b033b9bf1a892645e8b0c377ac6872553de54f9f1246"
+FIELD_TEXT_REVISION = "sha256:48a86b7e1d4420ea1f2314c8cd9026f844ca6710912a459be6adfafd34b06619"
+FIELD_OCR_REVISION = "sha256:dd880da0445beacaa3fb541379f1a7974ec02c905236410ce1a22ba9106bba5a"
+# Bramka prezentacji po E. Kwalifikacja do pomiaru jest od niej niezależna.
+TEXT_EVIDENCE_MEASUREMENT = None
+FIELD_RULES = {
+    "przelew_bankowy.kwota": ("kwota_operacji", "kwota_operacji", "Kwota"),
+    "przelew_bankowy.data_operacji": ("data_transakcji", "data_operacji", "Data operacji"),
+}
+FIELD_CAPTURES = _transfer_rules()
+CLASS_BLOCKERS = ("classification_conflict", "uncertain_negative", "unknown_profile",
+                  "read_error", "review_policy_unavailable")
+
+
+def _matches_field_value(path, value, snippet):
+    rule, _, sample_label = FIELD_RULES[path]
+    capture = FIELD_CAPTURES.get((path, rule))
+    if not capture:
+        return False
+    pattern, operation = capture
+    if operation == "money":
+        if type(value) is not int and (type(value) is not float or not math.isfinite(value)):
+            return False
+    elif operation != "date" or not isinstance(value, str) or not value:
+        return False
+    match = pattern.fullmatch(f"{sample_label}: {snippet}")
+    return bool(match and match[1] == snippet and normalize(snippet, operation) == value)
+
+
+def eligible_fields(record, result):
+    """Return source groups for the raw result, with a current view from review.inspect.
+
+    Callers outside the panel must merge inspect's view into the diagnostic
+    record and pass the decoded bytes returned by that same call.
+    """
+    if not isinstance(record, dict) or not isinstance(result, dict):
+        return {}
+    revision = record.get("extractor_revision")
+    if (type(record.get("report_version")) is not int or record["report_version"] != REPORT_VERSION
+            or record.get("class") != "przelew" or record.get("status") != "ok"
+            or record.get("config_sha256") != FIELD_CONFIG_SHA256
+            or revision not in (FIELD_TEXT_REVISION, FIELD_OCR_REVISION)):
+        return {}
+
+    review = record.get("review")
+    state = record.get("review_status")
+    if (not isinstance(review, dict) or review.get("profile") != "przelew"
+            or review.get("status") not in ("review_required", "auto_accepted")
+            or state not in (review["status"], "resolved")):
+        return {}
+    identity = {key: record.get(key) for key in IDENTITY}
+    if (not isinstance(identity["input"], str) or not identity["input"]
+            or any(not isinstance(identity[key], str) or not re.fullmatch(r"[0-9a-f]{64}", identity[key])
+                   for key in ("pdf_sha256", "output_sha256"))
+            or record.get("review_id") != digest(json.dumps(identity, sort_keys=True).encode("utf-8"))):
+        return {}
+    try:
+        if digest(json_bytes(result)) != identity["output_sha256"]:
+            return {}
+    except (TypeError, ValueError, RecursionError):
+        return {}
+
+    corrected_field = None
+    decision = record.get("decision")
+    if state == "resolved":
+        if (not isinstance(decision, dict) or decision.get("review_id") != record["review_id"]
+                or any(decision.get(key) != value for key, value in identity.items())
+                or decision.get("action") not in ("accepted", "corrected")):
+            return {}
+        if decision["action"] == "corrected":
+            corrected_field = decision.get("field")
+            if not isinstance(corrected_field, str) or not corrected_field:
+                return {}
+    elif decision is not None:
+        return {}
+
+    reasons = review.get("reasons")
+    pages, signals, ocr_pages = (record.get(key) for key in ("pages", "signals", "ocr_pages"))
+    fields, values = record.get("fields"), result.get("przelew_bankowy")
+    if (not all(isinstance(items, list) and all(isinstance(item, dict) for item in items)
+                for items in (reasons, pages, signals))
+            or not isinstance(ocr_pages, list) or any(type(page) is not int or page < 1 for page in ocr_pages)
+            or not isinstance(fields, dict) or not isinstance(values, dict)
+            or any(reason.get("code") in CLASS_BLOCKERS for reason in reasons)):
+        return {}
+
+    eligible = {}
+    for path, (rule, signal_rule, _) in FIELD_RULES.items():
+        if path == corrected_field or any(reason.get("field") == path for reason in reasons):
+            continue
+        proof = fields.get(path)
+        if (not isinstance(proof, dict) or proof.get("rule") != rule
+                or proof.get("precision") != "snippet" or proof.get("kind", "support") != "support"):
+            continue
+        snippet, span, number, source = (proof.get(key) for key in ("snippet", "span", "page", "source"))
+        if (not isinstance(snippet, str) or not snippet.strip() or "\f" in snippet
+                or not isinstance(span, dict) or type(span.get("start")) is not int
+                or type(span.get("end")) is not int or span["start"] < 0
+                or span["end"] - span["start"] != len(snippet)
+                or type(number) is not int or number < 1 or source not in ("text", "ocr")):
+            continue
+        on_page = [page for page in pages if type(page.get("page")) is int and page["page"] == number]
+        if (len(on_page) != 1 or on_page[0].get("status") != "readable"
+                or on_page[0].get("source") != source
+                or (source == "ocr") != (number in ocr_pages)
+                or (source == "ocr" and revision != FIELD_OCR_REVISION)):
+            continue
+        page_signals = {signal["rule"] for signal in signals if type(signal.get("page")) is int
+                        and signal["page"] == number and isinstance(signal.get("rule"), str)}
+        if {"nagłówek_przelewu", signal_rule} <= page_signals and _matches_field_value(
+                path, values.get(path.rsplit(".", 1)[1]), snippet):
+            eligible[path] = source
+    return eligible
 
 
 class PanelError(ValueError):
@@ -104,7 +224,11 @@ class Panel:
         configuration_matches = config_digest(classes) == record.get("config_sha256")
         schema = classes.get(record["class"], {}).get("schema") if configuration_matches else None
         raw = contents.decode("utf-8") if contents is not None else None
-        return {**record, **view, "result": json.loads(raw) if raw else None, "raw_json": raw, "schema": schema}
+        result = json.loads(raw) if raw else None
+        current = {**record, **view}
+        return {**current, "result": result, "raw_json": raw, "schema": schema,
+                "eligible_fields": eligible_fields(current, result) if configuration_matches else {},
+                "text_evidence_measurement": TEXT_EVIDENCE_MEASUREMENT}
 
     def page(self, name, number, review_id):
         if number < 1:

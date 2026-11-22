@@ -210,6 +210,7 @@ def check_resume(browser, folder, pngs, old, initial):
         assert stale.status == 409, stale.text()
         page.get_by_role("button", name="Odśwież").click()
         expect(page.locator("#case-status")).to_have_text("Wynik nieaktualny")
+        expect(page.locator("#field-evidence-quality")).to_contain_text("pole do weryfikacji")
         expect(page.locator("#audit")).to_be_hidden()
         expect(page.locator("#actions")).to_be_hidden()
         extract(folder)
@@ -340,14 +341,41 @@ def check_upload(browser, evidence, ocr_data):
         raw = positive_run / "output" / "dokument.json"
         original_sha = hashlib.sha256(raw.read_bytes()).hexdigest()
         assert page.locator("#raw").text_content().encode("utf-8") == raw.read_bytes()
-        page.select_option("#field", AMOUNT)
+        field_picker = page.locator("#field")
+        date_field = "przelew_bankowy.data_operacji"
+        expect(field_picker.locator(f'option[value="{date_field}"]')).to_contain_text("dowód tekstowy")
+        expect(field_picker.locator(f'option[value="{AMOUNT}"]')).to_contain_text("dowód tekstowy")
+        field_picker.focus()
+        page.keyboard.press("Home")
+        expect(field_picker).to_have_value(date_field)
+        expect(page.locator("#field-evidence-quality")).to_contain_text("Cytat ze strony 1")
+        page.keyboard.press("ArrowDown")
+        expect(field_picker).to_have_value(AMOUNT)
+        expect(page.locator("#field-evidence-quality")).to_contain_text("Cytat ze strony 1")
         expect(page.locator("#value")).to_have_text("137.29")
         expect(page.locator("#snippet")).to_have_text("137,29")
         expect(page.locator("#page-image")).to_have_attribute("alt", "Fizyczna strona 1 z 1 pliku PDF")
         expect(page.locator("#page-image")).to_be_visible()
+
+        diagnostic = positive_run / "diagnostics" / "run.json"
+        stock_report = diagnostic.read_bytes()
+        foreign_report = json.loads(stock_report)
+        foreign_report["documents"][0]["config_sha256"] = "f" * 64
+        try:
+            diagnostic.write_text(json.dumps(foreign_report), encoding="utf-8")
+            page.get_by_role("button", name="Odśwież").click()
+            expect(page.locator("#field-evidence-quality")).to_contain_text("pole do weryfikacji")
+            expect(page.locator(f'#field option[value="{AMOUNT}"]')).to_have_text(AMOUNT)
+            expect(page.locator("#accept")).to_be_visible()
+        finally:
+            diagnostic.write_bytes(stock_report)
+        page.get_by_role("button", name="Odśwież").click()
+        expect(page.locator(f'#field option[value="{AMOUNT}"]')).to_contain_text("dowód tekstowy")
+        expect(page.locator("#field-evidence-quality")).to_contain_text("Cytat ze strony 1")
         page.screenshot(path=evidence / "upload-result.png", full_page=True)
         page.get_by_role("button", name="Akceptuj wynik").click()
         expect(page.locator("#audit-title")).to_have_text("Zapisano akceptację")
+        expect(page.locator("#field-evidence-quality")).to_contain_text("Cytat ze strony 1")
         assert hashlib.sha256(raw.read_bytes()).hexdigest() == original_sha
 
         page.set_viewport_size({"width": 375, "height": 812})
@@ -407,7 +435,8 @@ def main():
                   "negative_bytes": 0, "decisions_after_restart": 2, "stale_write_status": 409,
                   "journal_sha256_after_both_extractions": digest, "upload": upload_result,
                   "checked": ["keyboard", "no_quote", "read_error", "empty", "long_label", "safe_text",
-                              "traversal", "symlink", "origin", "host", "physical_page_2", "zoom", "stale_preview", "page_reasons_6_of_6"]}
+                              "traversal", "symlink", "origin", "host", "physical_page_2", "zoom", "stale_preview", "page_reasons_6_of_6",
+                              "field_evidence_2_of_2", "field_profile_restored"]}
         text = json.dumps(result, indent=2) + "\n"
         (evidence / "result.json").write_text(text)
         print(text, end="")
