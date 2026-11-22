@@ -1,5 +1,7 @@
 # Odwołania2JSON dla jurora
 
+[Wyniki jakości i próba offline](docs/jakosc.md)
+
 ## Partia PDF-ów
 
 Z katalogu rozpakowanej paczki wykonaj [polecenie z RUN.md](RUN.md). Używa ono przygotowanego lokalnie obrazu `odwolania2json-jury:final-20261122` z Pythonem 3.13 i polskim OCR. Na VM użyj istniejących `input/` i `output/`. We własnej kopii możesz utworzyć oba katalogi przez `mkdir -p input output`. Zagnieżdżony `input/sprawa/pismo.pdf` daje `output/sprawa/pismo.json`. Dokument obcy daje plik 0 B, a źródła pól są w `diagnostics/last-run.json`.
