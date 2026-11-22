@@ -1,6 +1,6 @@
 # Eksperyment A/B/C
 
-- **A** w porównywarce oznacza reguły z mierzonej rewizji, obecnie A3. Zachowaj neutralne PDF-y, wyjście i diagnostykę z tej samej rewizji przed zestawieniem wariantów. [Odbiór A3](../../RAPORT_A3.md)
+- **A** w porównywarce oznacza reguły z mierzonej rewizji, obecnie A3. Zachowaj neutralne PDF-y, wyjście i diagnostykę z tej samej rewizji przed zestawieniem wariantów. [Odbiór A3](../../docs/historia/RAPORT_A3.md)
 - **B** — Qwen3.5-9B w OVHcloud AI Endpoints.
 - **C** — Mistral Small 3.2 24B Instruct 2506 w Scaleway Generative APIs.
 

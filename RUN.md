@@ -21,4 +21,4 @@ CLI odczytuje PDF-y rekurencyjnie. `input/sprawa/pismo.pdf` daje `output/sprawa/
 
 ## Przygotowanie obrazu przed oceną
 
-W magazynie Dockera używanym przez administratora VM musi być lokalny obraz `odwolania2json-jury:6eb211c39c6c`. Przed oceną zbuduj go z katalogu projektu poleceniem `docker build --tag odwolania2json-jury:6eb211c39c6c .` albo wczytaj gotowe archiwum przez `docker image load --input ŚCIEŻKA_ARCHIWUM`. Obraz zawiera Python 3.13, lokalne reguły i polski OCR. Przetwarzanie działa bez usług zewnętrznych i kluczy API. Kontener kończy działanie po partii.
+W magazynie Dockera używanym przez administratora VM musi być lokalny obraz `odwolania2json-jury:6eb211c39c6c`. Przed oceną zbuduj go z katalogu projektu poleceniem `docker build --target jury --tag odwolania2json-jury:6eb211c39c6c .` albo wczytaj gotowe archiwum przez `docker image load --input ŚCIEŻKA_ARCHIWUM`. Obraz zawiera Python 3.13, lokalne reguły i polski OCR. Przetwarzanie działa bez usług zewnętrznych i kluczy API. Kontener kończy działanie po partii.

@@ -6,3 +6,7 @@ diagnostics/
 runs/
 *.bundle
 .*.odwolania2json/
+.jury/
+.env
+.env.*
+*.env

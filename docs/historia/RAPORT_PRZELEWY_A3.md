@@ -31,7 +31,7 @@ Prywatny przebieg na VPS używał Python 3.13, Landlock, odciętego TCP, neutral
 
 ## Dane i powtórzenie odczytu wyniku
 
-Na VPS katalog `~/uzp-parallel/a3-przelewy-dane/corpus-v1/` zawiera PDF-y, ręczne referencje, inwentarz rodzin i sześć manifestów. Jego `seal.json` ma SHA-256 `ff41aa86662a51e55a8db3a89f5af1f9da9766a227997019d9ae1d1ab8eae886`. W katalogu `measurements/` obok korpusu zapisano JSON-y wynikowe, diagnostykę, czas, podsumowania i pełne raporty miernika. Plik [indeksu źródeł i manifestów](evaluation/przelewy-zewnetrzne-v1.json) opisuje dokładne wersje. Archiwum robocze dla zespołu znajduje się w `~/uzp-parallel/a3-przelewy-dane/pakiet-testowy-przelewy-v1.tar.gz`.
+Na VPS katalog `~/uzp-parallel/a3-przelewy-dane/corpus-v1/` zawiera PDF-y, ręczne referencje, inwentarz rodzin i sześć manifestów. Jego `seal.json` ma SHA-256 `ff41aa86662a51e55a8db3a89f5af1f9da9766a227997019d9ae1d1ab8eae886`. W katalogu `measurements/` obok korpusu zapisano JSON-y wynikowe, diagnostykę, czas, podsumowania i pełne raporty miernika. Plik [indeksu źródeł i manifestów](../../evaluation/przelewy-zewnetrzne-v1.json) opisuje dokładne wersje. Archiwum robocze dla zespołu znajduje się w `~/uzp-parallel/a3-przelewy-dane/pakiet-testowy-przelewy-v1.tar.gz`.
 
 Poniższe polecenia sprawdzają sumę manifestu i pozwalają ponownie policzyć wynik utrwalonych predykcji. Nie wykonują kolejnego przebiegu na odłożonym zbiorze.
 

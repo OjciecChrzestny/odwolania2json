@@ -6,7 +6,7 @@ Na VPS poprawione A3 odczytało **9 z 12 rachunków** w odpowiednich rolach (wcz
 
 Wzorzec powstał przed poprawką przez odczyt obrazów stron. Obejmuje sześć różnych rachunków odbiorców i sześć odrębnych publikacji. Pięć wpłat trafiło poza UZP. Jedna to przelew przychodzący między przedsiębiorstwami. Sześć potwierdzeń obejmuje pięć rodzin układów, ponieważ dwa dokumenty mBanku mają wspólne kolumny „Winien” i „Ma”. Są to potwierdzenia pojedynczych transakcji. Próba nie mierzy jakości na sześciu pełnych sprawach odwoławczych.
 
-Manifest `4f474c6` z 21 listopada 2026 r., godz. 23:08:08 w Warszawie, poprzedza zmianę kodu. SHA-256 pieczęci wynosi `2d52bee3bfcd41cb6ee0a83106200dfd5f1cbbee6edfc3ffc409c7f5c7cfa3af`. Rozwojowe skany ING i DNB pochodzą z innych publikacji i rodzin układów niż sześć odłożonych dokumentów. W obu grupach i względem historycznych zbiorów porównanych w manifeście było zero wspólnych SHA-256. Porównanie z 181 wcześniejszymi odciskami pierwszych stron również dało zero identycznych odcisków. Wcześniejsze eksperymenty obejmowały już m.in. pokrewne formularze mBanku, Millennium, Pekao i CA24. [Manifest, źródła i strony załączników](evaluation/przelewy-rachunki-v5.json)
+Manifest `4f474c6` z 21 listopada 2026 r., godz. 23:08:08 w Warszawie, poprzedza zmianę kodu. SHA-256 pieczęci wynosi `2d52bee3bfcd41cb6ee0a83106200dfd5f1cbbee6edfc3ffc409c7f5c7cfa3af`. Rozwojowe skany ING i DNB pochodzą z innych publikacji i rodzin układów niż sześć odłożonych dokumentów. W obu grupach i względem historycznych zbiorów porównanych w manifeście było zero wspólnych SHA-256. Porównanie z 181 wcześniejszymi odciskami pierwszych stron również dało zero identycznych odcisków. Wcześniejsze eksperymenty obejmowały już m.in. pokrewne formularze mBanku, Millennium, Pekao i CA24. [Manifest, źródła i strony załączników](../../evaluation/przelewy-rachunki-v5.json)
 
 Z każdej strony wykonano jeden skan w skali szarości (96 dpi, rozmycie 0,55 px i JPEG o jakości 55). Pliki przekazano pod neutralnymi nazwami. W ekstraktorze działał lokalny OCR i reguły. Obrazy bazowy i kandydata uruchomiono na tych samych wejściach w Docker Compose z wyłączoną siecią. Wzorce pozostały poza montowaniami kontenera. Liczba wywołań LLM wyniosła 0.
 
@@ -24,7 +24,7 @@ Z każdej strony wykonano jeden skan w skali szarości (96 dpi, rozmycie 0,55 px
 | Wszystkie sześć pól, wynik diagnostyczny | 54,55% (15 TP, 5 FP, 20 FN) | 68,85% (21 TP, 5 FP, 14 FN) |
 | Czas sześciu PDF-ów na VPS | 12,04 s | 17,03 s |
 
-Wynik rachunków uwzględnia brakujące pola także wtedy, gdy klasyfikator wydał plik 0 B. Dwie wartości odwrotne względem wzorca stanowią jedną pełną zamianę. Osobno mierzymy każdą wartość wpisaną w niewłaściwe pole, nawet gdy drugie pole jest puste lub poprawne. Każdy numer wzorcowy miał 26 cyfr, w tym początkowe zera, i był różny od numeru drugiej strony tej samej transakcji. [Kod miernika rachunków](evaluation/score_accounts.py)
+Wynik rachunków uwzględnia brakujące pola także wtedy, gdy klasyfikator wydał plik 0 B. Dwie wartości odwrotne względem wzorca stanowią jedną pełną zamianę. Osobno mierzymy każdą wartość wpisaną w niewłaściwe pole, nawet gdy drugie pole jest puste lub poprawne. Każdy numer wzorcowy miał 26 cyfr, w tym początkowe zera, i był różny od numeru drugiej strony tej samej transakcji. [Kod miernika rachunków](../../evaluation/score_accounts.py)
 
 | Odbiorca / układ | Poprawne rachunki przed | Poprawne rachunki po |
 |---|---|---|
