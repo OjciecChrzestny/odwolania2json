@@ -1,5 +1,6 @@
 """Role w oświadczeniu o udzieleniu pełnomocnictwa."""
 from collections import defaultdict
+from dataclasses import replace
 import re
 
 from .model import FLAGS, empty
@@ -21,6 +22,39 @@ SOLO_BUSINESS = re.compile(
     r"\bprowadz(?:ący(?:/a|/ąca)?|ąca|ę)[ \t\n]+działalność[ \t\n]+gospodarczą\b",
     FLAGS,
 )
+
+
+
+QUOTATION = re.compile(
+    r'„(?:[^”]*”|[^”\f]*)|“(?:[^”]*”|[^”\f]*)|«(?:[^»]*»|[^»\f]*)'
+    r'|(?<!\w)"(?:[^"]*"|[^"\f]*)'
+)
+CITATION_INTRO = re.compile(
+    r"^[ \t]*(?:(?:poniżej[ \t]+)?(?:cytuj(?:ę|emy)|przytaczam(?:y)?)\b"
+    r"|cytat[ \t]*:)[^\n\f]*",
+    FLAGS,
+)
+
+
+def current_appointment(document):
+    """Wyłącz cytaty z wyszukiwania ról, zachowując przesunięcia oryginalnego odczytu."""
+    text = document.text
+    quotes = list(QUOTATION.finditer(text))
+    excluded = [match.span() for match in quotes]
+    for intro in CITATION_INTRO.finditer(text):
+        quote = next((quote for quote in quotes if intro.start() <= quote.start()
+                      and not text[intro.end():quote.start()].strip(" \t\n")), None)
+        if quote:
+            excluded.append((intro.start(), quote.start()))
+            continue
+        # Przy braku cudzysłowu cytat nie ma wiarygodnego końca na tej stronie.
+        page_end = text.find("\f", intro.end())
+        excluded.append((intro.start(), page_end if page_end != -1 else len(text)))
+
+    masked = list(text)
+    for start, end in excluded:
+        masked[start:end] = (char if char in "\n\f" else " " for char in text[start:end])
+    return replace(document, text="".join(masked))
 
 
 def _put_span(result, path, fragment, match, group, rule, operation="text"):

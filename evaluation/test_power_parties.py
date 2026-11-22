@@ -58,6 +58,35 @@ niniejszym udzielam pełnomocnictwa:
                 data, _ = parse(HEADER + heading + "\n" + APPOINTMENTS)
                 self.assertEqual(data["pelnomocnicy"], [])
 
+    def test_quoted_grant_is_excluded_with_or_without_ocr_quote_marks(self):
+        intro, grant = HEADER.rsplit("niniejszym", 1)
+        attributed = "Przytaczamy dawne oświadczenie wyłącznie w celach informacyjnych:\n"
+        for open_quote, close_quote in (("„", "”"), ('"', '"'), ("«", "»"), ("", "")):
+            with self.subTest(quote=open_quote):
+                text = intro + attributed + open_quote + "Niniejszym" + grant + APPOINTMENTS + close_quote
+                data, evidence = parse(text)
+                self.assertEqual(data["pelnomocnicy"], [])
+                self.assertFalse(any(key.startswith("pelnomocnicy.") for key in evidence["fields"]))
+
+    def test_real_grant_after_quoted_grant_retains_order_and_page(self):
+        intro, grant = HEADER.rsplit("niniejszym", 1)
+        quoted = "Cytat:\n„Niniejszym" + grant + APPOINTMENTS.replace(
+            "Emilia Żuraw", "Anna Orzech"
+        ).replace("Marek Ptak", "Paweł Sosna") + "”\n"
+        data, evidence = parse("Pismo przewodnie\nW załączeniu.", intro + quoted + "Niniejszym" + grant + APPOINTMENTS)
+        self.assertEqual([person["imie_nazwisko"] for person in data["pelnomocnicy"]],
+                         ["Emilia Żuraw", "Marek Ptak"])
+        fields = evidence["fields"]
+        for index, name in enumerate(("Emilia Żuraw", "Marek Ptak")):
+            proof = fields[f"pelnomocnicy.{index}.imie_nazwisko"]
+            self.assertEqual((proof["page"], proof["snippet"]), (2, name))
+
+    def test_quoted_counsel_label_is_excluded_from_legacy_parser(self):
+        text = HEADER + 'Zakres: składanie pism.\n„\nPełnomocnicy:\n1. Emilia Żuraw\n2. Marek Ptak\n”'
+        data, evidence = parse(text)
+        self.assertEqual(data["pelnomocnicy"], [])
+        self.assertFalse(any(key.startswith("pelnomocnicy.") for key in evidence["fields"]))
+
     def test_numbering_gap_abstains_instead_of_shifting_indices(self):
         data, _ = parse(HEADER + APPOINTMENTS.replace("2. Marek", "3. Marek"))
         self.assertEqual(data["pelnomocnicy"], [])
