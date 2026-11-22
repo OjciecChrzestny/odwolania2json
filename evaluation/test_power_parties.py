@@ -119,5 +119,19 @@ niniejszym udzielam pełnomocnictwa:
         self.assertEqual(evidence["fields"]["pelnomocnicy.0.imie_nazwisko"]["snippet"], "Emilia Żuraw")
 
 
+    def test_only_aligned_continuation_of_existing_roster_can_restore_initial_case(self):
+        lines = "Eva Próbna\nAdam Letni\nkamil Kozioł"
+        doc = Document.from_pages([HEADER + lines + "\ndo reprezentowania przed Izbą."])
+        before, _ = extract(doc, load_classes())
+        self.assertEqual(len(before["pelnomocnicy"]), 2)
+        data, evidence = extract(replace(doc, ocr_layout_tsv=footer_tsv(lines)), load_classes())
+        expected = before["pelnomocnicy"] + [{"imie_nazwisko": "Kamil Kozioł", "pesel": None}]
+        self.assertEqual(data["pelnomocnicy"], expected)
+        self.assertEqual(evidence["fields"]["pelnomocnicy.2.imie_nazwisko"]["precision"], "page")
+        broken_layout = footer_tsv(lines).replace("\t3\t1\t30\t90", "\t3\t1\t90\t90")
+        data, _ = extract(replace(doc, ocr_layout_tsv=broken_layout), load_classes())
+        self.assertEqual(data["pelnomocnicy"], before["pelnomocnicy"])
+
+
 if __name__ == "__main__":
     unittest.main()
