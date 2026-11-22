@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import re
 
+from .filing_reason import FILING_RULE
 from .legal import Fragment
 from .model import FLAGS
 
@@ -20,7 +21,9 @@ TITLE_LIST = re.compile(
     FLAGS,
 )
 BORROWED = re.compile(
-    r"^[ \t]*(?:cytat|przytoczenie|treść[ \t]+przytoczonego|pouczenie|uzasadnienie|żądania|wnioski końcowe)\b",
+    r"^[ \t]*(?:cytat|przytoczenie|treść[ \t]+przytoczonego|pouczenie|uzasadnienie|żądania|wnioski końcowe"
+    r"|z[ \t]+(?:pisma|odwołania|odpowiedzi)[ \t]+(?:innego[ \t]+wykonawcy|zamawiającego|przystępującego)"
+    r"[ \t]+(?:przytaczam(?:y)?|cytuję|cytujemy))\b",
     FLAGS,
 )
 CLOSED_QUOTES = re.compile(r"""(?:[^„“«"\f]|„[^”\f]*”|“[^”\f]*”|«[^»\f]*»|"[^"\f]*")*""")
@@ -80,7 +83,13 @@ def filing_subject_extractor(extract_document, source_clause):
     """Wrap the pinned extractor and fill only its unresolved first-action pair."""
     def extract_with_subject(document, classes):
         value, record = extract_document(document, classes)
-        if value is None or record["class"] != "odwolanie" or not record.get("first_allegation", {}).get("fallback"):
+        if value is None or record["class"] != "odwolanie":
+            return value, record
+        decision = record.get("first_allegation") or {}
+        # The W0 filing rule was itself applied only after the original A3
+        # selected its generic fallback. Preserve every other decided A3 result.
+        from_filing_rule = decision.get("rule") == FILING_RULE
+        if not decision.get("fallback") and not from_filing_rule:
             return value, record
         config = classes["odwolanie"]
         witness = select_filing_subject(document, config, source_clause(document, config))
@@ -88,6 +97,8 @@ def filing_subject_extractor(extract_document, source_clause):
             return value, record
 
         action = value["OdwolanieKIO"]
+        if from_filing_rule and action["czynnosc_powod_id"] == witness.reason_id:
+            return value, record
         action.update(czynnosc_powod_id=witness.reason_id, czynnosc_opis=witness.description)
         start = document.starts[witness.page - 1][0]
         record["first_allegation"] = {
