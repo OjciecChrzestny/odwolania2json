@@ -55,6 +55,20 @@ def visual_rows(tsv):
     return row_text(word_rows(tsv))
 
 
+def primary_scan_view(document):
+    """Keep the single-page primary OCR geometry tied to its own text."""
+    if len(document.starts) != 1 or not document.ocr_layout_tsv:
+        return None
+    try:
+        positions = word_rows(document.ocr_layout_tsv)
+    except ValueError:
+        return None
+    if not positions:
+        return None
+    text = document.text.removesuffix("\n\f\n")
+    return ScanView(1, text, row_text(positions), positions=positions)
+
+
 DATE_TOKEN = re.compile(r"(?<![\d./-])" + DATE + r"(?![\d./-])", re.I)
 MONEY_TOKEN = re.compile(
     r"(?<![\d.,])[-−+]?(?:[0-9]{1,3}(?:[ .][0-9]{3})+|[0-9]+)[,.][ \t]*[0-9]{2}(?![\d.,])"
@@ -85,6 +99,38 @@ COLUMN = {
     "other_date": ("data_operacji", 0),
     "other_amount": ("kwota", 0),
 }
+REFERENCE_COLUMN = re.compile(
+    r"[ \t|;]+(?:nr\.?|numer|identyfikator) (?:referencyjn(?:y|ego) )?(?:operacji|transakcji|przelewu)$",
+    re.I,
+)
+REFERENCE_CELL = re.compile(r"[ \t|;*]+(?=[A-Z0-9./_-]{1,64}$)(?=[A-Z0-9./_-]*[0-9])[A-Z0-9][A-Z0-9./_-]*", re.I)
+POSTED_HEADER = re.compile(r"Data[ \t|]+Opis[ \t|]+Kwota", re.I)
+POSTED_ROW = re.compile(r"Data operacji[ \t|:–—-]+przelew\b", re.I)
+SPLIT_DATA = re.compile(rf"Data[ \t:|]+(?P<date>{DATE})[ \t|:]*", re.I)
+SPLIT_ROLE = re.compile(r"(?:wykonania|realizacji)[ \t|:]*", re.I)
+LABEL_GAP = re.compile(r"[\s|:;–—-]*")
+BOOKING_ROW = re.compile(rf"^{BOOKING_LABEL}\b", re.I)
+DEBIT_ROLE = re.compile(r"\bz rachunku\b", re.I)
+CREDIT_ROLE = re.compile(r"\bna rachunek\b", re.I)
+EXECUTION_ROW = re.compile(rf"^{DATE_LABEL}\b", re.I)
+BOOKING_VALUE = re.compile(rf"^(?P<date>{DATE})(?=[ \t]|$)(?:[ \t|]*|[ \t|]+na rachunek\b.*)", re.I)
+ORDER_DETAILS = re.compile(r"(?:dane|szczeg[oó][łl]y) zlecenia[ \t.:]*", re.I)
+COMPLETED_ORDER = re.compile(
+    r"^status(?: (?:operacji|transakcji|zlecenia|przelewu))?[\s.:'‘\"|;,-]{1,18}"
+    r"(?:wykonan|zrealizowan|zaksi[ęe]gowan)[aye]\b",
+    re.I | re.M,
+)
+PENDING_ORDER = re.compile(
+    r"^status(?: (?:operacji|transakcji|zlecenia|przelewu))?[\s.:'‘\"|;,-]{1,18}"
+    r"(?:oczekuj|planowan|zaplanowan|niewykonan|niezrealizowan|anulowan|odrzucon)\w*\b",
+    re.I | re.M,
+)
+ORDER_MODE = re.compile(r"tryb realizacj[i.](?=[ \t]|$)", re.I)
+ORDER_EXECUTION = re.compile(
+    rf"\bda[tl]a wykonania[ \t|:]+(?P<date>{DATE}|\d{{1,2}}[ \t]+\d{{1,2}}[ \t]+20\d{{2}})[ \t|]*$",
+    re.I,
+)
+NON_EXECUTED_DATE = re.compile(r"\b(?:planowan\w*|przewidywan\w*|oczekiwan\w*|ż[ąa]dan\w*|zlecon\w*|termin)\b", re.I)
 SEPARATORS = re.compile(r"[\s|:;]*")
 VALUE_SEPARATORS = re.compile(r"(?:[\s|:;]|PLN|zł|EUR|USD|GBP|CHF)*", re.I)
 
@@ -121,8 +167,23 @@ def numeric_row(line, tokens):
     return VALUE_SEPARATORS.fullmatch(line[current:]) is not None
 
 
+def reference_table(header, values):
+    """Remove an explicitly labelled trailing ID column from a PLN table."""
+    label = REFERENCE_COLUMN.search(header)
+    reference = REFERENCE_CELL.search(values)
+    if not (label and reference):
+        return header, values
+    numeric = values[:reference.start()].rstrip()
+    tokens = number_tokens(numeric)
+    if (len(tokens) != 2 or [token.key for token in tokens] != ["kwota", "data_operacji"]
+            or not re.fullmatch(r"[ \t]*PLN[ \t|;]*", numeric[tokens[0].end:tokens[1].start], re.I)):
+        return header, values
+    return header[:label.start()], numeric
+
+
 def table_numbers(header, values):
     """Bind a complete numeric row to its recognised column headers."""
+    header, values = reference_table(header, values)
     labels = list(LABELS.finditer(header))
     if len(labels) < 2 or not SEPARATORS.fullmatch(LABELS.sub("", header)):
         return []
@@ -142,20 +203,96 @@ def table_numbers(header, values):
             if priority and token.value is not None]
 
 
+def structured_numbers(line, following):
+    for priority, token in table_numbers(line, following):
+        yield 1, priority, token
+    if SPLIT_ROLE.fullmatch(following) and (split := SPLIT_DATA.fullmatch(line)):
+        if value := normalize(split["date"], "date"):
+            yield 0, 3, Number("data_operacji", value, *split.span("date"))
+
+
+def posted_amount(header, row, context):
+    if not (POSTED_HEADER.fullmatch(header) and POSTED_ROW.match(row)):
+        return None
+    if any(label.lastgroup == "other_amount" for label in LABELS.finditer(row)):
+        return None
+    # A bare example row does not link its amount to the settled operation.
+    # Require both party cells and the booking label within the same block.
+    block = "\n".join(context)
+    if not (DEBIT_ROLE.search(block) and CREDIT_ROLE.search(block) and any(BOOKING_ROW.match(line) for line in context)):
+        return None
+    amounts = [token for token in number_tokens(row) if token.key == "kwota"]
+    if len(amounts) == 1:
+        token = amounts[0]
+        if token.value is not None and re.fullmatch(r"[ \t]*PLN[ \t|]*", row[token.end:], re.I):
+            return token
+    return None
+
+
+def order_numbers(rows):
+    """Read the compact summary of a completed order with a wrapped date."""
+    text = "\n".join(rows)
+    if not COMPLETED_ORDER.search(text) or PENDING_ORDER.search(text):
+        return
+    for i in range(len(rows) - 3):
+        heading, amount_line, mode, date_line = rows[i:i + 4]
+        if not (ORDER_DETAILS.fullmatch(heading) and ORDER_MODE.match(mode)):
+            continue
+        date = ORDER_EXECUTION.search(date_line)
+        if date is None or NON_EXECUTED_DATE.search(date_line[:date.start()]):
+            continue
+        if value := normalize(date["date"], "date"):
+            yield i + 3, 3, Number("data_operacji", value, *date.span("date"))
+            amount = MONEY_TOKEN.search(amount_line)
+            if (amount and re.fullmatch(r"[\W_]{0,6}(?:kwota[ \t:]+)?", amount_line[:amount.start()], re.I)
+                    and re.fullmatch(r"[ \t]*PLN[ \t|]*", amount_line[amount.end():], re.I)):
+                if (value := money_value(amount[0])) is not None:
+                    yield i + 1, 3, Number("kwota", value, *amount.span())
+
+
+def labelled_numbers(rows):
+    for i, (line, following) in enumerate(zip(rows, rows[1:])):
+        for row, priority, token in structured_numbers(line, following):
+            yield i + row, priority, token
+        if token := posted_amount(line, following, rows[i + 2:i + 9]):
+            yield i + 1, 3, token
+    yield from order_numbers(rows)
+
+
+def booking_value(line, following, after, previous):
+    """A wrapped booking cell inside a bounded operation row with both roles."""
+    if (not BOOKING_ROW.match(line) or LABELS.search(following)
+            or any(token.key == "data_operacji" for token in number_tokens(line))):
+        return None
+    if not (date := BOOKING_VALUE.fullmatch(following)):
+        return None
+    operation = next((index for index, row in reversed(list(enumerate(previous)))
+                      if EXECUTION_ROW.match(row)), None)
+    if operation is None or not any(DEBIT_ROLE.search(row) for row in previous[operation:]):
+        return None
+    if not (CREDIT_ROLE.search(following)
+            or CREDIT_ROLE.match(after)):
+        return None
+    return normalize(date["date"], "date")
+
+
 def view_evidence(rows):
     candidates = defaultdict(list)
+    for _, priority, token in labelled_numbers(rows):
+        candidates[token.key].append((priority, token.value))
     for i, line in enumerate(rows):
         labels = list(LABELS.finditer(line))
         following = rows[i + 1] if i + 1 < len(rows) else ""
-        for priority, token in table_numbers(line, following):
-            candidates[token.key].append((priority, token.value))
+        after = rows[i + 2] if i + 2 < len(rows) else ""
+        if value := booking_value(line, following, after, rows[max(0, i - 5):i]):
+            candidates["data_operacji"].append((2, value))
         for j, label in enumerate(labels):
             key, priority = COLUMN[label.lastgroup]
             if not priority:
                 continue
             end = labels[j + 1].start() if j + 1 < len(labels) else len(line)
             cell = line[label.end():end]
-            if len(labels) == 1 and SEPARATORS.fullmatch(cell) and not LABELS.search(following):
+            if len(labels) == 1 and LABEL_GAP.fullmatch(cell) and not LABELS.search(following):
                 cell = following
             values = {token.value for token in number_tokens(cell) if token.key == key and token.value is not None}
             if len(values) == 1:

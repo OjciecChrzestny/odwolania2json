@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from math import isfinite
 
-from .bank_scan import table_numbers
+from .bank_scan import labelled_numbers
 from .model import FLAGS
 from .operations import DATE, apply_fields, normalize
 from .transfer_title import TITLE, apply_transfer_title
@@ -106,21 +106,44 @@ def account_tables(result, lines):
                 result.put(("przelew_bankowy", role), *owner, "rachunek_własny_i_kierunek")
 
 
+def number_candidates(lines):
+    candidates = {}
+    for row, priority, token in labelled_numbers(tuple(line for _, line in lines)):
+        offset, _ = lines[row]
+        candidates.setdefault(token.key, []).append((priority, token.value, offset + token.start))
+    for key, hits in candidates.items():
+        rank = max(priority for priority, _, _ in hits)
+        best = [(value, pos) for priority, value, pos in hits if priority == rank]
+        if len({value for value, _ in best}) == 1:
+            yield key, rank, *best[0]
+
+
 def amount_and_date(result, lines):
     bank = result.data["przelew_bankowy"]
-    candidates = {}
-    for (_, header), (pos, values) in zip(lines, lines[1:]):
-        for priority, token in table_numbers(header, values):
-            candidates.setdefault(token.key, []).append((priority, token.value, pos + token.start))
-    for key, hits in candidates.items():
+    for key, rank, value, pos in number_candidates(lines):
         path = ("przelew_bankowy", key)
         rule = result.evidence.get(".".join(path), {}).get("rule")
-        ranked = max(priority for priority, _, _ in hits)
-        best = [(value, pos) for priority, value, pos in hits if priority == ranked]
-        if len({value for value, _ in best}) != 1:
+        if bank[key] is None or (rank == 3 and rule == "data_zaksięgowania"):
+            result.put(path, value, pos, "kwota_i_data_w_kolumnach")
+
+
+def primary_number_fallback(result, primary):
+    """Use a primary observation on the page that established the transfer class."""
+    variant = result.document
+    if primary is None or primary is variant:
+        return
+    confirming_pages = {signal.get("page") for signal in result.signals}
+    bank = result.data["przelew_bankowy"]
+    for page, text in enumerate(primary.text.split("\n\f\n")[:-1], 1):
+        if page not in confirming_pages:
             continue
-        if bank[key] is None or (ranked == 3 and rule == "data_zaksięgowania"):
-            result.put(path, *best[0], "kwota_i_data_w_kolumnach")
+        for key, priority, value, _ in number_candidates(page_lines(text, 0)):
+            existing = result.evidence.get("przelew_bankowy." + key, {})
+            other_page_table = (existing.get("rule") == "kwota_i_data_w_kolumnach"
+                                and existing.get("page") not in confirming_pages)
+            if priority == 3 and (bank[key] is None or other_page_table):
+                rule = "kwota_w_głównym_odczycie" if key == "kwota" else "data_w_głównym_odczycie"
+                result.put(("przelew_bankowy", key), value, variant.starts[page - 1][0], rule)
 
 
 def reference_value(text, *, bank_reference):
@@ -230,11 +253,13 @@ def observed_amounts(page, offset, lines, patterns):
             if value is not None and isfinite(value):
                 start, end = match.span(1)
                 amounts.setdefault(start, AmountObservation(value, offset + start, offset + end, operation))
-    for (_, header), (start, values) in zip(lines, lines[1:]):
-        for _, token in table_numbers(header, values):
-            if token.key == "kwota":
-                pos = start + token.start
-                amounts.setdefault(pos - offset, AmountObservation(token.value, pos, start + token.end, "money"))
+    for row, _, token in labelled_numbers(tuple(line for _, line in lines)):
+        if token.key == "kwota":
+            start, line = lines[row]
+            # The contract expresses the absolute amount. Exclude a debit sign
+            # from a span that may later be checked with the money normalizer.
+            pos = start + token.start + int(line[token.start] in "-−+")
+            amounts.setdefault(pos - offset, AmountObservation(token.value, pos, start + token.end, "money"))
     return list(amounts.values())
 
 

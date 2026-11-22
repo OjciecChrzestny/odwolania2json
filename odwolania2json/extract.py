@@ -8,12 +8,14 @@ from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
 from .bank_accounts import LABEL, account_observations, apply_accounts, fold
-from .bank_scan import recovered_numbers, row_text
+from .bank_scan import primary_scan_view, recovered_numbers, row_text
 from .legal import BUILDERS as LEGAL_BUILDERS
 from .model import Document, Extraction, FLAGS, classify, cover_limit, excluded_heading, schema_errors
 from .ocr import LocalOCR
 from .operations import apply_fields
-from .transfer import transfer
+from .transfer import primary_number_fallback, transfer
+from .transfer_reference import apply_scan_reference
+from .transfer_title import TITLE, apply_scan_title
 
 BUILDERS = {**LEGAL_BUILDERS, "transfer": transfer}
 DEFAULT_OCR_PAGE_BUDGET = 6
@@ -168,11 +170,16 @@ def transfer_from_alternate_page(document, classes, views):
             alternative = Document.from_pages([clean_page(reading), *pages[1:]])
             name, signals = classify(alternative, classes)
             if name == "przelew":
-                return alternative, name, signals
+                # The primary TSV belongs to the replaced reading, while page
+                # quality and the callable describe the original physical PDF.
+                selected = replace(document, text=alternative.text, starts=alternative.starts,
+                                   ocr_layout_tsv=None)
+                return selected, name, signals
     return document, "negative", []
 
 
 def extract(document, classes, *, capture_decision=False):
+    primary = document
     name, signals = classify(document, classes)
     scan = document.bank_scan
     views = None
@@ -181,12 +188,13 @@ def extract(document, classes, *, capture_decision=False):
         document, name, signals = transfer_from_alternate_page(document, classes, views)
     if name == "negative":
         return None, {"class": name, "status": "negative", "signals": signals, "fields": {}}
-    return extract_class(document, classes, name, signals, views=views, capture_decision=capture_decision)
+    return extract_class(document, classes, name, signals, views=views, capture_decision=capture_decision,
+                         primary_document=primary)
 
 
-def extract_class(document, classes, name, signals, *, views=None, capture_decision=False):
+def extract_class(document, classes, name, signals, *, views=None, capture_decision=False,
+                  primary_document=None):
     """Extract fields of an identified class, preserving the normal local field rules."""
-    scan = document.bank_scan
     config = classes[name]
     result = Extraction(document, config["schema"], signals)
     apply_fields(result, config.get("fields", {}), document.text)
@@ -196,25 +204,46 @@ def extract_class(document, classes, name, signals, *, views=None, capture_decis
     else:
         details = BUILDERS[builder](result, config) if builder else {}
     if builder == "transfer":
-        bank = result.data["przelew_bankowy"]
-        pages = document.text.split("\n\x0c\n")[:-1]
-        evidence = [(i, account_observations(page.splitlines())) for i, page in enumerate(pages, 1)]
         if views is not None:
             details["classification_from_ocr_layout"] = True
-        missing_number = any(bank[key] is None for key in ("kwota", "data_operacji"))
-        if scan and views is None and (missing_number or LABEL.search(fold(document.text))):
-            views = scan()
-        for view in views or ():
-            rows = row_text(view.positions) if view.positions else view.rows
-            evidence.append((view.page, account_observations(rows, view.positions)))
-        apply_accounts(result, evidence, scanned={view.page for view in views or ()})
-        if missing_number:
-            for key, (value, page) in recovered_numbers(views or ()).items():
-                if bank[key] is None:
-                    result.put(("przelew_bankowy", key), value, document.starts[page - 1][0],
-                               "ocr_wiersz_kwoty" if key == "kwota" else "ocr_wiersz_daty")
+        apply_bank_scans(result, config, views, primary_document)
     errors = list(schema_errors(result.data, config["schema"]))
     if errors:
         raise ValueError(f"{name}: " + "; ".join(errors))
     return result.data, {"class": name, "status": "ok", "signals": signals,
                          "fields": result.evidence, **details}
+
+
+def apply_bank_scans(result, config, views, primary_document):
+    """Give each bank field reader only the physical observations already available."""
+    document = result.document
+    primary_number_fallback(result, primary_document)
+    bank = result.data["przelew_bankowy"]
+    missing_numbers = any(bank[key] is None for key in ("kwota", "data_operacji"))
+    if document.bank_scan and views is None and (missing_numbers or LABEL.search(fold(document.text))):
+        views = document.bank_scan()
+    scans = tuple(views or ())
+
+    pages = document.text.split("\n\f\n")[:-1]
+    evidence = [(page, account_observations(text.splitlines())) for page, text in enumerate(pages, 1)]
+    for view in scans:
+        rows = row_text(view.positions) if view.positions else view.rows
+        evidence.append((view.page, account_observations(rows, view.positions)))
+    apply_accounts(result, evidence, scanned={view.page for view in scans})
+
+    primary_view = primary_scan_view(primary_document or document)
+    apply_scan_title(result, config["fields"].get(TITLE, ()), views=scans, primary_document=primary_document)
+    reference_scans = (*scans, primary_view) if primary_view and document.ocr_layout_tsv is None else scans
+    apply_scan_reference(result, reference_scans)
+
+    if missing_numbers:
+        numbers = recovered_numbers(scans)
+        if primary_view and any(bank[key] is None and key not in numbers for key in ("kwota", "data_operacji")):
+            # An independent primary read can corroborate an alternate view.
+            # Values already supported by the alternate reads keep precedence.
+            for key, reading in recovered_numbers((*scans, primary_view)).items():
+                numbers.setdefault(key, reading)
+        for key, (value, page) in numbers.items():
+            if bank[key] is None:
+                result.put(("przelew_bankowy", key), value, document.starts[page - 1][0],
+                           "ocr_wiersz_kwoty" if key == "kwota" else "ocr_wiersz_daty")
