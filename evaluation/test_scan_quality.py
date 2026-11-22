@@ -62,6 +62,42 @@ class PageQualityTest(unittest.TestCase):
         self.assertFalse(report["first_allegation"]["fallback"])
         self.assertEqual(document.scan_quality["pages"][3]["reason"], "page_limit")
 
+    def test_native_reference_on_seventh_page_has_source_page(self):
+        path = self.pdf(TRANSFER.split("Numer transakcji:")[0], *["Dalsza czesc dokumentu"] * 5,
+                        "Numer transakcji: 0007")
+        document, ocr_pages = read_pdf(path, classes=self.classes, ocr_page_budget=0)
+        data, diagnostic = extract(document, self.classes)
+        self.assertEqual(ocr_pages, [])
+        self.assertEqual(data["przelew_bankowy"]["numer_transakcji"], "0007")
+        self.assertEqual(diagnostic["fields"]["przelew_bankowy.numer_transakcji"]["page"], 7)
+        self.assertEqual(document.scan_quality["pages"][6]["reason"], "native_text")
+
+    def test_only_ocr_attempts_spend_budget_including_failed_reads(self):
+        path = self.pdf(*[""] * 10)
+        native = ["Krajowa Izba Odwoławcza\nOdwołujący: Fikcyjna spółka\nZamawiający: Fikcyjna gmina\nODWOŁANIE",
+                  *["Pouczenie do odwołania"] * 5, "", "", "", "Czytelny koniec"]
+        calls = []
+
+        def scan(_path, stop, *, start):
+            calls.append((start, stop))
+            return [(start, "Odczyt strony" if start == 6 else "")]
+
+        with patch.object(PageObject, "extract_text", side_effect=native):
+            document, ocr_pages = read_pdf(path, scan, classes=self.classes, ocr_page_budget=2)
+        self.assertEqual(calls, [(6, 7), (7, 8)])
+        self.assertEqual(ocr_pages, [7])
+        pages = document.scan_quality["pages"]
+        self.assertEqual((pages[7]["reason"], pages[8]["reason"], pages[9]["reason"]),
+                         ("ocr_no_text", "ocr_page_budget", "native_text"))
+
+    def test_zero_budget_never_calls_scanner(self):
+        path = self.pdf("", "Czytelny zalacznik")
+        def scanner(*args, **kwargs):
+            self.fail("zero budget must not render a page")
+        document, attempted = read_pdf(path, scanner, classes=self.classes, ocr_page_budget=0)
+        self.assertEqual(attempted, [])
+        self.assertEqual(document.scan_quality["pages"][0]["reason"], "ocr_page_budget")
+
     def test_native_readability_and_extraction_are_separate(self):
         text = TRANSFER.replace("Kwota: 12,50 PLN", "Kwota: 12,50 PLN\nKwota: 26,50 PLN")
         path = self.pdf(text)

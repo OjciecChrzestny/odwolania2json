@@ -65,7 +65,7 @@ Możesz użyć własnego pliku PDF z warstwą tekstową. Umieść nagłówek „
 3. Reguły odczytu biorą pierwszą grupę przechwytującą. `text` porządkuje odstępy sygnatury, a `date` zamienia datę na ISO. Schemat zachowuje oba klucze i dopuszcza `null`.
 4. Diagnostyka zapisuje `fields.<pole>.page` i `fields.<pole>.rule`. Strony są liczone od 1. Komenda `zrodlo` wypisuje tekst z tych stron wejściowego PDF-u.
 
-Czytnik analizuje do sześciu stron. Szczegóły pokazu opierają się na warstwie tekstowej. Obsługę skanów opisuje [README projektu](../../README.md).
+Czytnik odczytuje warstwę tekstową na wszystkich stronach. Domyślny budżet OCR wynosi sześć różnych stron na PDF. Szczegóły pokazu opierają się na warstwie tekstowej. Obsługę skanów opisuje [README projektu](../../README.md).
 
 ## Odbiór z czystej kopii
 

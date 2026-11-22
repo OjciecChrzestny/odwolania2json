@@ -38,6 +38,8 @@ python -m odwolania2json --input moje-pdf --output wyniki \
 
 ### Opcjonalny OCR
 
+CLI czyta warstwę tekstową każdej strony. Opcja `--ocr-max-pages N` ustala osobny budżet różnych stron poddanych OCR w jednym PDF-ie (domyślnie 6). Strona z tekstem nie zużywa budżetu. Brak wolnego miejsca na potrzebny OCR daje w diagnostyce `ocr_page_budget` dla nieocenionej strony. Rozpoznawanie klasy nadal korzysta z jej skonfigurowanych stron początkowych.
+
 Do dokumentów skanowanych włącz polski OCR lub użyj Compose. Poniższe polecenia wykonaj na Linuksie w środowisku utworzonym powyżej. Koła binarne muszą być dostępne dla używanej wersji Pythona i architektury. Plik językowy jest przypięty do wydania `tessdata_fast` 4.1.0.
 
 ```sh

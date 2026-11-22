@@ -24,6 +24,9 @@ except ModuleNotFoundError as exc:
         raise
     decide_review = None
 
+from .extract import DEFAULT_OCR_PAGE_BUDGET
+
+
 REPORT_VERSION = 1
 IDENTITY = ("input", "pdf_sha256", "output_sha256", "extractor_revision")
 
@@ -41,11 +44,15 @@ def config_digest(classes):
     return digest(json.dumps(classes, ensure_ascii=False, allow_nan=False).encode("utf-8"))
 
 
-def extractor_revision(config_sha256, ocr_enabled):
+def extractor_revision(config_sha256, ocr_enabled, *, ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET, verifier_profile=None):
     # Ta sama kopia kodu i konfiguracji ma identyfikator również w obrazie bez .git.
     package = Path(__file__).parent
     parts = {path.name: digest(path.read_bytes()) for path in sorted(package.glob("*.py"))}
     parts.update(config=config_sha256, ocr=ocr_enabled)
+    if ocr_enabled and ocr_page_budget is not None:
+        parts["ocr_page_budget"] = ocr_page_budget
+    if verifier_profile is not None:
+        parts["negative_verifier"] = verifier_profile
     return "sha256:" + digest(json.dumps(parts, sort_keys=True).encode("utf-8"))
 
 

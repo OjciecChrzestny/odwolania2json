@@ -6,12 +6,13 @@ import os
 import sqlite3
 import sys
 from contextlib import closing, contextmanager
+from functools import partial
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from pypdf.errors import PyPdfError
 
-from .extract import extract, read_pdf
+from .extract import DEFAULT_OCR_PAGE_BUDGET, extract, read_pdf
 from .model import DEFAULT_CONFIG, load_classes
 from .ocr import prepare_ocr
 from .review import (REPORT_VERSION, config_digest, digest, extractor_revision, journal_path,
@@ -59,7 +60,10 @@ def output_lock(output_dir):
 
 
 def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
-            read_document=read_pdf, extract_document=extract):
+            read_document=None, extract_document=extract, ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET,
+            negative_verifier=None):
+    if read_document is None:
+        read_document = partial(read_pdf, ocr_page_budget=ocr_page_budget)
     input_dir.mkdir(parents=True, exist_ok=True)
     pdfs = sorted(path for path in input_dir.rglob("*")
                   if path.suffix.lower() == ".pdf" and path.is_file())
@@ -70,7 +74,8 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
     output_dir.mkdir(parents=True, exist_ok=True)
     config_sha256 = config_digest(classes)
     ocr_enabled = ocr is not None
-    revision = extractor_revision(config_sha256, ocr_enabled)
+    revision = extractor_revision(config_sha256, ocr_enabled, ocr_page_budget=ocr_page_budget,
+                                  verifier_profile=negative_verifier.profile if negative_verifier else None)
     with output_lock(output_dir) as journal:
         owned = set(json.loads(journal.read_text(encoding="utf-8"))) if journal.exists() else set()
         for name in owned | sources.keys():
@@ -94,6 +99,8 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
             else:
                 value, record = extract_document(document, classes)
                 record = {**record, "ocr_pages": ocr_pages}
+                if negative_verifier is not None and record["status"] == "negative" and "przelew" in classes:
+                    value, record = negative_verifier(pdf, document, classes, record)
 
             output_sha256 = None
             if record["status"] != "read_error":
@@ -137,6 +144,8 @@ def main():
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="katalog konfiguracji klas")
     parser.add_argument("--diagnostics", type=Path, default=Path("diagnostics/last-run.json"),
                         help="plik diagnostyki poza wejściem i wyjściem")
+    parser.add_argument("--ocr-max-pages", type=int, default=DEFAULT_OCR_PAGE_BUDGET,
+                        help="maksymalna liczba różnych stron poddanych OCR na PDF (domyślnie 6)")
     parser.add_argument("--ocr-data", type=Path, help="katalog pol.traineddata dla opcjonalnego OCR")
     commands = parser.add_subparsers(dest="command")
     review = commands.add_parser("review", help="kolejka operatora i lokalny dziennik decyzji")
@@ -153,6 +162,8 @@ def main():
     correct.add_argument("--field", required=True, help="ścieżka pola, np. przelew_bankowy.kwota")
     correct.add_argument("--value", required=True, help="nowa wartość w składni JSON")
     args = parser.parse_args()
+    if args.ocr_max_pages < 0:
+        parser.error("--ocr-max-pages musi być nieujemne")
     input_dir, output_dir, diagnostic = (path.resolve() for path in (args.input, args.output, args.diagnostics))
     if (overlaps(input_dir, output_dir) or overlaps(diagnostic, input_dir)
             or overlaps(diagnostic, output_dir)):
@@ -172,7 +183,8 @@ def main():
                 except (KeyError, TypeError, AttributeError) as exc:
                     raise ValueError("Nieprawidłowa struktura diagnostyki lub konfiguracji.") from exc
         ocr = prepare_ocr(args.ocr_data) if args.ocr_data else None
-        return process(input_dir, output_dir, load_classes(args.config), diagnostic, ocr)
+        return process(input_dir, output_dir, load_classes(args.config), diagnostic, ocr,
+                       ocr_page_budget=args.ocr_max_pages)
     except (OSError, sqlite3.Error, ValueError) as exc:
         print(f"Błąd: {exc}", file=sys.stderr)
         return 2

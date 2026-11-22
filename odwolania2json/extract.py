@@ -15,6 +15,7 @@ from .operations import apply_fields
 from .transfer import transfer
 
 BUILDERS = {**LEGAL_BUILDERS, "transfer": transfer}
+DEFAULT_OCR_PAGE_BUDGET = 6
 
 
 class ReadError(ValueError):
@@ -31,8 +32,10 @@ def readable(text):
     return bool(re.search(r"[^\W\d_]{3}", text))
 
 
-def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
-    """Read the extraction text and attach scan quality to the document or raised error."""
+def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DEFAULT_OCR_PAGE_BUDGET):
+    """Read all native text by default. Only distinct pages attempted by OCR spend its budget."""
+    if type(ocr_page_budget) is not int or ocr_page_budget < 0:
+        raise ValueError("Budżet OCR musi być nieujemną liczbą całkowitą.")
     from .scan_quality import (native_observation, observation, ocr_observation,
                                quality_report, without_ocr_result)
 
@@ -45,7 +48,7 @@ def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
                 read_error = "pdf_encrypted"
                 raise ReadError("PDF jest zaszyfrowany")
             read_error = "pdf_page_tree_failed"
-            selected = reader.pages[:max_pages]
+            selected = reader.pages if max_pages is None else reader.pages[:max_pages]
             count = len(reader.pages)
             limit = len(selected)
             observations = [observation(number, "unassessed",
@@ -69,13 +72,21 @@ def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
 
         def read_scan(stop, *, start=None):
             first = 0 if start is None else start
+            allowed_stop = min(stop, first + ocr_page_budget - len(scanned_indices))
+            for index in range(allowed_stop, stop):
+                observations[index] = without_ocr_result(observations[index], "ocr_page_budget")
+            if allowed_stop <= first:
+                return
+            stop = allowed_stop
             pending = set(range(first, stop))
             scanned_indices.update(pending)
             missing_reason = "ocr_no_page_result"
             try:
                 results = scanner(path, stop) if start is None else scanner(path, stop, start=start)
                 for index, text, *angle in results:
-                    pending.discard(index)
+                    if index not in pending:
+                        continue
+                    pending.remove(index)
                     usable = readable(text)
                     if 0 <= index < len(pages):
                         observations[index] = ocr_observation(observations[index], text, usable)
@@ -94,7 +105,8 @@ def read_pdf(path, ocr=None, max_pages=6, *, classes=None):
         read_error = "ocr_failed"
         attempted = 0
         if ocr and pages and not readable(pages[0]):
-            attempted = 1 if any(map(readable, pages)) else min(2, len(pages))
+            # A later native appendix must not suppress OCR of the opening used for classification.
+            attempted = 1 if any(map(readable, pages[:2])) else min(2, len(pages))
             read_scan(attempted)
         if ocr and classes and pages:
             limit = max((cover_limit(pages[0], config) for config in classes.values()), default=0)
@@ -154,6 +166,12 @@ def extract(document, classes, *, capture_decision=False):
         document, name, signals = transfer_from_alternate_page(document, classes, views)
     if name == "negative":
         return None, {"class": name, "status": "negative", "signals": signals, "fields": {}}
+    return extract_class(document, classes, name, signals, views=views, capture_decision=capture_decision)
+
+
+def extract_class(document, classes, name, signals, *, views=None, capture_decision=False):
+    """Extract fields of an identified class, preserving the normal local field rules."""
+    scan = document.bank_scan
     config = classes[name]
     result = Extraction(document, config["schema"], signals)
     apply_fields(result, config.get("fields", {}), document.text)
