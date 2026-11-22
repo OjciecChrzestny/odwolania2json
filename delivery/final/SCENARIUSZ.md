@@ -2,6 +2,8 @@
 
 Dwie minuty to cel próby. Przewodnik HackNation zaleca demo do dwóch minut w zgłoszeniu. W publicznym przewodniku i regulaminie UZP nie znaleziono limitu wystąpienia przed jury. Osoba prowadząca potwierdza aktualny czas ze swoim koordynatorem przed finałem. [Przewodnik HackNation](https://hacknation.pl/przewodnik-uczestnika) · [Regulamin UZP](https://mudnibfuppwadjkynscc.supabase.co/storage/v1/object/public/task-files/057d36b5-cb92-4062-9393-983cb8a96088/files/aa36e74b-f96c-46cf-9970-5937ed203222.pdf#page=2)
 
+Przed pokazem wykonaj pełną próbę i uruchom generator. Bieżące PDF-y, `prezentacja.pdf` i `ekrany-rezerwowe.pdf`, znajdziesz w katalogu `MATERIALY`. Użyj plików z pełnym SHA sprawdzanego wydania w stopce.
+
 ## 0:00–0:35 · PDF, CLI i wynik
 
 Otwórz slajd 1 i syntetyczny plik `input/doc_01.pdf`. Uruchom etap `przelew`. Pokaż kwotę i dwa rachunki w `domyslne/output/doc_01.json`, a potem rozmiar wyniku dla `doc_02.pdf`.
@@ -54,4 +56,4 @@ Koordynator może przekazać za pomocą `--jakosc PLIK` w etapie `calosc` albo `
 
 Produkt działa lokalnie. Pokaz korzysta z wcześniej zbudowanego obrazu i uruchamia go z `--network none --pull never`. Usługa API jest poza pokazem. Przy awarii Docker lub SSH otwórz przygotowane wcześniej PDF-y z katalogu `materialy` oraz syntetyczne PDF-y z `proba/input` i `proba/rozszerzenie/input`. Na ekranie rezerwowym powiedz „To zapis próby na syntetycznych dokumentach”. Ekrany 1–4 pokazują wynik CLI, źródło kwoty, ręczną kontrolę i dodanie klasy. Przed finałem skopiuj gotowe materiały tej samej rewizji na sprzęt do prezentacji i sprawdź otwarcie bez sieci.
 
-PDF-y śledzone w repozytorium to wcześniejszy zapis udokumentowany w [archiwalnym raporcie próby](RAPORT-PROBY.md). Do tej próby używaj PDF-ów wygenerowanych przez `buduj.py` z bieżącego `potwierdzenie.json`.
+Zapis wcześniejszych prób i historyczne PDF-y są w [raporcie archiwalnym](RAPORT-PROBY.md#archiwalne-pdf-y).
