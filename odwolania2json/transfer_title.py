@@ -1,5 +1,10 @@
 """Read a transfer title within the field and page that contain it."""
 import re
+from collections import Counter
+from itertools import combinations
+from statistics import median
+
+from .bank_scan import word_rows
 
 from .model import FLAGS
 from .operations import normalize
@@ -181,5 +186,244 @@ def apply_transfer_title(result, rules):
             if found is not None:
                 value, offset = found
                 result.put(("przelew_bankowy", "tytul"), value, offset, rule["name"])
+                apply_scan_title(result, rules)
                 return
             start += len(page) + 1
+    apply_scan_title(result, rules)
+
+
+_SCAN_SECTION = re.compile(
+    r"^(?:dane (?:nadawcy|odbiorcy|zleceniodawcy|beneficjenta)|"
+    r"nazwa(?: i adres)?(?: (?:nadawcy|odbiorcy|zleceniodawcy|beneficjenta))?\s*:|"
+    r"recipient details|payer details|sender details|account details)(?=\W|$)",
+    re.I,
+)
+
+
+def cells(words):
+    """Split a physical row at horizontal gaps substantially wider than a word space."""
+    if not words:
+        return ()
+    height = median(word.height for word in words)
+    parts = [[words[0]]]
+    for previous, word in zip(words, words[1:]):
+        if word.x - previous.x - previous.width > 2.5 * height:
+            parts.append([])
+        parts[-1].append(word)
+    return parts
+
+
+def cell_text(cell):
+    parts = [cell[0].text]
+    for before, word in zip(cell, cell[1:]):
+        gap = word.x - before.x - before.width
+        if word.text in ".,;:?!)]}" and gap <= .34 * before.height:
+            parts[-1] += word.text
+        else:
+            parts.append(word.text)
+    return " ".join(parts)
+
+
+def word_baseline(word, height):
+    # Clip the effective descent of boxes containing an oversized OCR artifact.
+    return word.middle + min(word.height, height) / 2
+
+
+def punctuation_fits(mark, row, height):
+    left = min((mark.x - word.x - word.width for word in row if word.x + word.width <= mark.x),
+               default=float("inf"))
+    if left <= .34 * height:
+        return True
+    if mark.text not in ("-", "–", "—", "/"):
+        return False
+    right = min((word.x - mark.x - mark.width for word in row if word.x >= mark.x + mark.width),
+                default=float("inf"))
+    return max(left, right) <= 1.6 * height
+
+
+def deskewed_rows(positions):
+    words = [word for row in positions for word in row if word.height > 0]
+    if not words:
+        return ()
+    height = median(word.height for word in words)
+    typical = [word for word in words if word.height >= .4 * height]
+
+    slopes = []
+    for row in positions:
+        for cell in cells(row):
+            for first, last in combinations(cell, 2):
+                distance = last.x - first.x
+                if distance < 6 * height or min(first.height, last.height) < .55 * height:
+                    continue
+                slope = (word_baseline(last, height) - word_baseline(first, height)) / distance
+                if abs(slope) < .14:
+                    slopes.append(slope)
+    slope = median(slopes) if len(slopes) >= 4 else 0
+
+    def level(word):
+        return word_baseline(word, height) - slope * word.x
+
+    clustered = []
+    levels = []
+    for word in sorted(typical, key=level):
+        y = level(word)
+        if not clustered or y - median(levels[-1]) > .46 * height:
+            clustered.append([])
+            levels.append([])
+        clustered[-1].append(word)
+        levels[-1].append(y)
+    # Retain a small punctuation token only when it touches part of a text row.
+    for mark in words:
+        if mark.height >= .4 * height or mark.text.isalnum():
+            continue
+        neighbors = [(abs(level(mark) - median(ys)), row) for row, ys in zip(clustered, levels)
+                     if abs(level(mark) - median(ys)) <= .78 * height and punctuation_fits(mark, row, height)]
+        if neighbors:
+            min(neighbors, key=lambda item: item[0])[1].append(mark)
+    return tuple((median(ys), cells(sorted(row, key=lambda word: word.x)))
+                 for row, ys in zip(clustered, levels))
+
+
+def scan_boundary(text, patterns):
+    return (_NEXT_FIELD.match(text) or _SCAN_SECTION.match(text)
+            or any(pattern.fullmatch(text) for pattern in patterns))
+
+
+_CURRENCY_VALUE = re.compile(r"[+-−]?\d(?:[\d., ]*\d)?\s*(?:PLN|EUR|USD|GBP|CHF|zł)", re.I)
+_BANK_COLUMN = re.compile(r"(?:Data|Kwota|Waluta|Status|Amount|Date)[.:]?", re.I)
+
+
+def visual_match(pattern, text):
+    match = pattern.fullmatch(text)
+    if not match and text.endswith("."):
+        bare = pattern.fullmatch(text[:-1])
+        if bare and not bare[1]:
+            return bare
+    return match
+
+
+def scan_continuation(rows, level, anchors, height, patterns):
+    left = min(anchors) - 1.5 * height
+    right = max(anchors) + 1.5 * height
+    parts = []
+    for y, row in rows:
+        if y - level > 2.8 * height:
+            break
+        aligned = [cell for cell in row if left <= cell[0].x <= right]
+        if len(aligned) != 1:
+            break
+        cell, = aligned
+        if any(scan_boundary(cell_text(other), patterns) for other in row if other[0].x <= cell[0].x):
+            break
+        value, closed = row_value(cell_text(cell), patterns, inline=True)
+        if not present(value) or _CURRENCY_VALUE.fullmatch(value):
+            break
+        parts.append(value)
+        level = y
+        if closed or _QUOTED.match(" ".join(parts)):
+            break
+    return parts
+
+
+def visual_title(positions, layout_rules):
+    """Read a title from positioned OCR words on one physical page."""
+    rows = deskewed_rows(positions)
+    patterns = [pattern for _, pattern in layout_rules]
+    for rule, pattern in layout_rules:
+        values = set()
+        for index, (level, row) in enumerate(rows):
+            for column, cell in enumerate(row):
+                label = cell_text(cell)
+                match = visual_match(pattern, label)
+                if not match:
+                    continue
+                if rule["title_layout"] == "description" and any(
+                    _BANK_COLUMN.fullmatch(cell_text(other)) for other in row if other is not cell
+                ):
+                    continue
+                height = median(word.height for word in cell)
+                following = row[column + 1:]
+                initial, closed = row_value(match[1], patterns, inline=True)
+                anchor = cell[0]
+                if not match[1].strip() and following:
+                    adjacent = cell_text(following[0])
+                    if not scan_boundary(adjacent, patterns) and not _CURRENCY_VALUE.fullmatch(adjacent):
+                        initial, closed = row_value(adjacent, patterns, inline=True)
+                        anchor = following[0][0]
+                anchors = (anchor.x,)
+                if initial and anchor is cell[0]:
+                    prefix_words = len(label[:match.start(1)].split())
+                    if prefix_words < len(cell):
+                        anchors += (cell[prefix_words].x,)
+                parts = [initial] if present(initial) else []
+                if not closed and not _QUOTED.match(initial) and (parts or not match[1].strip()):
+                    parts.extend(scan_continuation(rows[index + 1:], level, anchors, height, patterns))
+                value = normalize(" ".join(parts), "title")
+                if present(value) and not _CURRENCY_VALUE.fullmatch(value) and not (
+                    rule["title_layout"] == "description" and _OPERATION_DESCRIPTION.fullmatch(value)
+                ):
+                    values.add(value)
+        if values:
+            return next(iter(values)) if len(values) == 1 else None
+    return None
+
+
+def alnum(value):
+    return "".join(character for character in value if character.isalnum())
+
+
+def case_supported_by_primary(candidates, document):
+    if len(candidates) != 2:
+        return None
+    left, right = candidates
+    if left[0] != right[0] or left[1].casefold() != right[1].casefold():
+        return None
+    page = left[0]
+    start = document.starts[page - 1][0]
+    stop = document.starts[page][0] if page < len(document.starts) else len(document.text)
+    reading = alnum(document.text[start:stop])
+    supported = [candidate for candidate in candidates if alnum(candidate[1]) in reading]
+    return supported[0] if len(supported) == 1 else None
+
+
+def apply_scan_title(result, rules, *, views=(), primary_document=None):
+    """Use OCR geometry without rendering another page or assigning a native title."""
+    layout_rules = [(rule, re.compile(rule["pattern"], FLAGS)) for rule in rules if rule.get("title_layout")]
+    if not layout_rules:
+        return
+    recorded = result.evidence.get(TITLE)
+    allowed = {rule["name"] for rule, _ in layout_rules} | {"ocr_tytul_pola"}
+    if recorded and recorded["rule"] not in allowed:
+        return
+    document = result.document
+    reading = primary_document if primary_document is not None else document
+    existing = result.data["przelew_bankowy"]["tytul"]
+    if existing and (recorded is None or recorded.get("source") == "text"):
+        return
+    page = recorded.get("page") if existing else None
+    primary = None
+    if reading.ocr_layout_tsv and len(reading.starts) == len(document.starts) == 1 and page in (None, 1):
+        primary = visual_title(word_rows(reading.ocr_layout_tsv), layout_rules)
+    candidates = Counter(
+        (view.page, value) for view in views
+        if view.positions and 1 <= view.page <= len(document.starts) and page in (None, view.page)
+        if (value := visual_title(view.positions, layout_rules))
+    )
+    if primary:
+        candidates[(1, primary)] += 1
+    confirmed = {reading for reading, count in candidates.items() if count >= 2}
+    if not confirmed and primary is None:
+        corroborated = case_supported_by_primary(tuple(candidates), reading)
+        if corroborated:
+            confirmed.add(corroborated)
+    if len(confirmed) == 1:
+        chosen_page, title = next(iter(confirmed))
+    elif not confirmed and primary and (not existing or primary.startswith(existing + " ")
+                                      or existing.startswith(primary + " ")
+                                      or alnum(primary) == alnum(existing)):
+        chosen_page, title = 1, primary
+    else:
+        return
+    if title != existing:
+        result.put(("przelew_bankowy", "tytul"), title, document.starts[chosen_page - 1][0],
+                   "ocr_tytul_pola", source="ocr")
