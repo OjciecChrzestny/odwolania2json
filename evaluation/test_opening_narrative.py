@@ -106,3 +106,57 @@ class OpeningNarrativeTest(unittest.TestCase):
         for quote in (f"„{copied}”", f"„\n{copied}\n”", copied, f"{LEGAL}\nKoniec cytatu."):
             with self.subTest(quote=quote):
                 self.assert_negative(f"{header}\nCytat:\n{quote}")
+
+    def test_action_fallback_uses_explicit_subject_and_one_physical_page(self):
+        from odwolania2json.filing_subject import select_filing_subject
+        from odwolania2json.legal import Fragment
+
+        config = self.classes["odwolanie"]
+        samples = (
+            ("treści Specyfikacji Warunków Zamówienia (SWZ) opublikowanej w celu prowadzenia postępowania", 4),
+            ("projektowanych postanowień umowy opisanej w załączniku", 12),
+            ("zmiany treści SWZ dokonanej w ubiegłym tygodniu", 5),
+        )
+        for text, reason in samples:
+            with self.subTest(reason=reason):
+                doc = Document.from_pages(("To jest pismo przewodnie.", text))
+                subject = select_filing_subject(doc, config, Fragment(text, doc.starts[1][0]))
+                self.assertEqual((subject.reason_id, subject.page), (reason, 2))
+                self.assertEqual(subject.description, config["reasons"]["descriptions"][str(reason)])
+                self.assertTrue(text.startswith(doc.text[subject.offset:subject.end]))
+
+    def test_first_title_item_has_precedence_and_copied_text_is_ignored(self):
+        from odwolania2json.filing_subject import select_filing_subject
+
+        config = self.classes["odwolanie"]
+        title = "Krajowa Izba Odwoławcza\nODWOŁANIE\nod czynności i zaniechań Zamawiającego\n\nwobec: .\n"
+        case = title + "1. modyfikacji treści SWZ;\n2. projektowanych postanowień umowy."
+        positive = select_filing_subject(Document.from_pages((case,)), config)
+        self.assertEqual((positive.reason_id, positive.page), (5, 1))
+        self.assertEqual(case[positive.offset:positive.end], "modyfikacji treści SWZ")
+        for text in (
+            "Cytat:\n" + case, "„\n" + case + "\n”",
+            title + "2. projektowanych postanowień umowy.",
+            title + "1. wezwania do uzupełnienia dokumentów;\n2. modyfikacji treści SWZ.",
+            title + "1. treści SWZ.\nŻądania:\n1. modyfikacji treści SWZ.",
+        ):
+            with self.subTest(text=text):
+                self.assertIsNone(select_filing_subject(Document.from_pages((text,)), config))
+
+    def test_fallback_prefers_screened_declaration_and_does_not_choose_a_later_request(self):
+        from odwolania2json.filing_subject import select_filing_subject
+        from odwolania2json.legal import Fragment
+
+        config = self.classes["odwolanie"]
+        for phrase in (
+            "zaniechania modyfikacji treści SWZ",
+            "treści Specyfikacji Warunków Zamówienia (SWZ)",
+            "wyboru oferty; następnie żądam modyfikacji treści SWZ",
+            "naruszenia ustawy; projektowanych postanowień umowy",
+        ):
+            doc = Document.from_pages((phrase,))
+            self.assertIsNone(select_filing_subject(doc, config, Fragment(phrase)))
+        pages = ("treści Specyfikacji Warunków", "Zamówienia (SWZ) opublikowanej")
+        doc = Document.from_pages(pages)
+        self.assertIsNone(select_filing_subject(doc, config, Fragment(doc.text)))
+        self.assertIsNone(select_filing_subject(doc, config, Fragment("modyfikacji treści SWZ")))
