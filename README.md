@@ -6,7 +6,7 @@ Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przel
 
 W `/opt/solution` użyj [polecenia z RUN.md](RUN.md). Przed oceną koordynator przygotowuje obraz `odwolania2json-jury:final-20261122` z zatwierdzonego SHA. Polecenie uruchamia jednorazowy kontener offline, zapisuje wyniki w `output/`, ewidencję w `.output.odwolania2json/`, a diagnostykę w `diagnostics/`. Domyślne Compose używa tych samych katalogów.
 
-[CLI z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md) · [Wgranie PDF-u w panelu z obrazu jurora](docs/operator.md) · [Dodanie klasy przez konfigurację](demo/rozszerzalnosc/README.md)
+[CLI z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md) · [Wgranie PDF-u w panelu z obrazu jurora](docs/operator.md) · [Dodanie klasy przez konfigurację](demo/rozszerzalnosc/README.md) · [Wyniki i tryb offline](docs/jakosc.md)
 
 ## Instalacja i własne PDF-y
 
