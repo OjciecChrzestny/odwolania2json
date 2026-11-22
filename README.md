@@ -1,12 +1,27 @@
 # Odwołania2JSON
 
-Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przelewów. Dla dokumentów obcych zapisuje plik 0 B. Dokumenty są klasyfikowane i odczytywane lokalnie na CPU. Gdy brakuje kwoty rozpoznanego przelewu, aplikacja może automatycznie poprosić Scaleway o odczyt wycinka z cyframi.
+Odwołania2JSON przetwarza wielodokumentowe sprawy Krajowej Izby Odwoławczej. Dla każdego odwołania, pełnomocnictwa i potwierdzenia przelewu zapisuje osobny JSON w schemacie UZP. Typ dokumentu rozpoznaje po treści, więc nazwy nadane skanom nie wpływają na klasyfikację.
+
+[Prezentacja techniczna (PDF, 7 slajdów)](docs/prezentacja.pdf) · [Własny PDF w panelu](docs/operator.md) · [Wydanie wdrożone na VM](https://github.com/OjciecChrzestny/odwolania2json/releases/tag/v2026.11.22-uzp-auto)
+
+## Jak działa ekstrakcja
+
+1. **Tekst i skany.** `pypdf` odczytuje warstwę tekstową każdej strony. Gdy potrzebny jest OCR, PDFium renderuje obraz, a Tesseract z polskim modelem rozpoznaje tekst lokalnie na CPU. Limit 6 stron OCR na PDF ogranicza koszt obliczeń długich skanów.
+2. **Klasa i pola.** Klasyfikator sumuje wagi sygnałów, m.in. nagłówków i etykiet. Sprawdza próg klasy oraz warunki wykluczające, np. status oczekującej płatności. Reguły wybranej klasy odczytują m.in. identyfikator pierwszego zarzutu, mocodawcę i pełnomocników albo kwotę i datę operacji. Remis lub brak rozpoznania daje plik 0 B. [Definicje klas](odwolania2json/classes)
+3. **Model dla jednego pola.** Jeżeli po lokalnym OCR pierwszej strony rozpoznanego przelewu brakuje kwoty, program może przekazać wycinki z cyframi i etykiety z zamkniętego słownika do Mistral Small 3.2 24B przez Scaleway. Błąd usługi pozostawia wynik lokalny. Panel i CLI dzielą limit **1 EUR na VM**, a trwała ewidencja zapobiega ponownemu wywołaniu dla tego samego pliku. [Sposób rozliczania prób](RUN.md)
+
+## Jak sprawdzić wynik i rozszerzyć schemat
+
+- **Dowód dla operatora.** W przykładzie przelewu pole `przelew_bankowy.kwota` ma wartość `123.45`. Panel pokazuje cytat „123,45”, numer strony i regułę odczytu. Operator otwiera tę stronę PDF-u, sprawdza czytelność i zapisuje akceptację lub korektę w osobnym dzienniku. [Pokaz na własnym PDF-ie](docs/operator.md)
+- **Nowy typ i nowe pola.** Jeden plik JSON definiuje sygnały, próg, schemat i reguły odczytu. Na tym samym obrazie Dockera można w ten sposób dodać zawiadomienie oraz zagnieżdżony obiekt `miejsce_posiedzenia` z budynkiem i salą. W przykładzie brak numeru sali daje `null`, a podobne pismo obce daje 0 B. [Próba do samodzielnego odtworzenia](demo/rozszerzalnosc/README.md)
+
+## Wyniki i zakres pomiaru
+
+W wydaniu lokalnym `55afdb3c` mikro-F1 pól wyniósł **99,9265% na 128 rozwojowych PDF-ach** oraz **95,5372% na 30 publicznych skanach użytych do strojenia**. W odrębnej próbie 72 syntetycznych dokumentów klasyfikator pominął wszystkie 58 przelewów o nowych układach. Partia techniczna 150 różnych PDF-ów na 2 vCPU zakończyła się w 60,80 s. [Raport mierzonego wydania](https://github.com/OjciecChrzestny/odwolania2json/releases/tag/v2026.11.22-uzp) · [Opis miary i zbiorów](docs/jakosc.md)
 
 ## Uruchomienie na VM oceny
 
-Włóż PDF-y do `/opt/solution/input/` i w `/opt/solution` wykonaj `./run-jury.sh`. Wyniki pojawią się w `output/`. Aplikacja sama wybiera strony do polskiego OCR i przydziela do 6 różnych stron każdemu PDF-owi. Rozpoznany przelew z brakującą kwotą może uruchomić odczyt wycinka przez Scaleway. Wspólny limit CLI i panelu wynosi 1 EUR na VM. [RUN.md](RUN.md)
-
-[Wydanie do pobrania](https://github.com/OjciecChrzestny/odwolania2json/releases) · [Własny PDF w panelu](docs/operator.md) · [Dodanie klasy przez konfigurację](demo/rozszerzalnosc/README.md) · [Wyniki pomiarów](docs/jakosc.md)
+Włóż PDF-y do `/opt/solution/input/`. W katalogu `/opt/solution` wykonaj `./run-jury.sh`. Wyniki pojawią się w `output/` w tych samych podkatalogach, z nazwami plików wejściowych i rozszerzeniem `.json`. Wdrożone wydanie `bfec9183` przeszło próbę tej komendy jako administrator po restarcie VM. Wszystkie trzy wyniki były zgodne ze wzorcem w 1,67 s. Próba objęła tekstowy przelew, skan i dokument obcy. Dla wersji z automatycznym API nie powtarzaliśmy pełnego pomiaru F1. Wynik na tajnych sprawach określi jury. [RUN.md](RUN.md)
 
 <details>
 <summary>Instalacja programistyczna bez Dockera</summary>
