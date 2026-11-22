@@ -124,11 +124,15 @@ def main():
     parser.add_argument("--docker", default="docker")
     parser.add_argument("--user", default=f"{os.getuid()}:{os.getgid()}", help="UID:GID kontenera, dla Docker rootless 0:0")
     parser.add_argument("--pdf", type=Path, help="opcjonalny własny PDF z warstwą tekstową")
+    parser.add_argument("--tylko-pdf", action="store_true",
+                        help="pomiń generowanie syntetyków, użyj na hoście biblioteki standardowej")
     parser.add_argument("--dataset", type=Path, help="opcjonalna przypięta kopia DEV do regresji 11 PDF-ów")
     args = parser.parse_args()
     args.work = args.work.resolve()
     if args.dataset:
         args.dataset = args.dataset.resolve()
+    if args.tylko_pdf and not args.pdf:
+        parser.error("--tylko-pdf wymaga --pdf")
     if args.pdf and (not args.pdf.is_file() or args.pdf.suffix.lower() != ".pdf"):
         parser.error("--pdf wymaga istniejącego pliku PDF")
 
@@ -139,7 +143,8 @@ def main():
     (args.work / "obraz.txt").write_text(f"{image}\n", encoding="utf-8")
     print(f"Obraz | {image}", flush=True)
     input_dir = args.work / "input"
-    notices, locations = prepare_input(input_dir)
+    if not args.tylko_pdf:
+        notices, locations = prepare_input(input_dir)
     dev_input = args.work / "development-pdf"
     subset = args.work / "development-manifest.json"
     if args.dataset:
@@ -149,21 +154,27 @@ def main():
         custom_input.mkdir()
         shutil.copyfile(args.pdf, custom_input / "p04.pdf")
 
-    samples, dev = {}, {}
+    samples, custom, dev = {}, {}, {}
     for phase, config in profiles(args.work):
         print(f"\nProfil {phase}", flush=True)
-        output, records = run_cli(args, image, input_dir, args.work / phase, config)
-        expected = locations if phase == "obiekt" else notices
-        samples[phase] = synthetic(input_dir, output, records, expected, phase in {"klasa", "obiekt"})
+        if not args.tylko_pdf:
+            output, records = run_cli(args, image, input_dir, args.work / phase, config)
+            expected = locations if phase == "obiekt" else notices
+            samples[phase] = synthetic(input_dir, output, records, expected, phase in {"klasa", "obiekt"})
         if args.pdf:
             output, records = run_cli(args, image, custom_input, args.work / f"juror-{phase}", config)
-            row = records["p04.json"]
-            print(f"p04.json | {row['class']} | {(output / 'p04.json').stat().st_size} B", flush=True)
+            result = output / "p04.json"
+            custom[phase] = sha(result)
+            print(f"p04.json | {records[result.name]['class']} | {result.stat().st_size} B", flush=True)
         if args.dataset:
             output, records = run_cli(args, image, dev_input, args.work / f"development-{phase}", config)
             dev[phase] = results(output, records, dev_classes)
 
-    equal(samples["powrot"], samples["konkurs"], "Powrót syntetyków do profilu konkursowego")
+    if samples:
+        equal(samples["powrot"], samples["konkurs"], "Powrót syntetyków do profilu konkursowego")
+    if custom:
+        equal(custom["powrot"], custom["konkurs"], "Powrót własnego PDF-u do profilu konkursowego")
+        print("Własny PDF | wynik po powrocie identyczny bajtowo z pierwszym przebiegiem.")
     if args.dataset:
         reference = dev["konkurs"]
         for phase in ("klasa", "obiekt", "powrot"):

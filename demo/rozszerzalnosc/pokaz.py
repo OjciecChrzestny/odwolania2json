@@ -4,15 +4,15 @@ import json
 import shutil
 from pathlib import Path
 
-from pypdf import PdfReader, PdfWriter
-from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
-
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 
 
 def write_pdf(path, pages):
     """Minimalny PDF z warstwą tekstową, tak jak w testach wariantu A."""
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
     pdf = PdfWriter()
     font = DictionaryObject({
         NameObject("/Type"): NameObject("/Font"),
@@ -67,6 +67,8 @@ def write_new_notice(path):
 
 
 def show_source(pdf, diagnostics, output):
+    from pypdf import PdfReader
+
     document = next(
         (row for row in json.loads(diagnostics.read_bytes())["documents"] if row["output"] == output),
         None,
