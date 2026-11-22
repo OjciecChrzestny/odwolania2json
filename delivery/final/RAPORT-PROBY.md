@@ -11,7 +11,7 @@ Z czystego klonu rewizji `5fa11680eac824896839ef4b7f281e1f54b3ed68` na VPS uruch
 | Czas na rozgrzanym obrazie | Przygotowanie dokumentów 0,216 s, przelew z weryfikacją 1,283 s, dodanie klasy z regresją 2,464 s. Łącznie 3,963 s dla tych trzech etapów. Próba z głosem prezentera i projektorem czeka na pomiar. |
 | Materiały | `prezentacja.pdf` ma 5 stron, a `ekrany-rezerwowe.pdf` ma 3 strony. Odczytano tekst i sprawdzono render wszystkich ośmiu stron. |
 
-Na slajdzie jakości 0,9963 dotyczy A3 na 128 rozwojowych PDF-ach. Wynik 0,9822 pochodzi z wcześniejszego testu końcowego A2 na 31 PDF-ach. A2 pominął pełnomocnictwo, więc miernik oznaczył ten przebieg jako nieważny. Dziesięć spraw odłożonych dla A3 czeka na odrębny test. [Odbiór A3](../../RAPORT_A3.md)
+Na slajdzie jakości 0,9963 dotyczy A3 na 128 rozwojowych PDF-ach. Wynik 0,9822 pochodzi z wcześniejszego testu końcowego A2 na 31 PDF-ach. A2 pominął pełnomocnictwo, więc miernik oznaczył ten przebieg jako nieważny. Dziesięć spraw odłożonych dla A3 czeka na odrębny test. [Odbiór A3](../../docs/historia/RAPORT_A3.md)
 
 Wyniki próby i czasy są na VPS w `~/uzp-parallel/main-proof/5fa11680eac8/judge/`. [Instrukcja powtórzenia z czystej kopii](SCENARIUSZ.md#próba-na-żywo)
 
