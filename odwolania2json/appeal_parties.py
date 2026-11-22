@@ -19,7 +19,8 @@ ROLE = re.compile(
 END = re.compile(
     r"^[ \t]*(?:ODWO[ŁL]ANIE[ \t]*:?$|Dotyczy\b|Wnosz[ęe] (?:o |odwo[łl]anie)|"
     r"Zarzuty\b|Uzasadnienie\b|Przedmiot zam[óo]wienia\b|Za[łl][ąa]czniki\b|"
-    r"Do wiadomo[śs]ci\b|Stopka\b|Podpis\b|Cytat\b)", FLAGS,
+    r"(?P<distribution>Do wiadomo[śs]ci\b|Rozdzielnik\b|Kopi[eę][ \t]+otrzymuj\w*\b|"
+    r"Kopia[ \t]+dla\b|Otrzymuj[ąa]\b)|Stopka\b|Podpis\b|Cytat\b)", FLAGS,
 )
 REPRESENTATION = re.compile(
     r"\b(?:(?:reprezentowan[yaeią]|dzia[łl]aj[ąa]c[yae]|zast[ęe]powan[yaeią])\s+przez\b"
@@ -79,6 +80,7 @@ class Section:
     block: Fragment
     layout: bool = False
     joint_group: bool = False
+    distribution: Fragment | None = None
 
 
 def _role(label):
@@ -94,13 +96,16 @@ def _sections(header):
         labels.append(label)
     for index, label in enumerate(labels):
         end = labels[index + 1].start() if index + 1 < len(labels) else len(header.text)
-        block = header.slice(label.end(), end).before(END.pattern)
+        raw = header.slice(label.end(), end)
+        boundary = END.search(raw.text)
+        block = raw.slice(0, boundary.start()) if boundary else raw
+        distribution = raw.slice(boundary.start()) if boundary and boundary["distribution"] else None
         role = _role(label["role"])
         paired = _joint_buyers(block) if role == BUYER else None
         if paired:
             yield from paired
         else:
-            yield Section(role, label["qualifier"] or "", block)
+            yield Section(role, label["qualifier"] or "", block, distribution=distribution)
 
 
 def _joint_buyers(block):
@@ -141,7 +146,8 @@ def _column_sections(tsv):
             if any(word.x < border < word.x + word.width for word in following):
                 break
             line = " ".join(word.text for word in following)
-            if END.match(line):
+            boundary = END.match(line)
+            if boundary and not boundary["distribution"]:
                 break
             for side in (0, 1):
                 parts = [word.text for word in following if int(word.x >= border) == side]
@@ -153,7 +159,8 @@ def _column_sections(tsv):
             if len(matched) != 1:
                 break
             item = matched[0]
-            sections.append(Section(item.role, item.qualifier, item.block, layout=True))
+            sections.append(Section(item.role, item.qualifier, item.block, layout=True,
+                                    distribution=item.distribution))
         if len(sections) == 2 and all(_name(item.block) for item in sections):
             return sections
     return []
@@ -359,6 +366,7 @@ def _update_party(result, config, index, section):
             result.put((*path, "prowadzacy_postepowanie"), lead, block.offset, "rola_we_wspolnym_zamowieniu")
         return
 
+    _discard_distribution_contacts(result, path, row, section, marker)
     observed, mail = _counsel(block, marker) if marker else ({}, None)
     if observed:
         if row["przez-pelnomocnika"] != 1:
@@ -371,6 +379,21 @@ def _update_party(result, config, index, section):
         _update_mail(result, path, row, section, marker, mail)
     elif row["przez-pelnomocnika"] is None:
         result.put((*path, "przez-pelnomocnika"), 0, block.offset, "brak_umocowania_w_naglowku")
+
+
+def _discard_distribution_contacts(result, path, row, section, marker):
+    if section.distribution is None:
+        return
+    own = normalize(section.block.text, "text") or ""
+    copied = normalize(section.distribution.text, "text") or ""
+    for key, value in row["pelnomocnik"].items():
+        if value and value in copied and value not in own:
+            row["pelnomocnik"][key] = None
+            target = (*path, "pelnomocnik", key)
+            result.evidence.pop(".".join(map(str, target)), None)
+    if marker is None and row["przez-pelnomocnika"] == 1 and REPRESENTATION.search(section.distribution.text):
+        offset = result.document.starts[0][0] if section.layout else section.block.offset
+        result.put((*path, "przez-pelnomocnika"), 0, offset, "rozrozniono_odwolujacego_od_odbiorcy_kopii")
 
 
 def _update_mail(result, path, row, section, marker, mail):

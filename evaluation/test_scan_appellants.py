@@ -159,3 +159,25 @@ class AppealPartiesTest(TestCase):
             with self.subTest(expected=expected):
                 data, _ = self.appeal(COVER + f"Odwołujący: {header}\nZamawiający: Gmina Promyk" + BODY)
                 self.assertEqual([row["nazwa"] for row in data[A]], [expected])
+
+    def test_copy_recipient_never_replaces_appellant_counsel(self):
+        data, fields = self.appeal(
+            COVER + "Zamawiający: Gmina Złota\nOdwołujący: Spółka Werbena S.A.\n"
+            "Kopię otrzymuje inny wykonawca:\nreprezentowany przez adw. Emilia Mięta\n"
+            "Biuro Wydmowe Sp. z o.o.\nE-mail: wydmy@example.invalid" + BODY,
+        )
+        self.assertEqual(data[A][0]["przez-pelnomocnika"], 0)
+        self.assertTrue(all(value is None for value in data[A][0]["pelnomocnik"].values()))
+        self.assertFalse(any(name.startswith(f"{A}.0.pelnomocnik.") for name in fields))
+
+    def test_distribution_office_does_not_fill_separately_confirmed_counsel_office(self):
+        own = (COVER + "Zamawiający: Gmina Zielna\nOdwołujący: Brzoza Północ S.A.\n"
+               "zastępowana przez adw. Teresa Jaskółka\n")
+        tail = "Rozdzielnik dokumentu:\nKopię otrzymuje:\nBiuro Mewa Sp. z o.o.\n"
+        for real_office in ("", "Kancelaria Własna Jaskółka\n"):
+            with self.subTest(own=bool(real_office)):
+                data, fields = self.appeal(own + real_office + tail + BODY)
+                counsel = data[A][0]["pelnomocnik"]
+                self.assertEqual(counsel["imie_nazwisko"], "Teresa Jaskółka")
+                self.assertEqual(counsel["nazwa"], "Kancelaria Własna Jaskółka" if real_office else None)
+                self.assertEqual(fields[f"{A}.0.pelnomocnik.imie_nazwisko"]["page"], 1)
