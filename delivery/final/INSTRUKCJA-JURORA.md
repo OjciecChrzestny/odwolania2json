@@ -49,7 +49,7 @@ OMP_THREAD_LIMIT=1 python -m odwolania2json --input "$IN" --output "$OUT" \
 
 ### Docker Compose z OCR
 
-Uruchom na silniku Docker obsługującym kontenery linuksowe, z Compose v2 i BuildKit. W trybie rootless wykonaj `export ODW_UID=0 ODW_GID=0` po ustawieniu identyfikatorów z przykładu, przed uruchomieniem kontenera.
+Uruchom na silniku Docker obsługującym kontenery linuksowe, z Compose v2. Wczytaj wcześniej lokalny obraz `odwolania2json-jury:final-20261122`. [Przygotowanie obrazu z zatwierdzonego SHA](../../RUN.md#przygotowanie-obrazu-przed-oceną) W trybie rootless wykonaj `export ODW_UID=0 ODW_GID=0` po ustawieniu identyfikatorów z przykładu, przed uruchomieniem kontenera.
 
 ```sh
 OUT="$WORK/JSON Compose"
@@ -58,7 +58,6 @@ export ODW_INPUT_DIR="$IN" ODW_OUTPUT_PARENT="$WORK" ODW_OUTPUT_NAME="$(basename
 export ODW_DIAGNOSTICS_DIR="$DIAG"
 export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
 mkdir -p "$OUT" "$DIAG" "$WORK/.${ODW_OUTPUT_NAME}.odwolania2json"
-docker compose build cli
 docker compose run --rm --pull never -e OMP_THREAD_LIMIT=1 cli
 ```
 

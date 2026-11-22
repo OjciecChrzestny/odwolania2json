@@ -4,9 +4,9 @@ Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przel
 
 ## Uruchomienie na VM oceny
 
-W `/opt/solution` użyj [polecenia z RUN.md](RUN.md). Obraz `jury` przygotowuje się przed oceną. Polecenie uruchamia jednorazowy kontener offline, zapisuje wyniki w `output/` i trzyma stan oraz diagnostykę w `.jury/`.
+W `/opt/solution` użyj [polecenia z RUN.md](RUN.md). Przed oceną koordynator przygotowuje obraz `odwolania2json-jury:final-20261122` z zatwierdzonego SHA. Polecenie uruchamia jednorazowy kontener offline, zapisuje wyniki w `output/` i trzyma stan oraz diagnostykę w `.jury/`.
 
-[Próba jurora z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md)
+[CLI z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md) · [Wgranie PDF-u i panel operatora](docs/operator.md) · [Dodanie klasy przez konfigurację](demo/rozszerzalnosc/README.md)
 
 ## Instalacja i własne PDF-y
 
@@ -66,13 +66,12 @@ A3 odczytuje przez OCR wybrane strony, gdy brakuje czytelnej warstwy tekstowej. 
 
 ## Docker Compose
 
-Wymagany jest Docker Engine z kontenerami linuksowymi, Compose v2 i BuildKit. Budowa obrazu pobiera zależności. Compose buduje profil `jury` z polskim OCR i uruchamia go z wyłączoną siecią. W trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed uruchomieniem kontenera.
+Wymagany jest Docker Engine z kontenerami linuksowymi i Compose v2. Compose uruchamia wcześniej przygotowany `odwolania2json-jury:final-20261122` z polskim OCR i wyłączoną siecią. [Przygotowanie i weryfikacja obrazu](RUN.md#przygotowanie-obrazu-przed-oceną) W trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed uruchomieniem kontenera.
 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
 export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
 # Wstaw PDF-y do input/ przed uruchomieniem usługi.
-docker compose build cli
 docker compose run --rm --pull never -e OMP_THREAD_LIMIT=1 cli
 ```
 
