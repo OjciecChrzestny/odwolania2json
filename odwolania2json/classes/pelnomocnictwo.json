@@ -56,7 +56,7 @@
     "consortium": "\\b(?:konsorcjum\\)?[ \\t]*:|w składzie[ \\t]*:)[ \\t\\n]*(?P<members>\\d+[.)][ \\t\\n]+[\\s\\S]+)",
     "member": "(?:^|;[ \\t\\n]*|\\n[ \\t]*)\\d+[.)][ \\t\\n]+(?P<entity>[\\s\\S]+?)(?=;[ \\t\\n]*\\d+[.)]|\\n[ \\t]*\\d+[.)][ \\t]|\\Z)",
     "representing": "\\b(?:do reprezentacji|działając w imieniu(?: i na rzecz)?)\\s+",
-    "name_end": ",\\s*(?:(?:ul|al|pl|os)\\.|(?:z siedzibą|KRS|NIP|REGON|PESEL)\\b)|[ \\t]+z siedzibą\\b|\\s*\\((?:KRS|NIP|PESEL|dalej)\\b|,\\s*\\d{2}-\\d{3}|\\n[ \\t]*(?:ul\\.|al\\.|adres\\b|dane\\b|KRS\\b|NIP\\b|REGON\\b|PESEL\\b)",
+    "name_end": ",\\s*(?:(?:ul|al|pl|os)\\.|(?:z siedzibą|KRS|NIP|REGON|PESEL)\\b)|[ \\t\\n]+z[ \\t\\n]+siedzibą\\b|\\s*\\((?:KRS|NIP|PESEL|dalej)\\b|,\\s*\\d{2}-\\d{3}|\\n[ \\t]*(?:ul\\.|al\\.|adres\\b|dane\\b|KRS\\b|NIP\\b|REGON\\b|PESEL\\b)",
     "physical": "\\bosob[ayą]\\s+fizyczn|\\bPESEL\\b|\\bprowadząc\\w*\\s+działalność gospodarczą|\\bCentralnej Ewidencji i Informacji o Działalności Gospodarczej\\b",
     "counsel": "\\b(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)\\s*((?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)(?:[ \\t\\n]+(?-i:[A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+(?:[-’'][A-ZĄĆĘŁŃÓŚŹŻ][^\\W\\d_]+)?)){1,3})(?=\\s*(?:\\(|,|;|$|(?:PESEL|nr wpisu|do reprezentowania)\\b))",
     "counsel_label": "^[ \\t]*(?:§[ \\t]*\\d+[.)][ \\t]*)?Pełnomocni(?:k|cy)(?:[ \\t]*:[ \\t]*|[ \\t]*$|[ \\t]+(?=(?:r\\.\\s*pr\\.|r\\.?\\s*p\\.|radc(?:a|ę|y)\\s+prawn(?:y|ego)|adw\\.|adwokat(?:a)?)))",
