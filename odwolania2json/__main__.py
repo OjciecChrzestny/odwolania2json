@@ -18,6 +18,7 @@ from .filing_reason import filing_extractor, source_clause
 from .filing_subject import filing_subject_extractor
 from .model import DEFAULT_CONFIG, load_classes
 from .ocr import prepare_ocr
+from .power_name_ocr import verify_power_name
 from .review import (REPORT_VERSION, config_digest, digest, extractor_revision, journal_path,
                      pdf_digest, review_details, run_review)
 
@@ -104,6 +105,8 @@ def process(input_dir, output_dir, classes, diagnostics, ocr=None, *,
                           "error": str(exc), "fields": {}}
             else:
                 value, record = extract_document(document, classes)
+                if classes.get(record["class"], {}).get("builder") == "power_of_attorney":
+                    value, record = verify_power_name(pdf, ocr, value, record, ocr_pages)
                 record = {**record, "ocr_pages": ocr_pages}
                 if negative_verifier is not None and record["status"] == "negative" and "przelew" in classes:
                     value, record = negative_verifier(pdf, document, classes, record)
