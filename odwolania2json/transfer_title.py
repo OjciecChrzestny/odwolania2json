@@ -1,6 +1,7 @@
 """Read a transfer title within the field and page that contain it."""
 import re
 from collections import Counter
+from dataclasses import dataclass
 from itertools import combinations
 from statistics import median
 
@@ -194,7 +195,7 @@ def apply_transfer_title(result, rules):
 
 _SCAN_SECTION = re.compile(
     r"^(?:dane (?:nadawcy|odbiorcy|zleceniodawcy|beneficjenta)|"
-    r"nazwa(?: i adres)?(?: (?:nadawcy|odbiorcy|zleceniodawcy|beneficjenta))?\s*:|"
+    r"nazwa(?: i adres)?(?: (?:nadawcy|odbiorcy|zleceniodawcy|beneficjenta)\b|\s*:)|"
     r"recipient details|payer details|sender details|account details)(?=\W|$)",
     re.I,
 )
@@ -318,11 +319,33 @@ def scan_continuation(rows, level, anchors, height, patterns):
         value, closed = row_value(cell_text(cell), patterns, inline=True)
         if not present(value) or _CURRENCY_VALUE.fullmatch(value):
             break
-        parts.append(value)
+        parts.append((value, cell))
         level = y
-        if closed or _QUOTED.match(" ".join(parts)):
+        if closed or _QUOTED.match(" ".join(fragment for fragment, _ in parts)):
             break
     return parts
+
+
+@dataclass(frozen=True)
+class VisualTitle:
+    value: str
+    supported_spaces: frozenset[int]
+
+
+def physical_spaces(value, source_cells):
+    separated_pairs = {
+        (before.text, after.text)
+        for cell in source_cells for before, after in zip(cell, cell[1:])
+        if .3 * min(before.height, after.height) <= after.x - before.x - before.width
+    }
+    tokens = value.split()
+    offset = 0
+    supported = set()
+    for before, after in zip(tokens, tokens[1:]):
+        offset += len(before)
+        if (before, after) in separated_pairs:
+            supported.add(offset)
+    return frozenset(supported)
 
 
 def visual_title(positions, layout_rules):
@@ -330,7 +353,7 @@ def visual_title(positions, layout_rules):
     rows = deskewed_rows(positions)
     patterns = [pattern for _, pattern in layout_rules]
     for rule, pattern in layout_rules:
-        values = set()
+        values = {}
         for index, (level, row) in enumerate(rows):
             for column, cell in enumerate(row):
                 label = cell_text(cell)
@@ -344,27 +367,31 @@ def visual_title(positions, layout_rules):
                 height = median(word.height for word in cell)
                 following = row[column + 1:]
                 initial, closed = row_value(match[1], patterns, inline=True)
-                anchor = cell[0]
+                value_cell = cell
                 if not match[1].strip() and following:
                     adjacent = cell_text(following[0])
                     if not scan_boundary(adjacent, patterns) and not _CURRENCY_VALUE.fullmatch(adjacent):
                         initial, closed = row_value(adjacent, patterns, inline=True)
-                        anchor = following[0][0]
-                anchors = (anchor.x,)
-                if initial and anchor is cell[0]:
+                        value_cell = following[0]
+                anchors = (value_cell[0].x,)
+                if initial and value_cell is cell:
                     prefix_words = len(label[:match.start(1)].split())
                     if prefix_words < len(cell):
                         anchors += (cell[prefix_words].x,)
-                parts = [initial] if present(initial) else []
+                parts = [(initial, value_cell)] if present(initial) else []
                 if not closed and not _QUOTED.match(initial) and (parts or not match[1].strip()):
                     parts.extend(scan_continuation(rows[index + 1:], level, anchors, height, patterns))
-                value = normalize(" ".join(parts), "title")
+                value = normalize(" ".join(fragment for fragment, _ in parts), "title")
                 if present(value) and not _CURRENCY_VALUE.fullmatch(value) and not (
                     rule["title_layout"] == "description" and _OPERATION_DESCRIPTION.fullmatch(value)
                 ):
-                    values.add(value)
+                    spaces = physical_spaces(value, (source for _, source in parts))
+                    values.setdefault(value, set()).update(spaces)
         if values:
-            return next(iter(values)) if len(values) == 1 else None
+            if len(values) == 1:
+                value, spaces = next(iter(values.items()))
+                return VisualTitle(value, frozenset(spaces))
+            return None
     return None
 
 
@@ -386,6 +413,35 @@ def case_supported_by_primary(candidates, document):
     return supported[0] if len(supported) == 1 else None
 
 
+def whitespace_offsets(value):
+    offset = 0
+    for word in value.split()[:-1]:
+        offset += len(word)
+        yield offset
+
+
+def complementary_spaces(observations):
+    # The readings must agree on every non-whitespace character. Each must
+    # contribute a distinct, spatially supported boundary from the same page.
+    variants = {}
+    for page, reading in observations:
+        variants.setdefault((page, reading.value), set()).update(reading.supported_spaces)
+    if len(variants) != 2:
+        return None
+    (left_page, left), (right_page, right) = variants
+    compact = "".join(left.split())
+    if left_page != right_page or compact != "".join(right.split()):
+        return None
+    a, b = set(whitespace_offsets(left)), set(whitespace_offsets(right))
+    left_only, right_only = a - b, b - a
+    if not left_only or not right_only:
+        return None
+    if not left_only <= variants[(left_page, left)] or not right_only <= variants[(right_page, right)]:
+        return None
+    stops = [0, *sorted(a | b), len(compact)]
+    return left_page, " ".join(compact[first:last] for first, last in zip(stops, stops[1:]))
+
+
 def apply_scan_title(result, rules, *, views=(), primary_document=None):
     """Use OCR geometry without rendering another page or assigning a native title."""
     layout_rules = [(rule, re.compile(rule["pattern"], FLAGS)) for rule in rules if rule.get("title_layout")]
@@ -401,27 +457,30 @@ def apply_scan_title(result, rules, *, views=(), primary_document=None):
     if existing and (recorded is None or recorded.get("source") == "text"):
         return
     page = recorded.get("page") if existing else None
-    primary = None
+    original = None
     if reading.ocr_layout_tsv and len(reading.starts) == len(document.starts) == 1 and page in (None, 1):
-        primary = visual_title(word_rows(reading.ocr_layout_tsv), layout_rules)
-    candidates = Counter(
-        (view.page, value) for view in views
-        if view.positions and 1 <= view.page <= len(document.starts) and page in (None, view.page)
-        if (value := visual_title(view.positions, layout_rules))
-    )
-    if primary:
-        candidates[(1, primary)] += 1
-    confirmed = {reading for reading, count in candidates.items() if count >= 2}
-    if not confirmed and primary is None:
-        corroborated = case_supported_by_primary(tuple(candidates), reading)
+        original = visual_title(word_rows(reading.ocr_layout_tsv), layout_rules)
+    observations = [(view.page, title) for view in views
+                    if view.positions and 1 <= view.page <= len(document.starts) and page in (None, view.page)
+                    if (title := visual_title(view.positions, layout_rules))]
+    if original is not None:
+        observations.append((1, original))
+    candidates = Counter((number, title.value) for number, title in observations)
+    confirmed = {value for value, count in candidates.items() if count >= 2}
+    if not confirmed:
+        corroborated = complementary_spaces(observations)
+        if corroborated is None and original is None:
+            corroborated = case_supported_by_primary(tuple(candidates), reading)
         if corroborated:
             confirmed.add(corroborated)
     if len(confirmed) == 1:
         chosen_page, title = next(iter(confirmed))
-    elif not confirmed and primary and (not existing or primary.startswith(existing + " ")
-                                      or existing.startswith(primary + " ")
-                                      or alnum(primary) == alnum(existing)):
-        chosen_page, title = 1, primary
+    elif not confirmed and original is not None:
+        title = original.value
+        if existing and not (title.startswith(existing + " ") or existing.startswith(title + " ")
+                             or alnum(title) == alnum(existing) or _SCAN_SECTION.match(existing)):
+            return
+        chosen_page = 1
     else:
         return
     if title != existing:

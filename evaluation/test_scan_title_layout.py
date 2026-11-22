@@ -113,6 +113,40 @@ class ScanTitleTest(unittest.TestCase):
         self.assertEqual(result.data["przelew_bankowy"]["tytul"], "Dopłata RV/921")
         self.assertEqual(result.evidence[TITLE]["source"], "ocr")
 
+    def test_joins_only_complementary_spaces_with_physical_gaps(self):
+        a = positions(((20, "Tytuł:"),),
+                      ((20, "ZnakMW pracowni"),),
+                      ((20, "na stanowisku VI K"),))
+        b = positions(((20, "Tytuł:"),),
+                      ((20, "ZnakM W pracowni"),),
+                      ((20, "na stanowisku VIK"),))
+        data = Document.from_pages(["Tytuł: ZnakMW pracowni na stanowisku VI K"])
+        primary = replace(data, ocr_layout_tsv=tsv(a))
+        backup = ScanView(1, "", (), positions=b)
+        result = Extraction(primary, self.config["schema"])
+        apply_scan_title(result, self.rules, views=[backup])
+        self.assertEqual(result.data["przelew_bankowy"]["tytul"], "ZnakM W pracowni na stanowisku VI K")
+
+        crowded = list(b[1])
+        crowded[1] = replace(crowded[1], x=crowded[0].x + crowded[0].width + 1)
+        backup = replace(backup, positions=(b[0], tuple(crowded), b[2]))
+        result = Extraction(primary, self.config["schema"])
+        apply_scan_title(result, self.rules, views=[backup])
+        self.assertEqual(result.data["przelew_bankowy"]["tytul"], "ZnakMW pracowni na stanowisku VI K")
+
+    def test_selects_labelled_column_in_both_orders_and_stops_at_cut(self):
+        for left, right in ((25, 390), (390, 25)):
+            with self.subTest(title_x=left):
+                def row(*items):
+                    return tuple(sorted(items))
+                rows = positions(
+                    row((left, "Tytuł"), (right, "Nazwa odbiorcy")),
+                    row((left, "Dostawa - etap IV"), (right, "Pracownia Tkacka")),
+                    ((right, "Spółdzielnia"),),
+                )
+                data, _ = self.parse("Tytuł:\nNazwa odbiorcy", rows)
+                self.assertEqual(data["przelew_bankowy"]["tytul"], "Dostawa - etap IV")
+
     def test_native_title_is_preserved(self):
         doc = Document.from_pages(["Tytuł: Oryginał"])
         result = Extraction(doc, self.config["schema"])
