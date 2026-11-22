@@ -114,3 +114,48 @@ class AppealPartiesTest(TestCase):
         )
         self.assertEqual(data[A][0]["przez-pelnomocnika"], 0)
         self.assertTrue(all(value is None for value in data[A][0]["pelnomocnik"].values()))
+
+    def test_labeled_mail_with_repeated_surname_has_a_single_supported_boundary(self):
+        data, fields = self.appeal(
+            COVER + "Odwołujący: Modrzew S.A.\n"
+            "reprezentowany przez pełnomocnika:\nradca prawny Iga Żuraw\n"
+            "Kancelaria Żuraw\nE-mail: i.zurawqzuraw-prawo.example.invalid\n"
+            "Zamawiający: Gmina Niska" + BODY,
+        )
+        self.assertEqual(data[A][0]["pelnomocnik"]["mail"], "i.zuraw@zuraw-prawo.example.invalid")
+        mail = fields[f"{A}.0.pelnomocnik.mail"]
+        self.assertEqual((mail["source"], mail["page"], mail["precision"]), ("ocr", 1, "page"))
+        self.assertNotIn("snippet", mail)
+
+    def test_no_address_repaired_from_a_bare_copyright_or_different_surname(self):
+        for broken in ("p.klonqnowak-praktyka.example.invalid", "p.klon-©qinna-kancelaria.example.invalid",
+                       "z.klonqklon-prawo.example.invalid"):
+            with self.subTest(broken=broken):
+                data, _ = self.appeal(
+                    COVER + "Odwołujący: Dąb z Zachodu S.A.\n"
+                    "reprezentowany przez pełnomocnika:\nadw. Paweł Klon\n"
+                    f"Kancelaria Klon\ne-mail: {broken}\nZamawiający: Gmina Sosny" + BODY,
+                )
+                self.assertIsNone(data[A][0]["pelnomocnik"]["mail"])
+
+    def test_joint_buyers_use_the_order_of_the_two_identified_sections(self):
+        data, _ = self.appeal(
+            COVER + "Odwołujący: Klon i Partner Sp. z 0.0.\n"
+            "Zamawiający: Zamawiający wspólnie udzielający zamówienia:\n"
+            "1) Gmina Łąki\nul. Jasna 12\n"
+            "— Zamawiający prowadzący postępowanie\n"
+            "2) Miasto Zalesie\nul. Polna 15" + BODY,
+        )
+        self.assertEqual(data[A][0]["nazwa"], "Klon i Partner Sp. z o.o.")
+        self.assertEqual([row["nazwa"] for row in data[Z]], ["Gmina Łąki", "Miasto Zalesie"])
+
+    def test_consortium_leader_name_and_labeled_business_name(self):
+        for header, expected in (
+            ("Konsorcjum wykonawców:\n1) Topola Północ sp. k. (Lider Konsorcjum)\n"
+             "NIP: 0000000001\n2) Opal S.A. (Partner Konsorcjum)", "Topola Północ sp. k."),
+            ("Alicja Wiosna prowadząca działalność gospodarczą pod firmą\n"
+             "Alicja Wiosna Biuro Oleander\nul. Polna 88", "Alicja Wiosna Biuro Oleander"),
+        ):
+            with self.subTest(expected=expected):
+                data, _ = self.appeal(COVER + f"Odwołujący: {header}\nZamawiający: Gmina Promyk" + BODY)
+                self.assertEqual([row["nazwa"] for row in data[A]], [expected])
