@@ -376,9 +376,34 @@ def _update_party(result, config, index, section):
                           key == "nazwa" and _name_update(row["pelnomocnik"][key],
                                                            normalize(match.text, "text"), section)):
                 _observation(result, section, (*path, "pelnomocnik", key), match, "kontakt_przy_umocowaniu_" + key)
+        if observed["nazwa"] is None:
+            _discard_malformed_office(result, path, row)
         _update_mail(result, path, row, section, marker, mail)
     elif row["przez-pelnomocnika"] is None:
         result.put((*path, "przez-pelnomocnika"), 0, block.offset, "brak_umocowania_w_naglowku")
+
+
+def _forget_counsel_field(result, path, counsel, key):
+    counsel[key] = None
+    target = (*path, "pelnomocnik", key)
+    result.evidence.pop(".".join(map(str, target)), None)
+
+
+def _discard_malformed_office(result, path, row):
+    """Remove a legacy capture that crosses an unclear name into its address."""
+    counsel = row["pelnomocnik"]
+    old = counsel["nazwa"]
+    if not old:
+        return
+    field = ".".join(map(str, (*path, "pelnomocnik", "nazwa")))
+    if result.evidence.get(field, {}).get("rule") != "kancelaria_z_adresu_korespondencji":
+        return
+    address = ADDRESS.search(old)
+    if not address:
+        return
+    before_address = old[:address.start()]
+    if ":" in before_address and LEGAL_FORM.search(before_address):
+        _forget_counsel_field(result, path, counsel, "nazwa")
 
 
 def _discard_distribution_contacts(result, path, row, section, marker):
@@ -388,9 +413,7 @@ def _discard_distribution_contacts(result, path, row, section, marker):
     copied = normalize(section.distribution.text, "text") or ""
     for key, value in row["pelnomocnik"].items():
         if value and value in copied and value not in own:
-            row["pelnomocnik"][key] = None
-            target = (*path, "pelnomocnik", key)
-            result.evidence.pop(".".join(map(str, target)), None)
+            _forget_counsel_field(result, path, row["pelnomocnik"], key)
     if marker is None and row["przez-pelnomocnika"] == 1 and REPRESENTATION.search(section.distribution.text):
         offset = result.document.starts[0][0] if section.layout else section.block.offset
         result.put((*path, "przez-pelnomocnika"), 0, offset, "rozrozniono_odwolujacego_od_odbiorcy_kopii")
@@ -409,5 +432,4 @@ def _update_mail(result, path, row, section, marker, mail):
             offset = result.document.starts[0][0] if section.layout else part.offset
             result.put(target, value, offset, "oznaczony_mail_przy_umocowaniu_odczyt_ocr", source="ocr")
     elif old and not valid_old:
-        row["pelnomocnik"]["mail"] = None
-        result.evidence.pop(".".join(map(str, target)), None)
+        _forget_counsel_field(result, path, row["pelnomocnik"], "mail")

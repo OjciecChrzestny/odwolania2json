@@ -181,3 +181,30 @@ class AppealPartiesTest(TestCase):
                 self.assertEqual(counsel["imie_nazwisko"], "Teresa Jaskółka")
                 self.assertEqual(counsel["nazwa"], "Kancelaria Własna Jaskółka" if real_office else None)
                 self.assertEqual(fields[f"{A}.0.pelnomocnik.imie_nazwisko"]["page"], 1)
+
+    def test_abstains_from_unclear_office_name_combined_with_street_address(self):
+        data, fields = self.appeal(
+            COVER + "Odwołujący: Bursztyn Projekt S.A.\n"
+            "reprezentowany przez r. pr. Klara Olsza\n"
+            "Adres do korespondencji: Kancelaria Mosty ś: Dąb sp. k.\n"
+            "ul. Malinowa 40, 00-000 Wzorcowo\n"
+            "tel. 000 000 000\n"
+            "Zamawiający: Gmina Łąka" + BODY,
+        )
+        counsel = data[A][0]["pelnomocnik"]
+        self.assertEqual(counsel["imie_nazwisko"], "Klara Olsza")
+        self.assertIsNone(counsel["nazwa"])
+        self.assertNotIn(f"{A}.0.pelnomocnik.nazwa", fields)
+
+    def test_preserves_named_office_before_separate_address(self):
+        data, fields = self.appeal(
+            COVER + "Odwołujący: Buk Systemy S.A.\n"
+            "reprezentowany przez adw. Julia Jeż\n"
+            "Adres do korespondencji:\n"
+            "Kancelaria Poranna & Zespół sp. k.\n"
+            "ul. Polna 18, 00-000 Przykład\n"
+            "tel. 000 000 000\n"
+            "Zamawiający: Urząd Próby" + BODY,
+        )
+        self.assertEqual(data[A][0]["pelnomocnik"]["nazwa"], "Kancelaria Poranna & Zespół sp. k.")
+        self.assertEqual(fields[f"{A}.0.pelnomocnik.nazwa"]["page"], 1)
