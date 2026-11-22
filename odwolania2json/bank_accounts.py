@@ -91,6 +91,23 @@ def direct_role(label, owner):
     return {"payer": PAYER, "payee": PAYEE}[label]
 
 
+def explicit_account_conflicts(rows):
+    """Keep distinct complete literals under one direct role visibly ambiguous."""
+    readings = defaultdict(set)
+    for row in rows:
+        text = fold(row)
+        if FOREIGN_ACCOUNT_SECTION.search(text.lstrip(" \t|:.-")):
+            break
+        marks = headings(text)
+        for i, (label, _, end) in enumerate(marks):
+            if label not in ("payer", "payee"):
+                continue
+            stop = marks[i + 1][1] if i + 1 < len(marks) else len(row)
+            role = direct_role(label, None)
+            readings[role].update("".join(match["nrb"].split()) for match in ACCOUNT.finditer(row, end, stop))
+    return {role for role, literals in readings.items() if len(literals) > 1}
+
+
 def column_at(words, offset):
     """Locate a heading in the same joined TSV text used by the label matcher."""
     consumed = 0
