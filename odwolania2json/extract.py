@@ -5,6 +5,7 @@ from dataclasses import replace
 from functools import partial
 
 from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
 from .bank_accounts import LABEL, account_observations, apply_accounts, fold
 from .bank_scan import recovered_numbers, row_text
@@ -16,6 +17,7 @@ from .transfer import transfer
 
 BUILDERS = {**LEGAL_BUILDERS, "transfer": transfer}
 DEFAULT_OCR_PAGE_BUDGET = 6
+PAGE_READ_ERRORS = (PyPdfError, OSError, ValueError, RuntimeError, LookupError, TypeError, OverflowError)
 
 
 class ReadError(ValueError):
@@ -60,9 +62,13 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
             for index in range(limit):
                 try:
                     text = clean_page(selected[index].extract_text() or "")
-                except Exception:
+                except PAGE_READ_ERRORS:
                     observations[index] = observation(index + 1, "unassessed", "native_read_failed")
-                    raise
+                    if max_pages is not None:
+                        raise
+                    # A damaged attachment must not remove evidence from other pages.
+                    pages.append("")
+                    continue
                 pages.append(text)
                 observations[index] = native_observation(index + 1, text, readable(text), skipped)
 
@@ -95,9 +101,11 @@ def read_pdf(path, ocr=None, max_pages=None, *, classes=None, ocr_page_budget=DE
                         ocr_pages.append(index + 1)
                         if angle:
                             orientations.append((index, angle[0]))
-            except Exception:
+            except PAGE_READ_ERRORS:
                 missing_reason = "ocr_interrupted"
-                raise
+                # Opening-page OCR and explicitly bounded reads retain their error contract.
+                if start is None or max_pages is not None or not any(map(readable, pages)):
+                    raise
             finally:
                 for index in pending:
                     observations[index] = without_ocr_result(observations[index], missing_reason)

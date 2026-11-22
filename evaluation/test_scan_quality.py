@@ -72,6 +72,47 @@ class PageQualityTest(unittest.TestCase):
         self.assertEqual(diagnostic["fields"]["przelew_bankowy.numer_transakcji"]["page"], 7)
         self.assertEqual(document.scan_quality["pages"][6]["reason"], "native_text")
 
+    def test_broken_native_attachment_preserves_fields_and_physical_page_numbers(self):
+        path = self.pdf(*[""] * 8)
+        native = [TRANSFER.split("Numer transakcji:")[0], *["Dalsza czesc"] * 5,
+                  ValueError("broken page stream"), "Numer transakcji: 0008"]
+        with patch.object(PageObject, "extract_text", side_effect=native):
+            document, ocr_pages = read_pdf(path, classes=self.classes)
+
+        value, report = extract(document, self.classes)
+        self.assertEqual(value["przelew_bankowy"]["numer_transakcji"], "0008")
+        self.assertEqual(report["fields"]["przelew_bankowy.numer_transakcji"]["page"], 8)
+        self.assertEqual(document.scan_quality["review_pages"], [7])
+        self.assertEqual(document.scan_quality["pages"][6]["reason"], "native_read_failed")
+        self.assertEqual(ocr_pages, [])
+
+    def test_supplemental_render_failure_keeps_appeal_and_later_evidence(self):
+        path = self.pdf(*[""] * 8)
+        native = ["Krajowa Izba Odwoławcza\nOdwołujący: Fikcyjna spółka\nZamawiający: Fikcyjna gmina\nODWOŁANIE",
+                  *["Dalsza czesc dokumentu"] * 5, "", ""]
+
+        def scanner(_pdf, stop, *, start):
+            if start == 6:
+                raise RuntimeError("failed to render attachment")
+            return [(start, "Zarzut 1: Zaniechanie odrzucenia oferty.")]
+
+        with patch.object(PageObject, "extract_text", side_effect=native):
+            document, ocr_pages = read_pdf(path, scanner, classes=self.classes)
+        value, report = extract(document, self.classes)
+        self.assertEqual(value["OdwolanieKIO"]["czynnosc_powod_id"], 7)
+        self.assertEqual(report["first_allegation"]["page"], 8)
+        self.assertEqual(document.scan_quality["pages"][6]["reason"], "ocr_interrupted")
+        self.assertEqual(ocr_pages, [8])
+
+    def test_full_reader_keeps_document_error_without_any_readable_page(self):
+        path = self.pdf("", "")
+        with patch.object(PageObject, "extract_text", side_effect=[ValueError(), ValueError()]):
+            with self.assertRaises(ReadError) as error:
+                read_pdf(path, classes=self.classes)
+        quality = error.exception.scan_quality
+        self.assertEqual(quality["reason"], "no_readable_content")
+        self.assertEqual([page["reason"] for page in quality["pages"]], ["native_read_failed"] * 2)
+
     def test_only_ocr_attempts_spend_budget_including_failed_reads(self):
         path = self.pdf(*[""] * 10)
         native = ["Krajowa Izba Odwoławcza\nOdwołujący: Fikcyjna spółka\nZamawiający: Fikcyjna gmina\nODWOŁANIE",
