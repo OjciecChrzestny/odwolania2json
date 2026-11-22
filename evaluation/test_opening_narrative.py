@@ -107,6 +107,10 @@ class OpeningNarrativeTest(unittest.TestCase):
             with self.subTest(quote=quote):
                 self.assert_negative(f"{header}\nCytat:\n{quote}")
 
+        long_quote = f"„Fragment innego pisma.”\n{copied}\nKoniec cytatu."
+        self.assert_negative(f"{header}\nCytat:\n{long_quote}")
+        self.assertEqual(self.extract(f"{header}\nCytat:\n{long_quote}\n{LEGAL}")[1]["class"], "odwolanie")
+
     def test_action_fallback_uses_explicit_subject_and_one_physical_page(self):
         from odwolania2json.filing_subject import select_filing_subject
         from odwolania2json.legal import Fragment
