@@ -20,6 +20,15 @@ experiments/transfer_api/**
 !experiments/transfer_api/negative_verifier.py
 !experiments/transfer_api/run.py
 !experiments/transfer_api/scaleway.py
+!operator_panel/
+operator_panel/**
+!operator_panel/__main__.py
+!operator_panel/requirements.txt
+!operator_panel/static/
+operator_panel/static/**
+!operator_panel/static/index.html
+!operator_panel/static/panel.css
+!operator_panel/static/panel.js
 **/.env
 **/.env.*
 **/*.env
