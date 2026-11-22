@@ -141,6 +141,12 @@ niniejszym udzielam pełnomocnictwa:
         self.assertEqual(data["mocodawca"][0]["podpisujacy"], [])
         self.assertFalse(any(".podpisujacy." in key for key in evidence["fields"]))
 
+        # Sam nadmiarowy znak rozpoznany przez OCR nie wyznacza cytatu.
+        doc = Document.from_pages([intro + "„\n" + certificate])
+        data, evidence = extract(replace(doc, ocr_layout_tsv=footer_tsv(certificate)), load_classes())
+        self.assertEqual(data["mocodawca"][0]["podpisujacy"], [{"imie_nazwisko": "Ewa Próbna"}])
+        self.assertEqual(evidence["fields"]["mocodawca.0.podpisujacy.0.imie_nazwisko"]["page"], 1)
+
     def test_legal_form_corrects_zeros_only_in_ocr_company_suffix(self):
         text = HEADER.replace("Północy S.A.", "Północy Sp. z 0.0.") + APPOINTMENTS
         doc = Document.from_pages([text])

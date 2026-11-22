@@ -170,6 +170,9 @@ QUOTATION = re.compile(
     r'|(?<!\w)"(?:[^"]*"|[^"\f]*)'
 )
 
+QUOTE_END = {"„": "”", "“": "”", "«": "»", '"': '"'}
+
+
 ATTRIBUTED_CERTIFICATE = re.compile(
     r"^[ \t]*(?:(?:wydruk|fragment|odpis|zrzut)[ \t\n]+"
     r"(?:przykładu|wzoru|z[ \t\n]+(?:(?:innej|obcej|odrębnej)[ \t\n]+sprawy"
@@ -199,8 +202,11 @@ def add_electronic_signature(result, config, document, blocks):
     if len(certificates) != 1 or NO_SIGNATURE.search(footer.text):
         return
     certificate = certificates[0]
-    if any(quote.start() <= certificate.start("name") < quote.end()
-           for quote in QUOTATION.finditer(footer.text)):
+    if any(
+        quote.start() <= certificate.start("name") < quote.end()
+        and quote[0][-1] == QUOTE_END[quote[0][0]]
+        for quote in QUOTATION.finditer(footer.text)
+    ):
         return
     preceding = footer.text[:certificate.start()]
     if OTHER_CERTIFICATE_ROLE.search(preceding) or ATTRIBUTED_CERTIFICATE.search(preceding):
