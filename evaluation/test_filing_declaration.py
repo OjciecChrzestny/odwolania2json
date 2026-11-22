@@ -1,4 +1,9 @@
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
+
+from odwolania2json.__main__ import process
 
 from odwolania2json.extract import extract
 from odwolania2json.filing_reason import filing_extractor, select_filing, select_filing_evidence
@@ -46,6 +51,31 @@ class FilingTests(unittest.TestCase):
                 self.assertIsNone(select_filing(document, self.config))
                 self.assertEqual(filing_extractor()(document, self.classes),
                                  extract(document, self.classes))
+
+    def test_normal_process_finds_the_first_subject_in_a_filing_title(self):
+        page = HEADER + (
+            "\nod czynności Zamawiającego\nwobec:\n"
+            "1. projektowanych postanowień umowy;\n2. wyboru oferty."
+        )
+        with TemporaryDirectory() as working:
+            root = Path(working)
+            source = root / "input"
+            source.mkdir()
+            (source / "pismo.pdf").write_bytes(b"synthetic reader fixture")
+            diagnostic = root / "diagnostics.json"
+
+            def read_document(path, engine, *, classes):
+                return Document.from_pages([page]), []
+
+            status = process(source, root / "output", self.classes, diagnostic,
+                             read_document=read_document)
+            self.assertEqual(status, 0)
+            value = json.loads((root / "output/pismo.json").read_text())
+            self.assertEqual(value["OdwolanieKIO"]["czynnosc_powod_id"], 12)
+            evidence = json.loads(diagnostic.read_text())["documents"][0]["first_allegation"]
+            self.assertEqual(evidence["page"], 1)
+            self.assertEqual(evidence["rule"], "przedmiot_pierwszej_zaskarżonej_czynności")
+            self.assertEqual(evidence["source_excerpt"], "projektowanych postanowień umowy")
 
     def test_filing_item_can_start_on_the_next_page(self):
         reason, evidence = self.run_rule(
