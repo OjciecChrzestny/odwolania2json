@@ -34,4 +34,4 @@ Wybierz **Wgraj własny PDF**, a następnie **Przetwórz PDF**. Panel przyjmuje 
 
 Otwórz przetworzony `dokument.pdf`, wskaż pole i otwórz fizyczną stronę z dowodem. W skanie demonstracyjnym kwota 123,45 pochodzi ze strony 1. Porównaj wynik ze stroną i zapisz akceptację lub korektę. Decyzja trafia do `diagnostics/run.decisions.sqlite3`. Surowy JSON nadal zawiera wynik ekstrakcji. Zakończ serwer przez Ctrl+C.
 
-[CLI jurora](../RUN.md) · [Próba dodania klasy](../demo/rozszerzalnosc/README.md)
+[CLI jurora](../RUN.md) · [Próba dodania klasy](../README.md#reguły-i-rozszerzanie)
