@@ -20,6 +20,17 @@ BOOKED = (
 )
 
 
+BANK_RECEIPT = (
+    "POTWIERDZENIE WYKONANIA PRZELEWU",
+    "Status: wykonany",
+    "Z rachunku: 14 2222 1111 2222 4444 7777 0101",
+    "Na rachunek: 25 4321 1111 2222 3333 5555 0101",
+    "Kwota: 381,22 PLN",
+    "Data operacji: 2025-05-22",
+    "Numer transakcji: TX-1947",
+)
+
+
 class PublicReceiptKindTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -143,3 +154,24 @@ class PublicReceiptKindTest(unittest.TestCase):
         self.assert_negative(*rows[:3], "Status . . niewykonane", *rows[4:])
         self.assert_negative(*rows[:3], "Status . . anulowane", *rows[4:])
         self.assert_negative(*rows[:3], "Planowana data wykonania 2025-04-18", *rows[4:])
+
+    def test_instruction_at_opening_cannot_borrow_copied_bank_title(self):
+        self.assert_negative("INSTRUKCJA BANKOWOŚCI INTERNETOWEJ", "Przykład formularza:", *BANK_RECEIPT)
+        _, report = self.parse((*BANK_RECEIPT, "INSTRUKCJA BANKOWOŚCI"))
+        self.assertEqual(report["class"], "przelew")
+
+    def test_card_refund_identified_by_bare_type_is_negative(self):
+        for type_line in ("Rodzaj: zwrot płatności kartą", "Typ: zwrot karty"):
+            self.assert_negative("POTWIERDZENIE OPERACJI BANKOWEJ", type_line,
+                                 "Kwota: 82,22 PLN", "Data operacji: 2025-05-22",
+                                 "Numer transakcji: KK-512")
+
+    def test_explicit_negation_refers_to_the_document_not_a_remittance_title(self):
+        disclaimer = "Niniejszy wydruk nie stanowi potwierdzenia wykonania przelewu."
+        staged = tuple(row for row in BANK_RECEIPT if not row.startswith("Status: "))
+        self.assert_negative(*staged, "Status dyspozycji: zarejestrowana", disclaimer)
+        self.assert_negative(*staged, "Nie jest potwierdzeniem realizacji operacji.")
+        for title in ("Zwrot opłaty za kartę", disclaimer):
+            value, report = self.parse((*BANK_RECEIPT, f"Tytuł: {title}"))
+            self.assertEqual(report["class"], "przelew")
+            self.assertEqual(value["przelew_bankowy"]["tytul"].rstrip("."), title.rstrip("."))
