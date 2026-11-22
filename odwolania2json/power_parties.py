@@ -1,4 +1,5 @@
 """Role w oświadczeniu o udzieleniu pełnomocnictwa."""
+from collections import defaultdict
 import re
 
 from .model import FLAGS, empty
@@ -9,7 +10,7 @@ from .podpisy import NAME
 NUMBERED_COUNSEL = re.compile(
     rf"^[ \t]*(?P<index>[1-9]\d*)[.)][ \t]+(?P<name>{NAME})[ \t]*[–—-][ \t]*"
     r"(?:adwokat|radca[ \t]+prawny|r\.[ \t]*pr\.)"
-    r"(?P<details>[ \t]*(?:,[ \t]*(?:(?:nr[ \t]+wpisu|PESEL\b)[^\n\f]*)?)?)[ \t]*$",
+    r"(?P<details>[ \t]*(?:,[ \t]*(?:(?:nr\b|PESEL\b)[^\n\f]*)?)?)[ \t]*$",
     FLAGS,
 )
 SELF_DECLARATION = re.compile(
@@ -50,6 +51,54 @@ def refine_declared_grantor(result, blocks):
                "osoba_fizyczna_w_oswiadczeniu")
 
 
+
+COMPANY_FORM = re.compile(r"(?P<form>\bsp\.[ \t]+z[ \t]+)(?P<suffix>[o0]\.[o0]\.?)\Z", FLAGS)
+
+
+def refine_company_form(result, blocks):
+    """Przywróć litery o w zamkniętym skrócie formy prawnej odczytanym z OCR."""
+    principals = result.data["mocodawca"]
+    if not result.document.ocr_layout_tsv or len(principals) != len(blocks):
+        return
+    for index, (principal, block) in enumerate(zip(principals, blocks)):
+        data = principal["data"]
+        name = data["nazwa"]
+        suffix = COMPANY_FORM.search(name or "")
+        if data["typ"] != "osoba_prawna" or not suffix or "0" not in suffix["suffix"]:
+            continue
+        corrected = name[:suffix.start("suffix")] + suffix["suffix"].replace("0", "o")
+        result.put(("mocodawca", index, "data", "nazwa"), corrected, block.offset,
+                   "skrot_formy_prawnej_mocodawcy_z_ocr", source="ocr")
+
+
+MARGIN_GLYPH = re.compile(r"\A[ \t]*[^\W\d_][ \t]+(?=[1-9]\d*[.)][ \t])")
+
+
+def _detached_margin_glyph(line, tsv):
+    marker = MARGIN_GLYPH.match(line)
+    if not marker or not tsv:
+        return 0
+    words = tuple(line.split())
+    groups = defaultdict(list)
+    for row in tsv.splitlines():
+        parts = row.split("\t", 11)
+        if len(parts) == 12 and parts[0] == "5" and parts[11].strip():
+            try:
+                x, width, confidence = int(parts[6]), int(parts[8]), float(parts[10])
+            except ValueError:
+                return 0
+            groups[tuple(parts[2:5])].append((x, width, confidence, parts[11]))
+    for group in groups.values():
+        ordered = sorted(group)
+        if tuple(item[3] for item in ordered) != words:
+            continue
+        first, number = ordered[:2]
+        gap = number[0] - (first[0] + first[1])
+        if first[2] < 45 and gap >= 3 * max(first[1], number[1]):
+            return marker.end()
+    return 0
+
+
 def add_numbered_counsel(result, config, appointment):
     """Uzupełnij pustą listę z numerowanych wierszy po formule udzielenia."""
     if result.data["pelnomocnicy"]:
@@ -64,10 +113,15 @@ def add_numbered_counsel(result, config, appointment):
     for line in re.finditer(r"[^\n]+", scope.text):
         if not line[0].strip():
             continue
-        match = NUMBERED_COUNSEL.fullmatch(line[0])
+        line_span = scope.slice(line.start(), line.end())
+        match = NUMBERED_COUNSEL.fullmatch(line_span.text)
+        if not match:
+            margin = _detached_margin_glyph(line_span.text, result.document.ocr_layout_tsv)
+            line_span = line_span.slice(margin)
+            match = NUMBERED_COUNSEL.fullmatch(line_span.text)
         if not match or int(match["index"]) != len(entries) + 1:
             return
-        entries.append((scope.slice(line.start(), line.end()), match))
+        entries.append((line_span, match))
 
     for index, (line, match) in enumerate(entries):
         result.data["pelnomocnicy"].append(empty(config["schema"]["pelnomocnicy"][0]))

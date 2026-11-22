@@ -78,12 +78,45 @@ niniejszym udzielam pełnomocnictwa:
         proof = evidence["fields"]["mocodawca.0.podpisujacy.0.imie_nazwisko"]
         self.assertEqual((proof["page"], proof["source"], proof["snippet"]), (1, "ocr", "Ewa Próbna"))
 
+        missed_letter = cert.replace("podpisany", "podpiany")
+        document = Document.from_pages([intro + missed_letter])
+        value, _ = extract(replace(document, ocr_layout_tsv=footer_tsv(missed_letter)), load_classes())
+        self.assertEqual(value["mocodawca"][0]["podpisujacy"], [{"imie_nazwisko": "Ewa Próbna"}])
+
         for alternate in (cert.replace("Ewa Próbna", "Daniel Testowy"), cert.replace(" 11:08:04", ""),
                           "Poświadczenie kopii:\n" + cert, "Odbiór dokumentu:\n" + cert,
                           "Nie podpisano.\n" + cert):
             doc = Document.from_pages([intro + alternate])
             data, _ = extract(replace(doc, ocr_layout_tsv=footer_tsv(alternate)), load_classes())
             self.assertEqual(data["mocodawca"][0]["podpisujacy"], [])
+
+
+    def test_legal_form_corrects_zeros_only_in_ocr_company_suffix(self):
+        text = HEADER.replace("Północy S.A.", "Północy Sp. z 0.0.") + APPOINTMENTS
+        doc = Document.from_pages([text])
+        native, _ = extract(doc, load_classes())
+        self.assertEqual(native["mocodawca"][0]["data"]["nazwa"], "Przykładowe Zakłady Północy Sp. z 0.0.")
+        wide, proof = extract(replace(doc, ocr_layout_tsv="wiersze"), load_classes())
+        self.assertEqual(wide["mocodawca"][0]["data"]["nazwa"], "Przykładowe Zakłady Północy Sp. z o.o.")
+        self.assertEqual(proof["fields"]["mocodawca.0.data.nazwa"]["source"], "ocr")
+
+    def test_follows_physical_indent_before_skipping_ocr_margin_glyph(self):
+        row = "J 1. Emilia Żuraw — radca prawny, nr wpisu W-15,"
+        text = HEADER + row + "\ndo reprezentowania przed Izbą."
+        doc = Document.from_pages([text])
+        near, _ = extract(replace(doc, ocr_layout_tsv=footer_tsv(row)), load_classes())
+        self.assertEqual(near["pelnomocnicy"], [])
+        layout = []
+        for raw in footer_tsv(row).splitlines():
+            columns = raw.split("\t")
+            if columns[5] == "1":
+                columns[10] = "18"
+            else:
+                columns[6] = str(100 + int(columns[6]))
+            layout.append("\t".join(columns))
+        data, evidence = extract(replace(doc, ocr_layout_tsv="\n".join(layout)), load_classes())
+        self.assertEqual(data["pelnomocnicy"], [{"imie_nazwisko": "Emilia Żuraw", "pesel": None}])
+        self.assertEqual(evidence["fields"]["pelnomocnicy.0.imie_nazwisko"]["snippet"], "Emilia Żuraw")
 
 
 if __name__ == "__main__":
