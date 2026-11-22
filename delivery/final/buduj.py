@@ -10,7 +10,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 
-from proba import CLASS_BY_FILE, STAGE_FILES, checked_stage, digest, git, read_json, verify, write_json
+from proba import (
+    CLASS_BY_FILE, QUALITY_CORPORA, STAGE_FILES, checked_stage, digest, git, read_json, verify, write_json,
+)
 
 W, H = 960, 540
 PAPER = "#F6F4EC"
@@ -51,6 +53,8 @@ def start(pdf, label, receipt, backup=False):
     text(pdf, 52, 53, label, 14, "Lato Bold", GREEN)
     line(pdf, 52, 908, 68)
     prefix = "ZAPIS PRÓBY · SYNTETYKI" if backup else "Rewizja próby"
+    if any((receipt.get(key) or {}).get("test_generatora") for key in ("jakosc", "jakosc_regresji")):
+        prefix += " · TEST GENERATORA"
     text(pdf, 54, 524, f"{prefix}  /  {receipt['rewizja']['sha']}", 12, ink=MUTED)
 
 
@@ -95,6 +99,42 @@ def evidence(diagnostics, output, field):
     return row["fields"][field]
 
 
+def percent(measurement):
+    return f"{100 * measurement['micro_f1']:.2f}%".replace(".", ",")
+
+
+def quality_slide(pdf, receipt):
+    start(pdf, "0:35–1:20 / Jakość ekstrakcji", receipt)
+    title(pdf, "Ścisłe mikro-F1 na polach")
+    quality = receipt["jakosc"]
+    if quality is None:
+        text(pdf, 55, 211, "Pomiar tej rewizji czeka na odbiór", 31, "Lato Bold")
+        block(pdf, 55, 273, ["Pokaz używa wyłącznie syntetycznych PDF-ów.",
+                            "Znamy wyniki prób funkcjonalnych na tych przykładach.",
+                            "Wynik na zbiorze jury pozostaje nieznany."], 23, 41)
+    else:
+        valid = quality["valid_run"] and quality["valid_contract"]
+        corpus = QUALITY_CORPORA[quality["zbior"]]
+        text(pdf, 55, 235, percent(quality), 68, "Lato Bold", GREEN if valid else RUST)
+        text(pdf, 55, 280, f"{corpus} · PDF-y: {quality['liczba_pdf']}", 27, "Lato Bold")
+        text(pdf, 55, 324, f"TP {quality['tp']}   FP {quality['fp']}   FN {quality['fn']}", 23)
+        status = f"valid_run={str(quality['valid_run']).lower()}   " \
+                 f"valid_contract={str(quality['valid_contract']).lower()}"
+        text(pdf, 55, 376, status, 20, "Mono")
+        if not valid:
+            text(pdf, 55, 421, "Pomiar diagnostyczny. Warunek ważności niezaliczony.", 23, "Lato Bold", RUST)
+        regression = receipt.get("jakosc_regresji")
+        if regression is not None:
+            note = f"Regresja rozwojowa · {regression['liczba_pdf']} PDF-ów · mikro-F1 {percent(regression)}"
+            if not (regression["valid_run"] and regression["valid_contract"]):
+                note += " · pomiar diagnostyczny"
+            text(pdf, 55, 453, note, 19, ink=MUTED)
+        elif quality["zbior"] == "znane_skany_strojeniowe":
+            text(pdf, 55, 453, "Regresja rozwojowa ma osobny pomiar.", 19, ink=MUTED)
+        text(pdf, 55, 486, "Wynik na zbiorze jury pozostaje nieznany.", 19, ink=MUTED)
+    pdf.showPage()
+
+
 def present(path, work, receipt):
     pdf = Canvas(str(path), pagesize=(W, H), pageCompression=1, invariant=1)
     pdf.setTitle("Odwołania2JSON — pokaz dla UZP")
@@ -131,28 +171,7 @@ def present(path, work, receipt):
 
     review_page(pdf, work, receipt)
 
-    start(pdf, "0:35–1:20 / Jakość ekstrakcji", receipt)
-    title(pdf, "Ścisłe mikro-F1 na polach")
-    quality = receipt["jakosc"]
-    if quality is None:
-        text(pdf, 55, 211, "Pomiar tej rewizji czeka na odbiór", 31, "Lato Bold")
-        block(pdf, 55, 273, ["Pokaz używa wyłącznie syntetycznych PDF-ów.",
-                            "Znamy wyniki prób funkcjonalnych na tych przykładach.",
-                            "Wynik na zbiorze jury pozostaje nieznany."], 23, 41)
-    else:
-        fraction = f"{100 * quality['micro_f1']:.2f}".replace(".", ",")
-        valid = quality["valid_run"] and quality["valid_contract"]
-        corpus = {"rozwojowy": "rozwojowy", "niezalezny": "niezależny"}[quality["zbior"]]
-        text(pdf, 55, 235, f"{fraction}%", 68, "Lato Bold", GREEN if valid else RUST)
-        text(pdf, 55, 280, f"Zbiór {corpus} · PDF-y: {quality['liczba_pdf']}", 27, "Lato Bold")
-        text(pdf, 55, 324, f"TP {quality['tp']}   FP {quality['fp']}   FN {quality['fn']}", 23)
-        status = f"valid_run={str(quality['valid_run']).lower()}   " \
-                 f"valid_contract={str(quality['valid_contract']).lower()}"
-        text(pdf, 55, 376, status, 20, "Mono")
-        if not valid:
-            text(pdf, 55, 421, "Pomiar diagnostyczny. Warunek ważności niezaliczony.", 23, "Lato Bold", RUST)
-        text(pdf, 55, 486, "Wynik na zbiorze jury pozostaje nieznany.", 19, ink=MUTED)
-    pdf.showPage()
+    quality_slide(pdf, receipt)
 
     start(pdf, "1:20–2:00 / Dodanie klasy", receipt)
     title(pdf, "Zawiadomienie w jednym pliku JSON")
@@ -241,6 +260,15 @@ def backup(path, work, receipt):
     pdf.save()
 
 
+def register_fonts():
+    fonts = Path("/usr/share/fonts/truetype")
+    for name, file in [
+        ("Lato", "lato/Lato-Regular.ttf"), ("Lato Bold", "lato/Lato-Bold.ttf"),
+        ("Mono", "dejavu/DejaVuSansMono.ttf"),
+    ]:
+        pdfmetrics.registerFont(TTFont(name, str(fonts / file)))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("work", type=Path, help="syntetyczny przebieg proba.py calosc")
@@ -254,14 +282,11 @@ def main():
     verify(git(repo, "status", "--porcelain"), "", "Stan checkoutu")
     for stage in STAGE_FILES:
         verify(receipt["etapy"][stage], checked_stage(args.work, stage, identity), f"Zapis etapu {stage}")
-    if receipt["jakosc"] is not None:
-        verify(receipt["jakosc"]["sha"], identity["sha"], "SHA pomiaru jakości")
-    fonts = Path("/usr/share/fonts/truetype")
-    for name, file in [
-        ("Lato", "lato/Lato-Regular.ttf"), ("Lato Bold", "lato/Lato-Bold.ttf"),
-        ("Mono", "dejavu/DejaVuSansMono.ttf"),
-    ]:
-        pdfmetrics.registerFont(TTFont(name, str(fonts / file)))
+    for key in ("jakosc", "jakosc_regresji"):
+        measurement = receipt.get(key)
+        if measurement is not None:
+            verify(measurement["sha"], identity["sha"], "SHA " + key)
+    register_fonts()
     args.output.mkdir()
     presentation = args.output / "prezentacja.pdf"
     saved = args.output / "ekrany-rezerwowe.pdf"

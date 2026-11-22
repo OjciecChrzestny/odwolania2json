@@ -50,7 +50,9 @@ W pokazie na żywo wybierz nowy katalog i wywołaj kolejno te same polecenia z e
 
 ### Wynik jakości jednego kandydata
 
-Koordynator może przekazać za pomocą `--jakosc PLIK` w etapie `calosc` albo `klasa` podsumowanie własnego pomiaru dla dokładnie tego SHA. Plik JSON zawiera `sha`, `zbior` (`rozwojowy` lub `niezalezny`), `sha256_manifestu`, `liczba_pdf`, `tp`, `fp`, `fn`, `valid_run` i `valid_contract`. Koordynator weryfikuje pochodzenie liczników i manifestu w oryginalnym raporcie przed przekazaniem podsumowania. Skrypt sprawdza SHA i format, oblicza F1 z liczników i oznacza nieważny pomiar jako diagnostyczny. Bez pliku slajd pokazuje brak pomiaru tej rewizji. [Historyczne wyniki A3 wraz z ograniczeniami](../../docs/historia/RAPORT_KONCOWY_A3.md)
+W etapie `calosc` albo `klasa` przekaż `--jakosc PLIK` dla dokładnego SHA. Plik JSON zawiera `sha`, `zbior`, `sha256_manifestu`, `liczba_pdf`, `tp`, `fp`, `fn`, `valid_run` i `valid_contract`. Dla znanych publicznych skanów użytych do strojenia ustaw `zbior: znane_skany_strojeniowe`. Oznaczenia `rozwojowy` i `niezalezny` zachowują dotychczasowe znaczenie. Publiczny zbiór odłożony z etykietami UZP, znane skany i próba na syntetykach stanowią odrębne dowody.
+
+Opcjonalne `--jakosc-regresji PLIK` przyjmuje odrębny pomiar `rozwojowy` z tego samego SHA. Liczebność i F1 każdej próby pochodzą z jej własnego pliku. Koordynator sprawdza pochodzenie liczników i manifestu. Skrypt liczy F1 z liczników i oznacza nieważny wynik jako diagnostyczny. Bez pliku główny slajd zgłasza brak pomiaru rewizji. Dane używane do sprawdzenia generatora oznacz w JSON-ie `"test_generatora": true`. Oba PDF-y pokażą wtedy w stopce „TEST GENERATORA”. [Historyczne wyniki A3 wraz z ograniczeniami](../../docs/historia/RAPORT_KONCOWY_A3.md)
 
 ### Plan na brak sieci albo awarię
 

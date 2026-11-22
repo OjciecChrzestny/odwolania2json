@@ -29,7 +29,11 @@ STAGE_FILES = {
         "regresja/output/*.json", "regresja/diagnostics/last-run.json",
     ),
 }
-QUALITY_CORPORA = {"rozwojowy", "niezalezny"}
+QUALITY_CORPORA = {
+    "rozwojowy": "Zbiór rozwojowy",
+    "niezalezny": "Zbiór niezależny",
+    "znane_skany_strojeniowe": "Znane publiczne skany użyte do strojenia",
+}
 CLASS_BY_FILE = {
     "doc_01.json": "przelew",
     "doc_02.json": "negative",
@@ -265,7 +269,7 @@ def quality_report(path, sha):
     report = read_json(path)
     verify(report["sha"], sha, "SHA pomiaru jakości")
     if report["zbior"] not in QUALITY_CORPORA:
-        raise ValueError("Zbiór pomiaru jakości musi być rozwojowy albo niezalezny")
+        raise ValueError("Nieznany zbiór pomiaru jakości. Dozwolone: " + ", ".join(QUALITY_CORPORA))
     manifest = report["sha256_manifestu"]
     if not re.fullmatch(r"[0-9a-f]{64}", manifest):
         raise ValueError("Niepoprawny SHA-256 manifestu pomiaru")
@@ -278,8 +282,14 @@ def quality_report(path, sha):
     sample = 2 * counts["tp"] + counts["fp"] + counts["fn"]
     if not sample:
         raise ValueError("Brak punktowanych pól w pomiarze jakości")
-    return {"sha": sha, "zbior": report["zbior"], "sha256_manifestu": manifest,
-            **counts, **status, "micro_f1": 2 * counts["tp"] / sample}
+    test_data = report.get("test_generatora", False)
+    if type(test_data) is not bool:
+        raise ValueError("test_generatora musi być wartością logiczną")
+    measurement = {"sha": sha, "zbior": report["zbior"], "sha256_manifestu": manifest,
+                   **counts, **status, "micro_f1": 2 * counts["tp"] / sample}
+    if test_data:
+        measurement["test_generatora"] = True
+    return measurement
 
 
 def main():
@@ -291,6 +301,7 @@ def main():
     parser.add_argument("--image", help="wcześniej zbudowany obraz Docker z etykietą rewizji")
     parser.add_argument("--docker", default="docker")
     parser.add_argument("--jakosc", type=Path, help="zatwierdzony pomiar koordynatora dla tego SHA")
+    parser.add_argument("--jakosc-regresji", type=Path, help="oddzielny pomiar rozwojowy dla tego SHA")
     args = parser.parse_args()
     args.repo, args.work = args.repo.resolve(), args.work.resolve()
     verify(Path(__file__).resolve(), args.repo / "delivery/final/proba.py", "Ścieżka skryptu")
@@ -298,7 +309,12 @@ def main():
     verify(git(args.repo, "status", "--porcelain"), "", "Stan checkoutu")
     if args.jakosc and args.etap not in ("calosc", "klasa"):
         parser.error("--jakosc wymaga etapu calosc albo klasa")
+    if args.jakosc_regresji and not args.jakosc:
+        parser.error("--jakosc-regresji wymaga głównego pomiaru --jakosc")
     quality = quality_report(args.jakosc, args.sha) if args.jakosc else None
+    regression = quality_report(args.jakosc_regresji, args.sha) if args.jakosc_regresji else None
+    if regression is not None:
+        verify(regression["zbior"], "rozwojowy", "Zbiór pomiaru regresji")
     identity = {"sha": args.sha, "tryb": "natywny"}
     if args.image:
         inspect = json.loads(invoke([args.docker, "image", "inspect", args.image],
@@ -322,9 +338,10 @@ def main():
         stage_record = {"rewizja": identity, "czasy_s": timings, "pliki": stage_files(args.work, name)}
         write_json(args.work / f"czasy-{name}.json", stage_record)
         if name == "klasa":
-            write_json(args.work / "potwierdzenie.json", {
-                "rewizja": identity, "etapy": {**previous, name: stage_record}, "jakosc": quality,
-            })
+            receipt = {"rewizja": identity, "etapy": {**previous, name: stage_record}, "jakosc": quality}
+            if regression is not None:
+                receipt["jakosc_regresji"] = regression
+            write_json(args.work / "potwierdzenie.json", receipt)
 
 
 if __name__ == "__main__":
