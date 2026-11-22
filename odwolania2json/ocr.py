@@ -168,8 +168,9 @@ class LocalOCR:
     def __call__(self, path, limit, *, start=0):
         return recognize(self.document_type, self.api_type, self.data, path, limit, start=start)
 
-    def oriented_pages(self, path, limit, *, start=0):
-        return recognize(self.document_type, self.api_type, self.data, path, limit, start=start, angles=True)
+    def oriented_pages(self, path, limit, *, start=0, capture_layout=False):
+        return recognize(self.document_type, self.api_type, self.data, path, limit, start=start,
+                         angles=True, capture_layout=capture_layout)
 
     def transfer_views(self, path, orientations):
         try:
@@ -217,13 +218,13 @@ class LocalOCR:
         return views
 
 
-def recognize(document_type, api_type, data, path, limit, *, start=0, angles=False):
+def recognize(document_type, api_type, data, path, limit, *, start=0, angles=False, capture_layout=False):
     with closing(document_type(path)) as pdf, api_type(path=str(data), lang="pol") as api:
         api.SetVariable("user_defined_dpi", "180")
         for index in range(start, limit):
             with closing(pdf[index]) as page:
                 scale = min(2.5, 2200 / max(page.get_size()))
-                best, selected_angle = "", 0
+                best, selected_angle, selected_layout = "", 0, None
                 for angle in (0, 90, 270, 180):
                     with closing(page.render(scale=scale, rotation=angle, grayscale=True)) as bitmap:
                         api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height,
@@ -231,8 +232,15 @@ def recognize(document_type, api_type, data, path, limit, *, start=0, angles=Fal
                         text = api.GetUTF8Text()
                         if len(text) > len(best):
                             best, selected_angle = text, angle
+                            if capture_layout:
+                                # GetUTF8Text już rozpoznało ten obraz. TSV odczytuje wynik.
+                                try:
+                                    selected_layout = api.GetTSVText(0)
+                                except (RuntimeError, ValueError):
+                                    selected_layout = None
                         if len(text.split()) >= 8 and api.MeanTextConf() >= 55:
                             if text == best:
                                 best = refine_bank_reference(text, api, bitmap, api_type, data)
                             break
-                yield (index, best, selected_angle) if angles else (index, best)
+                result = (index, best, selected_angle) if angles else (index, best)
+                yield (*result, selected_layout) if capture_layout else result
