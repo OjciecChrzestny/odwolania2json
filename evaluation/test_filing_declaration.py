@@ -1,5 +1,6 @@
 import unittest
 
+from odwolania2json.extract import extract
 from odwolania2json.filing_reason import filing_extractor, select_filing, select_filing_evidence
 from odwolania2json.model import Document, load_classes
 
@@ -41,8 +42,10 @@ class FilingTests(unittest.TestCase):
         for quote in ('Wykonawca wskazał: „Wnoszę odwołanie od odrzucenia oferty.”',
                       'Cytat:\nWnoszę odwołanie od odrzucenia oferty.'):
             with self.subTest(quote=quote):
-                reason, evidence = self.run_rule([quote])
-                self.assertEqual((reason, evidence["fallback"]), (11, True))
+                document = Document.from_pages([HEADER, quote])
+                self.assertIsNone(select_filing(document, self.config))
+                self.assertEqual(filing_extractor()(document, self.classes),
+                                 extract(document, self.classes))
 
     def test_filing_item_can_start_on_the_next_page(self):
         reason, evidence = self.run_rule(
