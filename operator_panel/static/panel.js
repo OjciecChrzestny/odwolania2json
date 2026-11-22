@@ -154,9 +154,13 @@ function renderEvidenceQuality(field) {
     const label = measurement?.strong
       ? "Mocne powiązanie z tekstem PDF-u."
       : "Dowód z tekstu PDF-u — do weryfikacji.";
-    const observation = measurement
-      ? " Zgodnych oznaczeń w próbie kontrolnej: " + measurement.correct + "/" + measurement.total + "."
-      : "";
+    let observation = "";
+    if (measurement?.total > 0) {
+      observation = " Zgodnych oznaczeń w próbie kontrolnej: " + measurement.correct + "/" + measurement.total + ".";
+    } else if (measurement?.total === 0 && measurement.sample_pdfs > 0 && measurement.marked_pdfs === 0) {
+      observation = " W niezależnej próbie " + measurement.sample_pdfs +
+        " syntetycznych PDF-ów reguła nie oznaczyła pól. Trafność na nowych dokumentach pozostaje nieznana.";
+    }
     quality.textContent = label + " Cytat ze strony " + proofFor(field.path).page +
       " odpowiada zapisowi w JSON-ie." + observation;
   } else if (source === "ocr") {

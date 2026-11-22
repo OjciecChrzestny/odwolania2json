@@ -32,6 +32,8 @@ Otwórz `http://127.0.0.1:8765`. Przy przeglądarce działającej na hoście Doc
 
 Wybierz **Wgraj własny PDF**, a następnie **Przetwórz PDF**. Panel przyjmuje jeden plik do 32 MiB w każdej próbie. Możesz wgrać syntetyczny skan `delivery/compose/skan-syntetyczny.pdf` z kopii projektu. Każdy upload zapisuje osobny przebieg w `$PANEL_RUN/przebiegi/<id>/`, z własnymi katalogami `input/`, `output/` i `diagnostics/`.
 
-Otwórz przetworzony `dokument.pdf`, wskaż pole i otwórz fizyczną stronę z dowodem. W skanie demonstracyjnym kwota 123,45 pochodzi ze strony 1. Porównaj wynik ze stroną i zapisz akceptację lub korektę. Decyzja trafia do `diagnostics/run.decisions.sqlite3`. Surowy JSON nadal zawiera wynik ekstrakcji. Zakończ serwer przez Ctrl+C.
+W sekcji **Dowód i decyzja** wybierz kwotę lub datę operacji z listy **Pole wyniku** i kliknij **Otwórz stronę dowodu**. Cytat pokazuje fragment tekstu PDF-u albo odczytu OCR, na którym oparto zapis wartości do weryfikacji. Automatyczne oznaczenie wysokiej pewności jest wyłączone, ponieważ reguła nie oznaczyła pól w niezależnej próbie 72 syntetycznych PDF-ów.
+
+W skanie demonstracyjnym kwota 123,45 pochodzi ze strony 1. Porównaj wynik ze stroną i zapisz akceptację lub korektę. Decyzja trafia do `diagnostics/run.decisions.sqlite3`. Surowy JSON nadal zawiera wynik ekstrakcji. Zakończ serwer przez Ctrl+C.
 
 [CLI jurora](../RUN.md) · [Próba dodania klasy](../README.md#reguły-i-rozszerzanie)

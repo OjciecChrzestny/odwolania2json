@@ -352,6 +352,14 @@ def check_upload(browser, evidence, ocr_data):
         page.keyboard.press("ArrowDown")
         expect(field_picker).to_have_value(AMOUNT)
         expect(page.locator("#field-evidence-quality")).to_contain_text("Cytat ze strony 1")
+        quality = page.locator("#field-evidence-quality")
+        expect(quality).to_contain_text("Dowód z tekstu PDF-u — do weryfikacji.")
+        expect(quality).to_contain_text(
+            "W niezależnej próbie 72 syntetycznych PDF-ów reguła nie oznaczyła pól. "
+            "Trafność na nowych dokumentach pozostaje nieznana."
+        )
+        expect(quality).not_to_contain_text(re.compile(r"0/0|\d+\s*%"))
+        expect(field_picker.locator(f'option[value="{AMOUNT}"]')).not_to_contain_text("mocny dowód")
         expect(page.locator("#value")).to_have_text("137.29")
         expect(page.locator("#snippet")).to_have_text("137,29")
         expect(page.locator("#page-image")).to_have_attribute("alt", "Fizyczna strona 1 z 1 pliku PDF")

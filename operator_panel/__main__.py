@@ -43,7 +43,7 @@ FIELD_CONFIG_SHA256 = "aaa89fd8fd3be3ddb2e8b033b9bf1a892645e8b0c377ac6872553de54
 FIELD_TEXT_REVISION = "sha256:48a86b7e1d4420ea1f2314c8cd9026f844ca6710912a459be6adfafd34b06619"
 FIELD_OCR_REVISION = "sha256:dd880da0445beacaa3fb541379f1a7974ec02c905236410ce1a22ba9106bba5a"
 # Bramka prezentacji po E. Kwalifikacja do pomiaru jest od niej niezależna.
-TEXT_EVIDENCE_MEASUREMENT = None
+TEXT_EVIDENCE_MEASUREMENT = {'strong': False, 'correct': 0, 'total': 0, 'sample_pdfs': 72, 'marked_pdfs': 0}
 FIELD_RULES = {
     "przelew_bankowy.kwota": ("kwota_operacji", "kwota_operacji", "Kwota"),
     "przelew_bankowy.data_operacji": ("data_transakcji", "data_operacji", "Data operacji"),
