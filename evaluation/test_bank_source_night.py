@@ -117,3 +117,18 @@ class BankSourceNightTest(TestCase):
         self.assertFalse(view_evidence(("Status Wykonane", *rows[2:6], "Planowana Dala wykonania 03 05 2026")))
         changed = (*rows[:4], "Prowizja 14,20 PLN", *rows[5:])
         self.assertEqual(view_evidence(changed), {"data_operacji": [(3, "2026-05-03")]})
+
+    def test_alternate_class_does_not_discard_a_primary_amount_and_execution_date(self):
+        scan = Mock(return_value=[ScanView(1, "Potwierdzenie przelewu\nRachunek odbiorcy: brak", ())])
+        primary = replace(Document.from_pages(["Bank przelew\nStatus wykonane\nDane zlecenia\n"
+                                               "○ 416,52 PLN\nTryb realizacji zwykły\nData wykonania 02 04 2026",
+                                               "Kwota Data transakcji\n65,25 PLN 05.04.2026"]),
+                          bank_scan=scan)
+        value, diagnostics = extract(primary, self.classes)
+        self.assertTrue(diagnostics["classification_from_ocr_layout"])
+        self.assertEqual(value["przelew_bankowy"]["kwota"], 416.52)
+        self.assertEqual(value["przelew_bankowy"]["data_operacji"], "2026-04-02")
+        for key in ("kwota", "data_operacji"):
+            observation = diagnostics["fields"]["przelew_bankowy." + key]
+            self.assertEqual((observation["page"], observation["precision"]), (1, "page"))
+        scan.assert_called_once()

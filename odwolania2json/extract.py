@@ -13,7 +13,7 @@ from .legal import BUILDERS as LEGAL_BUILDERS
 from .model import Document, Extraction, FLAGS, classify, cover_limit, excluded_heading, schema_errors
 from .ocr import LocalOCR
 from .operations import apply_fields
-from .transfer import transfer
+from .transfer import primary_number_fallback, transfer
 
 BUILDERS = {**LEGAL_BUILDERS, "transfer": transfer}
 DEFAULT_OCR_PAGE_BUDGET = 6
@@ -204,6 +204,7 @@ def extract_class(document, classes, name, signals, *, views=None, capture_decis
         details = BUILDERS[builder](result, config) if builder else {}
     if builder == "transfer":
         bank = result.data["przelew_bankowy"]
+        primary_number_fallback(result, primary_document)
         pages = document.text.split("\n\x0c\n")[:-1]
         evidence = [(i, account_observations(page.splitlines())) for i, page in enumerate(pages, 1)]
         if views is not None:
