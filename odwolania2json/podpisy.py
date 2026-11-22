@@ -151,3 +151,60 @@ def add_confirmed_signatures(result, config, document, blocks, layout_tsv):
             # TSV nie mapuje prostokątów na znaki w spłaszczonym tekście.
             result.put(("mocodawca", owner, "podpisujacy", index, "imie_nazwisko"),
                        name, document.offset, SIGNATURE_RULE, source="ocr")
+
+
+ELECTRONIC_SIGNATURE = re.compile(
+    rf"^[ \t]*Dokument[ \t]+podpisany[ \t]+przez[ \t]*:?[ \t]*(?P<name>{NAME})[ \t]*$",
+    FLAGS,
+)
+ELECTRONIC_TIME = re.compile(r"\AData(?:[ \t]+podpisu)?[ \t]*:[ \t]*[^\n]*\d{1,2}:\d{2}\b", FLAGS)
+OTHER_CERTIFICATE_ROLE = re.compile(
+    r"^[ \t]*(?:Świad(?:ek|kowie)|Adresat|Odbiorca|Odbiór|Potwierdzenie|Poświadczenie|"
+    r"Podpis[ \t]+pełnomocnika|Kopia|Pouczenie|Cytat|Przyjęcie[ \t]+pełnomocnictwa)\b",
+    FLAGS,
+)
+
+
+def add_electronic_signature(result, config, document, blocks):
+    """Połącz oznaczone potwierdzenie podpisu z jedynym zadeklarowanym reprezentantem."""
+    source = result.document
+    principals = result.data["mocodawca"]
+    if not source.ocr_layout_tsv or len(source.starts) != 1 or len(principals) != 1 or len(blocks) != 1:
+        return
+    principal = principals[0]
+    if principal["podpisujacy"]:
+        return
+
+    signing = document.before(config["patterns"]["acceptance"])
+    grant = signing.find(config["patterns"]["grant"])
+    if not grant:
+        return
+    footer = signing.slice(grant.end())
+    certificates = list(ELECTRONIC_SIGNATURE.finditer(footer.text))
+    if len(certificates) != 1 or NO_SIGNATURE.search(footer.text):
+        return
+    certificate = certificates[0]
+    if OTHER_CERTIFICATE_ROLE.search(footer.text[:certificate.start()]):
+        return
+
+    layout = _layout_lines(source.ocr_layout_tsv)
+    evidence = [(value, layout[index + 1]) for index, line in enumerate(layout[:-1])
+                if (value := ELECTRONIC_SIGNATURE.fullmatch(line))]
+    name = normalize(certificate["name"], "text")
+    if len(evidence) != 1 or normalize(evidence[0][0]["name"], "text") != name or not ELECTRONIC_TIME.match(evidence[0][1]):
+        return
+
+    data = principal["data"]
+    if data["typ"] == "osoba_fizyczna":
+        declared = [data["imie_nazwisko"]]
+    else:
+        start = blocks[0].offset - signing.offset
+        declared = _representatives(signing.text[start:grant.start()])
+    if declared != [name]:
+        return
+
+    principal["podpisujacy"].append({})
+    start, end = certificate.span("name")
+    result.put(("mocodawca", 0, "podpisujacy", 0, "imie_nazwisko"),
+               name, footer.offset + start, "podpis_elektroniczny_osoby_z_deklaracji",
+               span_end=footer.offset + end, source="ocr")
