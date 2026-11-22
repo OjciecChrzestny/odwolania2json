@@ -69,7 +69,6 @@ def primary_scan_view(document):
     return ScanView(1, text, row_text(positions), positions=positions)
 
 
-
 DATE_TOKEN = re.compile(r"(?<![\d./-])" + DATE + r"(?![\d./-])", re.I)
 MONEY_TOKEN = re.compile(
     r"(?<![\d.,])[-−+]?(?:[0-9]{1,3}(?:[ .][0-9]{3})+|[0-9]+)[,.][ \t]*[0-9]{2}(?![\d.,])"
@@ -100,6 +99,19 @@ COLUMN = {
     "other_date": ("data_operacji", 0),
     "other_amount": ("kwota", 0),
 }
+REFERENCE_COLUMN = re.compile(
+    r"[ \t|;]+(?:nr\.?|numer|identyfikator) (?:referencyjn(?:y|ego) )?(?:operacji|transakcji|przelewu)$",
+    re.I,
+)
+REFERENCE_CELL = re.compile(r"[ \t|;*]+(?=[A-Z0-9./_-]{1,64}$)(?=[A-Z0-9./_-]*[0-9])[A-Z0-9][A-Z0-9./_-]*", re.I)
+POSTED_HEADER = re.compile(r"Data[ \t|]+Opis[ \t|]+Kwota", re.I)
+POSTED_ROW = re.compile(r"Data operacji[ \t|:–—-]+przelew\b", re.I)
+SPLIT_DATA = re.compile(rf"Data[ \t:|]+(?P<date>{DATE})[ \t|:]*", re.I)
+SPLIT_ROLE = re.compile(r"(?:wykonania|realizacji)[ \t|:]*", re.I)
+LABEL_GAP = re.compile(r"[\s|:;–—-]*")
+BOOKING_ROW = re.compile(rf"^{BOOKING_LABEL}\b", re.I)
+EXECUTION_ROW = re.compile(rf"^{DATE_LABEL}\b", re.I)
+BOOKING_VALUE = re.compile(rf"^(?P<date>{DATE})(?=[ \t]|$)(?:[ \t|]*|[ \t|]+na rachunek\b.*)", re.I)
 SEPARATORS = re.compile(r"[\s|:;]*")
 VALUE_SEPARATORS = re.compile(r"(?:[\s|:;]|PLN|zł|EUR|USD|GBP|CHF)*", re.I)
 
@@ -136,8 +148,23 @@ def numeric_row(line, tokens):
     return VALUE_SEPARATORS.fullmatch(line[current:]) is not None
 
 
+def reference_table(header, values):
+    """Remove an explicitly labelled trailing ID column from a PLN table."""
+    label = REFERENCE_COLUMN.search(header)
+    reference = REFERENCE_CELL.search(values)
+    if not (label and reference):
+        return header, values
+    numeric = values[:reference.start()].rstrip()
+    tokens = number_tokens(numeric)
+    if (len(tokens) != 2 or [token.key for token in tokens] != ["kwota", "data_operacji"]
+            or not re.fullmatch(r"[ \t]*PLN[ \t|;]*", numeric[tokens[0].end:tokens[1].start], re.I)):
+        return header, values
+    return header[:label.start()], numeric
+
+
 def table_numbers(header, values):
     """Bind a complete numeric row to its recognised column headers."""
+    header, values = reference_table(header, values)
     labels = list(LABELS.finditer(header))
     if len(labels) < 2 or not SEPARATORS.fullmatch(LABELS.sub("", header)):
         return []
@@ -157,20 +184,57 @@ def table_numbers(header, values):
             if priority and token.value is not None]
 
 
+def structured_numbers(line, following):
+    for priority, token in table_numbers(line, following):
+        yield 1, priority, token
+    if SPLIT_ROLE.fullmatch(following) and (split := SPLIT_DATA.fullmatch(line)):
+        if value := normalize(split["date"], "date"):
+            yield 0, 3, Number("data_operacji", value, *split.span("date"))
+    if not (POSTED_HEADER.fullmatch(line) and POSTED_ROW.match(following)):
+        return
+    if any(label.lastgroup == "other_amount" for label in LABELS.finditer(following)):
+        return
+    amounts = [token for token in number_tokens(following) if token.key == "kwota"]
+    if len(amounts) == 1:
+        token = amounts[0]
+        if token.value is not None and re.fullmatch(r"[ \t]*PLN[ \t|]*", following[token.end:], re.I):
+            yield 1, 3, token
+
+
+def booking_value(line, following, after, previous):
+    """A wrapped booking cell inside a bounded operation row with both roles."""
+    if (not BOOKING_ROW.match(line) or LABELS.search(following)
+            or any(token.key == "data_operacji" for token in number_tokens(line))):
+        return None
+    if not (date := BOOKING_VALUE.fullmatch(following)):
+        return None
+    operation = next((index for index, row in reversed(list(enumerate(previous)))
+                      if EXECUTION_ROW.match(row)), None)
+    if operation is None or not any(re.search(r"\bz rachunku\b", row, re.I) for row in previous[operation:]):
+        return None
+    if not (re.search(r"\bna rachunek\b", following, re.I)
+            or re.match(r"^na rachunek\b", after, re.I)):
+        return None
+    return normalize(date["date"], "date")
+
+
 def view_evidence(rows):
     candidates = defaultdict(list)
     for i, line in enumerate(rows):
         labels = list(LABELS.finditer(line))
         following = rows[i + 1] if i + 1 < len(rows) else ""
-        for priority, token in table_numbers(line, following):
+        for _, priority, token in structured_numbers(line, following):
             candidates[token.key].append((priority, token.value))
+        after = rows[i + 2] if i + 2 < len(rows) else ""
+        if value := booking_value(line, following, after, rows[max(0, i - 5):i]):
+            candidates["data_operacji"].append((2, value))
         for j, label in enumerate(labels):
             key, priority = COLUMN[label.lastgroup]
             if not priority:
                 continue
             end = labels[j + 1].start() if j + 1 < len(labels) else len(line)
             cell = line[label.end():end]
-            if len(labels) == 1 and SEPARATORS.fullmatch(cell) and not LABELS.search(following):
+            if len(labels) == 1 and LABEL_GAP.fullmatch(cell) and not LABELS.search(following):
                 cell = following
             values = {token.value for token in number_tokens(cell) if token.key == key and token.value is not None}
             if len(values) == 1:
