@@ -1,7 +1,10 @@
 """Read labelled bank-transfer tables when PDF/OCR flattens their columns."""
 import re
+from dataclasses import dataclass
+from math import isfinite
 
 from .bank_scan import table_numbers
+from .model import FLAGS
 from .operations import DATE, apply_fields, normalize
 from .transfer_title import TITLE, apply_transfer_title
 
@@ -140,16 +143,11 @@ def reference_value(text, *, bank_reference):
     return value
 
 
-def reference_number(result, lines):
-    path = ("przelew_bankowy", "numer_transakcji")
-    field = ".".join(path)
-    evidence = result.evidence.get(field)
-    # A daily sequence is useful only when there is no full transaction reference.
-    if evidence and evidence["rule"] != REF_DAILY_RULE:
-        return
+def reference_matches(document, lines):
+    """Yield labelled transaction IDs together with their source positions."""
     for i, (start, line) in enumerate(lines):
         label = REF.match(line)
-        if not label or (label["daily"] and evidence):
+        if not label:
             continue
         tail = line[label.end():]
         qualifier = REF_BANK_QUALIFIER.match(tail)
@@ -164,17 +162,153 @@ def reference_number(result, lines):
                 first = first[:following_field.start()]
         elif i + 1 < len(lines):
             next_pos, next_line = lines[i + 1]
-            gap = result.document.text[start + len(line):next_pos]
+            gap = document.text[start + len(line):next_pos]
             if gap.count("\\n") <= 2:
                 value_pos, first = next_pos, next_line
         value = reference_value(first, bank_reference=bool(label["bank"]))
         if value is None:
             continue
         rule = REF_DAILY_RULE if label["daily"] else REF_RULE
+        yield value, value_pos, rule
+
+
+def reference_number(result, lines):
+    path = ("przelew_bankowy", "numer_transakcji")
+    field = ".".join(path)
+    evidence = result.evidence.get(field)
+    # A daily sequence is useful only when there is no full transaction reference.
+    if evidence and evidence["rule"] != REF_DAILY_RULE:
+        return
+    for value, value_pos, rule in reference_matches(result.document, lines):
+        if rule == REF_DAILY_RULE and evidence:
+            continue
         result.put(path, value, value_pos, rule)
         if rule == REF_RULE:
             return
         evidence = result.evidence[field]
+
+
+LINE = re.compile(r"^[ \t]*([^\s\f][^\n\f]*)", re.M)
+PARAGRAPH_BREAK = re.compile(r"\n(?:[ \t]*\n)+")
+REFERENCE_HEADING = re.compile(
+    r"^(?!(?:opis|tytuł|title|description|uwagi|wzmianka|historia|archiwum)\b)"
+    r"(?:(?:[^\W\d_]+[ \t]+){0,4}(?:operacja|transakcja|przelew|operation|transaction|transfer)"
+    r"|(?:szczegóły|potwierdzenie) (?:operacji|transakcji|przelewu))"
+    r"[ \t]+(?:(?:nr|id)[.:]?[ \t]+)?(?P<reference>[A-Za-z0-9][A-Za-z0-9_./-]*)[ \t:]*$",
+    re.I,
+)
+AMOUNT_PATH = ("przelew_bankowy", "kwota")
+AMOUNT_FIELD = ".".join(AMOUNT_PATH)
+REFERENCE_FIELD = "przelew_bankowy.numer_transakcji"
+
+
+@dataclass(frozen=True)
+class AmountObservation:
+    value: float
+    start: int
+    end: int
+    operation: str
+
+
+def page_lines(text, offset):
+    return [(offset + match.start(1), match[1].rstrip()) for match in LINE.finditer(text)]
+
+
+def paragraph_ranges(text):
+    start = 0
+    for separator in PARAGRAPH_BREAK.finditer(text):
+        yield start, separator.start()
+        start = separator.end()
+    yield start, len(text)
+
+
+def observed_amounts(page, offset, lines, patterns):
+    amounts = {}
+    for pattern, operation in patterns:
+        for match in pattern.finditer(page):
+            value = normalize(match[1], operation)
+            if value is not None and isfinite(value):
+                start, end = match.span(1)
+                amounts.setdefault(start, AmountObservation(value, offset + start, offset + end, operation))
+    for (_, header), (start, values) in zip(lines, lines[1:]):
+        for _, token in table_numbers(header, values):
+            if token.key == "kwota":
+                pos = start + token.start
+                amounts.setdefault(pos - offset, AmountObservation(token.value, pos, start + token.end, "money"))
+    return list(amounts.values())
+
+
+def block_references(document, lines):
+    explicit = {ref.casefold() for ref, _, rule in reference_matches(document, lines) if rule == REF_RULE}
+    headings = set()
+    for _, line in lines:
+        match = REFERENCE_HEADING.fullmatch(line)
+        if match and (reference := reference_value(match["reference"], bank_reference=False)):
+            headings.add(reference.casefold())
+    role = any(ROLE.match(line) or any(pattern.search(line) for pattern in DIRECTION.values())
+               for _, line in lines)
+    return explicit, headings, role
+
+
+def resolve_amount_evidence(result, config, pages):
+    if result.data["przelew_bankowy"]["kwota"] is None:
+        return
+    current = result.data["przelew_bankowy"]["numer_transakcji"]
+    ref_evidence = result.evidence.get(REFERENCE_FIELD, {})
+    ref_page = ref_evidence.get("page")
+    class_pages = {signal.get("page") for signal in result.signals}
+    anchored = ref_evidence.get("rule") == REF_RULE and ref_page in class_pages and bool(current)
+    target = current.casefold() if anchored else None
+    patterns = [
+        (re.compile(rule["pattern"].replace("<DATE>", DATE), FLAGS), rule.get("operation", "money"))
+        for rule in config["fields"].get(AMOUNT_FIELD, ())
+    ]
+    observations = []
+    for page_start, page_number, page, lines in pages:
+        amounts = observed_amounts(page, page_start, lines, patterns)
+        if page_number == ref_page and target:
+            # The primary labelled ID must be unambiguous in the confirming page's
+            # local block. A reference encountered only on an attachment is not an anchor.
+            for left, right in paragraph_ranges(page):
+                explicit, _, _ = block_references(
+                    result.document, page_lines(page[left:right], page_start + left))
+                if target in explicit:
+                    anchored = explicit == {target}
+                    break
+            else:
+                anchored = False
+        if not amounts:
+            continue
+        for left, right in paragraph_ranges(page):
+            local = [amount for amount in amounts if page_start + left <= amount.start < page_start + right]
+            if not local:
+                continue
+            explicit, headings, role = block_references(
+                result.document, page_lines(page[left:right], page_start + left))
+            references = explicit | headings
+            supported = explicit or (headings if role else set())
+            match = len(local) == 1 and references == {target} and target in supported
+            observations.extend((amount, match, references) for amount in local)
+
+    if not observations:
+        return
+    if len(observations) == 1:
+        # Preserve the original rule and exact span for a sole eligible source,
+        # unless its own block explicitly points to another known operation.
+        _, match, references = observations[0]
+        if not anchored or match or not references or target in references:
+            return
+    linked = [amount for amount, match, _ in observations if match]
+    if anchored and len(linked) == 1:
+        amount = linked[0]
+        result.put(AMOUNT_PATH, amount.value, amount.start, "kwota_powiazana_z_id_operacji",
+                   span_end=amount.end, operation=amount.operation)
+    else:
+        # The numeric output remains provisional. Clear all location and text claims.
+        result.evidence[AMOUNT_FIELD] = {
+            "kind": "conflict", "precision": "unavailable", "page": None, "source": None,
+            "rule": "niejednoznaczne_powiazanie_kwoty_z_operacja",
+        }
 
 
 def transfer(result, config):
@@ -194,13 +328,15 @@ def transfer(result, config):
     if missing:
         text = re.sub(r"\n(?:[ \t]*\n)+", lambda m: " " * (len(m[0]) - 1) + "\n", result.document.text)
         apply_fields(result, missing, text)
+    pages = []
     for page_start, page_number in result.document.starts:
         end = (result.document.starts[page_number][0] if page_number < len(result.document.starts)
                else len(result.document.text))
-        page = result.document.text[page_start:end]
-        lines = [(page_start + match.start(1), match[1].rstrip())
-                 for match in re.finditer(r"^[ \t]*([^\s\f][^\n\f]*)", page, re.M)]
+        page = result.document.text[page_start:end].removesuffix("\n\f\n")
+        lines = page_lines(page, page_start)
+        pages.append((page_start, page_number, page, lines))
         account_tables(result, lines)
         amount_and_date(result, lines)
         reference_number(result, lines)
+    resolve_amount_evidence(result, config, pages)
     return {}
