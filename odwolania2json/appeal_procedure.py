@@ -285,6 +285,7 @@ CITED_TITLE = re.compile(
     r'[ \t\n]*[,;]?[ \t\n]*(?:nr|numer|znak)[ \t]+(?:referencyjny|postępowania)'
     r'[ \t]*[:.]?[ \t\n]*(?P<ref>[A-Z0-9]+(?:[ \t\n]*[./_-][ \t\n]*[A-Z0-9]+)*)', FLAGS,
 )
+TITLE_REFERENCE_END = re.compile(r'(?=[ \t]*(?:[,;)]|\.?[ \t]*$))(?![ \t]*\n[ \t]*[/_.-])', FLAGS)
 
 
 @dataclass(frozen=True)
@@ -300,6 +301,8 @@ def observed_title(text):
     if len(matches) != 1:
         return None
     match = matches[0]
+    if not TITLE_REFERENCE_END.match(text, match.end("ref")):
+        return None
     return normalize(match["title"], "text"), normalize(match["ref"], "compact"), match.start("title")
 
 
@@ -318,28 +321,18 @@ def compatible_titles(original, candidate):
             and (full.startswith(clipped) or full.endswith(clipped)))
 
 
-def reconcile_title(original, alternate, confirm=None):
-    before, reference, _ = original
+def reconcile_title(original, alternate):
     if alternate is None:
         return None
+    before, reference, _ = original
     proposal, alternate_reference, _ = alternate
-    if proposal == before or not compatible_titles(before, proposal):
-        return None
-    if reference == alternate_reference:
-        return proposal
-
-    numbers = re.findall(r"[0-9]+", reference)
-    if len(numbers) < 2 or numbers != re.findall(r"[0-9]+", alternate_reference):
-        return None
-    corroboration = confirm() if confirm is not None else None
-    if (corroboration is not None and proposal == corroboration[0]
-            and numbers == re.findall(r"[0-9]+", corroboration[1])):
+    if reference == alternate_reference and proposal != before and compatible_titles(before, proposal):
         return proposal
     return None
 
 
-def _rerender_opening(ocr, page, factor):
-    scale = min(factor, 3000 / max(page.get_size()))
+def _rerender_opening(ocr, page):
+    scale = min(3.0, 3000 / max(page.get_size()))
     with (closing(page.render(scale=scale, grayscale=True)) as bitmap,
           ocr.api_type(path=str(ocr.data), lang="pol", psm=3) as api):
         api.SetImageBytes(bytes(bitmap.buffer), bitmap.width, bitmap.height,
@@ -362,8 +355,7 @@ def verify_cover_title(path, document, pages, ocr, classes):
         return document
     try:
         with closing(ocr.document_type(path)) as pdf, closing(pdf[0]) as page:
-            alternate = _rerender_opening(ocr, page, 3.0)
-            verified = reconcile_title(original, alternate, lambda: _rerender_opening(ocr, page, 3.15))
+            verified = reconcile_title(original, _rerender_opening(ocr, page))
     except PAGE_READ_ERRORS:
         return document
     if verified is None:
