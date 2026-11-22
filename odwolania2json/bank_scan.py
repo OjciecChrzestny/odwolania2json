@@ -110,6 +110,8 @@ SPLIT_DATA = re.compile(rf"Data[ \t:|]+(?P<date>{DATE})[ \t|:]*", re.I)
 SPLIT_ROLE = re.compile(r"(?:wykonania|realizacji)[ \t|:]*", re.I)
 LABEL_GAP = re.compile(r"[\s|:;–—-]*")
 BOOKING_ROW = re.compile(rf"^{BOOKING_LABEL}\b", re.I)
+DEBIT_ROLE = re.compile(r"\bz rachunku\b", re.I)
+CREDIT_ROLE = re.compile(r"\bna rachunek\b", re.I)
 EXECUTION_ROW = re.compile(rf"^{DATE_LABEL}\b", re.I)
 BOOKING_VALUE = re.compile(rf"^(?P<date>{DATE})(?=[ \t]|$)(?:[ \t|]*|[ \t|]+na rachunek\b.*)", re.I)
 ORDER_DETAILS = re.compile(r"(?:dane|szczeg[oó][łl]y) zlecenia[ \t.:]*", re.I)
@@ -207,15 +209,24 @@ def structured_numbers(line, following):
     if SPLIT_ROLE.fullmatch(following) and (split := SPLIT_DATA.fullmatch(line)):
         if value := normalize(split["date"], "date"):
             yield 0, 3, Number("data_operacji", value, *split.span("date"))
-    if not (POSTED_HEADER.fullmatch(line) and POSTED_ROW.match(following)):
-        return
-    if any(label.lastgroup == "other_amount" for label in LABELS.finditer(following)):
-        return
-    amounts = [token for token in number_tokens(following) if token.key == "kwota"]
+
+
+def posted_amount(header, row, context):
+    if not (POSTED_HEADER.fullmatch(header) and POSTED_ROW.match(row)):
+        return None
+    if any(label.lastgroup == "other_amount" for label in LABELS.finditer(row)):
+        return None
+    # A bare example row does not link its amount to the settled operation.
+    # Require both party cells and the booking label within the same block.
+    block = "\n".join(context)
+    if not (DEBIT_ROLE.search(block) and CREDIT_ROLE.search(block) and any(BOOKING_ROW.match(line) for line in context)):
+        return None
+    amounts = [token for token in number_tokens(row) if token.key == "kwota"]
     if len(amounts) == 1:
         token = amounts[0]
-        if token.value is not None and re.fullmatch(r"[ \t]*PLN[ \t|]*", following[token.end:], re.I):
-            yield 1, 3, token
+        if token.value is not None and re.fullmatch(r"[ \t]*PLN[ \t|]*", row[token.end:], re.I):
+            return token
+    return None
 
 
 def order_numbers(rows):
@@ -243,6 +254,8 @@ def labelled_numbers(rows):
     for i, (line, following) in enumerate(zip(rows, rows[1:])):
         for row, priority, token in structured_numbers(line, following):
             yield i + row, priority, token
+        if token := posted_amount(line, following, rows[i + 2:i + 9]):
+            yield i + 1, 3, token
     yield from order_numbers(rows)
 
 
@@ -255,10 +268,10 @@ def booking_value(line, following, after, previous):
         return None
     operation = next((index for index, row in reversed(list(enumerate(previous)))
                       if EXECUTION_ROW.match(row)), None)
-    if operation is None or not any(re.search(r"\bz rachunku\b", row, re.I) for row in previous[operation:]):
+    if operation is None or not any(DEBIT_ROLE.search(row) for row in previous[operation:]):
         return None
-    if not (re.search(r"\bna rachunek\b", following, re.I)
-            or re.match(r"^na rachunek\b", after, re.I)):
+    if not (CREDIT_ROLE.search(following)
+            or CREDIT_ROLE.match(after)):
         return None
     return normalize(date["date"], "date")
 

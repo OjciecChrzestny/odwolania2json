@@ -98,10 +98,10 @@ class BankSourceNightTest(TestCase):
                          {"data_operacji": [(3, "2026-10-19")]})
         self.assertFalse(view_evidence(("Data 2026-10-19", "wydruku")))
         self.assertFalse(view_evidence(("Data 2026-02-31", "wykonania")))
-        self.assertFalse(view_evidence(("Data Opis Kwota",
-                                        "Data operacji przelew: prowizja 95,12 PLN")))
-        self.assertFalse(view_evidence(("Data Opis Kwota",
-                                        "Data operacji przelew: 55,10 EUR")))
+        roles = ("Z rachunku: rachunek nadawcy", "Data księgowania: 2026-10-19",
+                 "Na rachunek: rachunek odbiorcy")
+        for row in ("Data operacji przelew: prowizja 95,12 PLN", "Data operacji przelew: 55,10 EUR"):
+            self.assertNotIn("kwota", view_evidence(("Data Opis Kwota", row, *roles)))
 
     def test_completed_order_summary_uses_only_its_own_price_and_execution_date(self):
         rows = ("Status", "Wykonane", "Data wydruku 04 05 2026", "Dane zlecenia",
