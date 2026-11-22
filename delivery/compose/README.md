@@ -4,15 +4,14 @@ Wymagany jest uruchomiony Docker Engine obsługujący kontenery Linux i Docker C
 
 ## Uprawnienia na Linuxie
 
-W zwykłym Docker Engine ustaw `ODW_UID` i `ODW_GID` na identyfikatory właściciela katalogów hosta, jak w przykładach poniżej. Przy Docker Engine w trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed pierwszym `docker compose run`. UID 0 w kontenerze rootless odpowiada użytkownikowi, który uruchomił silnik na hoście.
+Domyślne Compose i `RUN.md` używają UID/GID `0:0` w kontenerze. W trybie rootless odpowiada to użytkownikowi demona na hoście. W samodzielnym przebiegu na zwykłym Docker Engine możesz ustawić `ODW_UID` i `ODW_GID` na identyfikatory właściciela własnych katalogów.
 
 ## Domyślne katalogi
 
-W świeżej kopii repozytorium na Linuxie utwórz katalogi, a do `input/` wstaw swoje PDF-y, również w podkatalogach.
+Domyślne Compose używa tych samych `input/`, `output/`, `.output.odwolania2json/` i `diagnostics/` co [RUN.md](../../RUN.md). W świeżej kopii repozytorium na Linuxie utwórz katalogi, a do `input/` wstaw swoje PDF-y, również w podkatalogach.
 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
-export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
 docker compose run --rm cli
 find output -type f
 ```
@@ -40,7 +39,6 @@ OUT="$HOME/JSON jurora"
 export ODW_OUTPUT_PARENT="$(dirname "$OUT")" ODW_OUTPUT_NAME="$(basename "$OUT")"
 export ODW_DIAGNOSTICS_DIR="$HOME/Diagnostyka jurora"
 mkdir -p "$ODW_INPUT_DIR" "$OUT" "$ODW_OUTPUT_PARENT/.${ODW_OUTPUT_NAME}.odwolania2json" "$ODW_DIAGNOSTICS_DIR"
-export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
 # Wstaw PDF-y do "$ODW_INPUT_DIR".
 docker compose run --rm cli
 find "$OUT" -type f

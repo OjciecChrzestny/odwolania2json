@@ -4,7 +4,7 @@ Odwołania2JSON rozpoznaje odwołania KIO, pełnomocnictwa i potwierdzenia przel
 
 ## Uruchomienie na VM oceny
 
-W `/opt/solution` użyj [polecenia z RUN.md](RUN.md). Przed oceną koordynator przygotowuje obraz `odwolania2json-jury:final-20261122` z zatwierdzonego SHA. Polecenie uruchamia jednorazowy kontener offline, zapisuje wyniki w `output/` i trzyma stan oraz diagnostykę w `.jury/`.
+W `/opt/solution` użyj [polecenia z RUN.md](RUN.md). Przed oceną koordynator przygotowuje obraz `odwolania2json-jury:final-20261122` z zatwierdzonego SHA. Polecenie uruchamia jednorazowy kontener offline, zapisuje wyniki w `output/`, ewidencję w `.output.odwolania2json/`, a diagnostykę w `diagnostics/`. Domyślne Compose używa tych samych katalogów.
 
 [CLI z własnym PDF-em](delivery/final/INSTRUKCJA-JURORA.md) · [Wgranie PDF-u w panelu z obrazu jurora](docs/operator.md) · [Dodanie klasy przez konfigurację](demo/rozszerzalnosc/README.md)
 
@@ -66,11 +66,10 @@ A3 odczytuje przez OCR wybrane strony, gdy brakuje czytelnej warstwy tekstowej. 
 
 ## Docker Compose
 
-Wymagany jest Docker Engine z kontenerami linuksowymi i Compose v2. Compose uruchamia wcześniej przygotowany `odwolania2json-jury:final-20261122` z polskim OCR i wyłączoną siecią. [Przygotowanie i weryfikacja obrazu](RUN.md#przygotowanie-obrazu-przed-oceną) W trybie rootless po ustawieniu identyfikatorów z przykładu wykonaj `export ODW_UID=0 ODW_GID=0` przed uruchomieniem kontenera.
+Wymagany jest Docker Engine z kontenerami linuksowymi i Compose v2. Compose uruchamia wcześniej przygotowany `odwolania2json-jury:final-20261122` z polskim OCR i wyłączoną siecią. [Przygotowanie i weryfikacja obrazu](RUN.md#przygotowanie-obrazu-przed-oceną) Domyślny użytkownik kontenera jest wspólny z `RUN.md`. W trybie rootless odpowiada użytkownikowi demona na hoście.
 
 ```sh
 mkdir -p input output diagnostics .output.odwolania2json
-export ODW_UID="$(id -u)" ODW_GID="$(id -g)"
 # Wstaw PDF-y do input/ przed uruchomieniem usługi.
 docker compose run --rm --pull never -e OMP_THREAD_LIMIT=1 cli
 ```
