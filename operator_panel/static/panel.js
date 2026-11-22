@@ -51,6 +51,9 @@ let docRequest = 0;
 let pageRequest = 0;
 let pageNumber = 0;
 let saving = false;
+let uploadMode = null;
+let runId = null;
+let uploading = false;
 
 function text(id, value) {
   el(id).textContent = value;
@@ -76,6 +79,7 @@ function reasonLabel(reason) {
 async function api(path, query = {}, options) {
   const url = new URL("/api/" + path, window.location.origin);
   url.search = new URLSearchParams(query);
+  if (runId && !["mode", "upload"].includes(path)) url.searchParams.set("run", runId);
   const response = await fetch(url, options);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Nie udało się wczytać danych panelu.");
@@ -305,7 +309,8 @@ async function refresh() {
     current = null;
     el("case").hidden = true;
     el("empty").hidden = false;
-    text("empty", "Przetwórz PDF-y w CLI, a następnie odśwież panel.");
+    text("empty", uploadMode?.upload_enabled ? "Wybierz PDF, aby zobaczyć wynik." :
+      "Przetwórz PDF-y w CLI, a następnie odśwież panel.");
   }
 }
 
@@ -319,7 +324,7 @@ function correctionValue(field) {
 }
 
 async function decide(action) {
-  if (!current?.review_id || saving) return;
+  if (!current?.review_id || saving || uploading) return;
   const { input: name, review_id } = current;
   const field = selectedField();
   const payload = { name, review_id, action };
@@ -366,7 +371,64 @@ el("correction").addEventListener("submit", (event) => {
   event.preventDefault();
   void decide("correct");
 });
-refresh().catch((error) => {
-  text("empty", "Panel oczekuje na dostępny raport.");
+function uploadStatus(value) {
+  text("upload-status", value);
+  el("upload-status").hidden = !value;
+}
+
+async function uploadPdf(event) {
+  event.preventDefault();
+  const file = el("upload-file").files[0];
+  if (!file || uploading || saving) return;
+  if (!file.size || file.size > uploadMode.max_upload_bytes) {
+    showError(new Error("Wybierz niepusty PDF o rozmiarze do " + uploadMode.max_upload_bytes / 1048576 + " MiB."));
+    return;
+  }
+  uploading = true;
+  el("upload-file").disabled = el("upload-submit").disabled = true;
+  el("accept").disabled = el("correct").disabled = true;
+  message("");
+  uploadStatus("Trwa lokalna ekstrakcja PDF-u…");
+  try {
+    const result = await api("upload", {}, { method: "POST", headers: { "Content-Type": "application/pdf" },
+      body: file });
+    runId = result.run;
+    const url = new URL(window.location.href);
+    url.searchParams.set("run", runId);
+    window.history.replaceState(null, "", url);
+    ++docRequest;
+    ++pageRequest;
+    current = null;
+    await refresh();
+    el("upload-form").reset();
+    el("raw-wrap").open = true;
+    message(result.read_error ? "Ekstraktor zgłosił błąd odczytu PDF-u." : "Wynik jest gotowy.", result.read_error);
+    el("doc-title").focus();
+  } catch (error) {
+    showError(error);
+  } finally {
+    uploading = false;
+    el("upload-file").disabled = el("upload-submit").disabled = false;
+    el("accept").disabled = el("correct").disabled = false;
+    uploadStatus("");
+  }
+}
+
+async function initialize() {
+  uploadMode = await api("mode");
+  if (uploadMode.upload_enabled) {
+    runId = new URLSearchParams(window.location.search).get("run");
+    const limit = uploadMode.max_upload_bytes / 1048576;
+    text("upload-hint", "Jeden PDF do " + limit + " MiB. " +
+      (uploadMode.ocr_enabled ? "Polski OCR jest włączony." : "Odczyt warstwy tekstowej PDF-u."));
+    el("upload-panel").hidden = false;
+    el("upload-form").addEventListener("submit", (event) => void uploadPdf(event));
+  }
+  await refresh();
+}
+
+initialize().catch((error) => {
+  text("empty", uploadMode?.upload_enabled ? "Wybierz PDF lub sprawdź adres przebiegu." :
+    "Panel oczekuje na dostępny raport.");
   showError(error);
 });

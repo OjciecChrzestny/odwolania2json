@@ -2,11 +2,14 @@
 import argparse
 import hashlib
 import json
+import re
 import sqlite3
 import subprocess
 import sys
 from contextlib import closing, contextmanager
+from http.client import HTTPConnection
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 from pypdf import PdfWriter
@@ -53,8 +56,11 @@ def generate(folder):
 
 
 @contextmanager
-def panel(folder):
-    process = subprocess.Popen([sys.executable, "-B", "-m", "operator_panel", *arguments(folder), "--port", "0"],
+def panel(folder, *, demo=False, ocr_data=None):
+    options = ["--demo-workspace", str(folder)] if demo else arguments(folder)
+    if ocr_data:
+        options.extend(("--ocr-data", str(ocr_data)))
+    process = subprocess.Popen([sys.executable, "-B", "-m", "operator_panel", *options, "--port", "0"],
                                cwd=ROOT, text=True, stdout=subprocess.PIPE)
     try:
         startup = process.stdout.readline().strip()
@@ -109,6 +115,9 @@ def check_desktop(browser, folder, pngs):
         page.set_default_timeout(6000)
         page.goto(url)
         expect(page.locator("#queue-count")).to_have_text("4 do kontroli / 4 w raporcie")
+        expect(page.locator("#upload-panel")).to_be_hidden()
+        assert page.request.post(url + "/api/upload", data=b"bad PDF",
+                                 headers={"Origin": url, "Content-Type": "application/pdf"}).status == 404
         page.keyboard.press("Tab")
         expect(page.locator(".skip")).to_be_focused()
         assert page.locator(".skip").evaluate("(node) => getComputedStyle(node).outlineWidth") == "3px"
@@ -239,9 +248,115 @@ def check_empty_and_long(browser, folder):
         page.close()
 
 
+def upload(page, workspace, source):
+    previous = page.url
+    page.get_by_role("button", name="Wgraj własny PDF", exact=True).set_input_files(source)
+    with page.expect_response(lambda response: response.url.endswith("/api/upload"), timeout=200_000) as pending:
+        page.get_by_role("button", name="Przetwórz PDF").click()
+    response = pending.value
+    assert response.status == 201, response.text()
+    page.wait_for_url(lambda url: url != previous and "run" in parse_qs(urlsplit(url).query))
+    run_id, = parse_qs(urlsplit(page.url).query)["run"]
+    assert re.fullmatch(r"[0-9a-f]{32}", run_id)
+    expect(page.locator("#doc-title")).to_have_text("dokument.pdf")
+    expect(page.locator("#upload-submit")).to_be_enabled()
+    directory = workspace / run_id
+    assert [path.name for path in (directory / "input").iterdir()] == ["dokument.pdf"]
+    assert (directory / "input" / "dokument.pdf").read_bytes() == source.read_bytes()
+    assert page.locator("#raw-wrap").evaluate("(details) => details.open")
+    record, = json.loads((directory / "diagnostics" / "run.json").read_bytes())["documents"]
+    return directory, record["status"] == "read_error"
+
+
+def check_upload(browser, evidence, ocr_data):
+    fixtures = evidence / "upload-fixtures"
+    receipt = fixtures / "faktura-wlasny-dokument.pdf"
+    negative = fixtures / "potwierdzenie-jedynie-protokol.pdf"
+    broken = fixtures / "blad-odczytu.pdf"
+    write_pdf(receipt, RECEIPT.replace("12,50", "137,29") + "\nOpis: Wplata pokazowa")
+    write_pdf(negative, "Protokol z otwarcia ofert. Wspomniano tylko planowany przelew.")
+    broken.write_bytes(b"niepoprawny PDF")
+    foreign = evidence / "existing-report"
+    foreign.mkdir()
+    sentinel = foreign / "raport.json"
+    sentinel.write_bytes(b"existing data")
+    rejected = subprocess.run([sys.executable, "-B", "-m", "operator_panel", "--demo-workspace", str(foreign)],
+                              cwd=ROOT, capture_output=True, timeout=10)
+    assert rejected.returncode == 2 and sentinel.read_bytes() == b"existing data"
+    assert sorted(path.name for path in foreign.iterdir()) == ["raport.json"]
+
+    workspace = evidence / "upload-workspace"
+    with panel(workspace, demo=True, ocr_data=ocr_data) as url:
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(url)
+        expect(page.locator("#empty")).to_have_text("Wybierz PDF, aby zobaczyć wynik.")
+        expect(page.locator("#upload-panel")).to_be_visible()
+        assert page.request.get(url + "/api/documents", params={"run": ".."}).status == 404
+        assert page.request.post(url + "/api/upload", data=b"bad PDF", headers={
+            "Origin": "https://inna-domena.invalid", "Content-Type": "application/pdf",
+        }).status == 403
+        with closing(HTTPConnection(urlsplit(url).netloc, timeout=10)) as connection:
+            connection.request("POST", "/api/upload", headers={
+                "Content-Type": "application/pdf", "Origin": url, "Content-Length": str(32 * 1024 * 1024 + 1),
+            })
+            assert connection.getresponse().status == 413
+        positive_run, read_error = upload(page, workspace, receipt)
+        assert not read_error
+        expect(page.locator("#raw")).to_contain_text("137.29")
+        raw = positive_run / "output" / "dokument.json"
+        original_sha = hashlib.sha256(raw.read_bytes()).hexdigest()
+        assert page.locator("#raw").text_content().encode("utf-8") == raw.read_bytes()
+        page.select_option("#field", AMOUNT)
+        expect(page.locator("#value")).to_have_text("137.29")
+        expect(page.locator("#snippet")).to_have_text("137,29")
+        expect(page.locator("#page-image")).to_have_attribute("alt", "Fizyczna strona 1 z 1 pliku PDF")
+        expect(page.locator("#page-image")).to_be_visible()
+        page.screenshot(path=evidence / "upload-result.png", full_page=True)
+        page.get_by_role("button", name="Akceptuj wynik").click()
+        expect(page.locator("#audit-title")).to_have_text("Zapisano akceptację")
+        assert hashlib.sha256(raw.read_bytes()).hexdigest() == original_sha
+
+        page.set_viewport_size({"width": 375, "height": 812})
+        negative_run, read_error = upload(page, workspace, negative)
+        assert not read_error
+        expect(page.locator("#raw")).to_have_text("Pusty plik (0 B).")
+        assert (negative_run / "output" / "dokument.json").stat().st_size == 0
+        assert page.evaluate("document.documentElement.scrollWidth === innerWidth")
+
+        failed_run, read_error = upload(page, workspace, broken)
+        assert read_error
+        expect(page.locator("#notice")).to_have_text("Ekstraktor zgłosił błąd odczytu PDF-u.")
+        expect(page.locator("#case-status")).to_have_text("Wynik niedostępny")
+        expect(page.locator("#actions")).to_be_hidden()
+        assert not list((failed_run / "output").glob("*.json"))
+
+        ocr = None
+        if ocr_data:
+            scan, read_error = upload(page, workspace, ROOT / "delivery/compose/skan-syntetyczny.pdf")
+            assert not read_error
+            expect(page.locator("#raw")).to_contain_text("123.45")
+            page.select_option("#field", AMOUNT)
+            expect(page.locator("#value")).to_have_text("123.45")
+            expect(page.locator("#evidence-meta")).to_contain_text("OCR")
+            document = json.loads((scan / "diagnostics" / "run.json").read_bytes())["documents"][0]
+            assert document["fields"][AMOUNT]["page"] == 1 and document["fields"][AMOUNT]["source"] == "ocr"
+            ocr = {"amount": 123.45, "page": 1, "source": "ocr"}
+        page.close()
+    with panel(workspace, demo=True, ocr_data=ocr_data) as url:
+        page = browser.new_page()
+        page.goto(url + "/?run=" + positive_run.name)
+        expect(page.locator("#audit-title")).to_have_text("Zapisano akceptację")
+        assert hashlib.sha256(raw.read_bytes()).hexdigest() == original_sha
+        page.close()
+    return {"positive": {"amount": 137.29, "page": 1, "unchanged_output_sha256": original_sha},
+            "negative_bytes": 0, "broken_pdf_output_count": 0, "saved_decision_after_restart": True,
+            "separate_runs": len(list(workspace.glob("*/input/dokument.pdf"))), "ocr": ocr}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("evidence", type=Path)
+    parser.add_argument("--ocr-data", type=Path, help="dodatkowa próba faktycznego OCR po wgraniu PDF-u")
     args = parser.parse_args()
     evidence = args.evidence.resolve()
     evidence.mkdir()
@@ -252,9 +367,10 @@ def main():
         initial, old = check_desktop(browser, folder, evidence)
         digest = check_resume(browser, folder, evidence, old, initial)
         check_empty_and_long(browser, evidence / "empty-and-long")
+        upload_result = check_upload(browser, evidence, args.ocr_data)
         result = {"chromium": browser.version, "viewports": ["1440x900", "375x812"], "output_sha256": initial,
                   "negative_bytes": 0, "decisions_after_restart": 2, "stale_write_status": 409,
-                  "journal_sha256_after_both_extractions": digest,
+                  "journal_sha256_after_both_extractions": digest, "upload": upload_result,
                   "checked": ["keyboard", "no_quote", "read_error", "empty", "long_label", "safe_text",
                               "traversal", "symlink", "origin", "host", "physical_page_2", "zoom", "stale_preview"]}
         text = json.dumps(result, indent=2) + "\n"
