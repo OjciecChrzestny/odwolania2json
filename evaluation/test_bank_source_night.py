@@ -105,7 +105,7 @@ class BankSourceNightTest(TestCase):
 
     def test_completed_order_summary_uses_only_its_own_price_and_execution_date(self):
         rows = ("Status", "Wykonane", "Data wydruku 04 05 2026", "Dane zlecenia",
-                "○ -2 301.28 PLN", "Tryb realizacji zwykły", "Dala wykonania 03 05 2026",
+                "○ -2 301.28 PLN", "Tryb realizacj. zwykły", "Dala wykonania 03 05 2026",
                 "Prowizja 14,20 PLN")
         doc = Document.from_pages(["Informacja dla klienta", "\n".join(rows)])
         value, diagnostics = extract_class(doc, self.classes, "przelew", [])

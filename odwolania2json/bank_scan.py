@@ -123,7 +123,7 @@ PENDING_ORDER = re.compile(
     r"(?:oczekuj|planowan|zaplanowan|niewykonan|niezrealizowan|anulowan|odrzucon)\w*\b",
     re.I | re.M,
 )
-ORDER_MODE = re.compile(r"tryb realizacji\b", re.I)
+ORDER_MODE = re.compile(r"tryb realizacj[i.](?=[ \t]|$)", re.I)
 ORDER_EXECUTION = re.compile(
     rf"\bda[tl]a wykonania[ \t|:]+(?P<date>{DATE}|\d{{1,2}}[ \t]+\d{{1,2}}[ \t]+20\d{{2}})[ \t|]*$",
     re.I,
