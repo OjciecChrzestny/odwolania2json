@@ -44,11 +44,13 @@ python -m operator_panel --input "$IN" --output "$OUT" --diagnostics "$DIAG" --p
 
 Jeżeli ekstrakcja kończy się kodem 1, panel nadal pokazuje poprawnie odczytane dokumenty i informację o błędach pozostałych. Dla niestandardowych klas przekaż ten sam katalog `--config` obu poleceniom. Gdy istnieje już diagnostyka, wystarczy drugie polecenie z właściwymi ścieżkami.
 
-Panel nasłuchuje na `127.0.0.1`. Do dostępu z laptopa uruchom w osobnym terminalu tunel SSH i wejdź na adres `http://127.0.0.1:8765`.
+Panel domyślnie nasłuchuje na `127.0.0.1` i wypisuje lokalny URL po starcie. Do dostępu z laptopa uruchom w osobnym terminalu tunel SSH i wejdź na adres `http://127.0.0.1:8765`.
 
 ```sh
 ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8765:127.0.0.1:8765 hacknation
 ```
+
+W kontenerze ustaw `--bind 0.0.0.0 --port 8765` i opublikuj port przez `-p 127.0.0.1:8765:8765`. Adres w przeglądarce to URL wypisany przy uruchomieniu, `http://127.0.0.1:8765`. Przy innym porcie hosta użyj portu opublikowanego przez Docker.
 
 ## Kontrola dokumentu
 

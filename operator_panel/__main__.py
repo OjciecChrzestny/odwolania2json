@@ -351,6 +351,8 @@ def main():
     parser.add_argument("--demo-workspace", type=Path, help="oddzielny katalog dla nowych PDF-ów w panelu")
     parser.add_argument("--ocr-data", type=Path, help="katalog pol.traineddata dla nowych PDF-ów")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument("--bind", choices=("127.0.0.1", "0.0.0.0"), default="127.0.0.1",
+                        help="adres nasłuchu, 0.0.0.0 do kontenera z portem hosta na 127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
     if args.demo_workspace and any((args.input, args.output, args.diagnostics)):
@@ -365,7 +367,7 @@ def main():
         else:
             panel = Panel(args.input or Path("input"), args.output or Path("output"),
                           args.diagnostics or Path("diagnostics/last-run.json"), args.config)
-        with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
+        with ThreadingHTTPServer((args.bind, args.port), Handler) as server:
             server.panel = panel
             server.demo = demo
             print(f"Panel dostępny na http://127.0.0.1:{server.server_port}", flush=True)
